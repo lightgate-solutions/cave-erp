@@ -1,8 +1,9 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: <> */
+
 "use server";
 
 import { auth } from "@/lib/auth";
 import { APIError } from "better-auth/api";
-import type { RegisterSchema } from "@/components/auth/register-form";
 
 type ActionResult<T = unknown> = {
   success: { reason: string } | null;
@@ -10,9 +11,7 @@ type ActionResult<T = unknown> = {
   data?: T;
 };
 
-export async function registerUser(
-  formData: RegisterSchema,
-): Promise<ActionResult> {
+export async function registerUser(formData: any): Promise<ActionResult> {
   const { email, password, name } = formData;
 
   try {

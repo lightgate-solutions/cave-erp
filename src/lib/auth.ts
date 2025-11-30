@@ -46,7 +46,13 @@ export const auth = betterAuth({
 
   deleteUser: {
     enabled: true,
-    sendDeleteAccountVerification: async ({ user, url }) => {
+    sendDeleteAccountVerification: async ({
+      user,
+      url,
+    }: {
+      user: typeof schema.user.$inferSelect;
+      url: string;
+    }) => {
       await sendDeleteAccountVerificationEmail({ user, url });
     },
   },
