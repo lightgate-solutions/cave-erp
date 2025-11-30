@@ -12,11 +12,10 @@ export const metadata: Metadata = {
   description: "Manage your attendance",
 };
 
-export default async function AttendancePage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
+export default async function AttendancePage(props: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const searchParams = await props.searchParams;
   const authData = await requireAuth();
   const myAttendance = await getMyTodayAttendance();
 

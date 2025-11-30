@@ -28,6 +28,10 @@ import { LoadingSwap } from "../ui/loading-swap";
 import { WdsPasswordInput } from "../ui/password-input";
 import PasswordInput from "./password-input";
 import { BetterAuthActionButton } from "./better-auth-action-button";
+import {
+  SUPPORTED_OAUTH_PROVIDER_DETAILS,
+  SUPPORTED_OAUTH_PROVIDERS,
+} from "@/lib/o-auth-providers";
 
 // biome-ignore lint/style/noNonNullAssertion: <>
 const callbackUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_CALLBACK_URL!;
@@ -249,6 +253,7 @@ export function SignupForm() {
       </CardContent>
 
       <CardFooter className="flex flex-col space-y-4">
+        <SocialAuthButtons />
         <Button
           type="submit"
           form="sign-up-form"
@@ -266,4 +271,24 @@ export function SignupForm() {
       </CardFooter>
     </Card>
   );
+}
+
+export function SocialAuthButtons() {
+  return SUPPORTED_OAUTH_PROVIDERS.map((provider) => {
+    return (
+      <BetterAuthActionButton
+        variant="outline"
+        className="w-full"
+        key={provider}
+        action={() => {
+          return authClient.signIn.social({
+            provider,
+            callbackURL: "/",
+          });
+        }}
+      >
+        {SUPPORTED_OAUTH_PROVIDER_DETAILS[provider].name}
+      </BetterAuthActionButton>
+    );
+  });
 }

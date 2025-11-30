@@ -232,40 +232,6 @@ export default function ManagerDashboard() {
     }
   }, [fetchManagerData]);
 
-  // Calculate trends (simplified - could be enhanced with historical data)
-  const _managerMetrics = [
-    {
-      label: "Team Members",
-      value: metrics.teamMembers.toString(),
-      icon: Users,
-      trend: "0%",
-    },
-    {
-      label: "Active Projects",
-      value: metrics.activeProjects.toString(),
-      icon: Zap,
-      trend: metrics.activeProjects > 0 ? `+${metrics.activeProjects}` : "0",
-    },
-    {
-      label: "Unread Emails",
-      value: metrics.unreadEmails.toString(),
-      icon: Mail,
-      trend:
-        metrics.unreadEmails > 0
-          ? `-${Math.min(metrics.unreadEmails, 8)}`
-          : "0",
-    },
-    {
-      label: "Completed Tasks",
-      value: metrics.completedTasks.toString(),
-      icon: CheckCircle2,
-      trend:
-        metrics.completedTasks > 0
-          ? `+${Math.round(metrics.completedTasks * 0.12)}%`
-          : "0%",
-    },
-  ];
-
   if (loading) {
     return (
       <div className="space-y-8 p-6">

@@ -1,10 +1,8 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AskHrQuestionDetail } from "@/components/hr/ask-hr/ask-hr-question-detail";
 import { notFound } from "next/navigation";
 
-// Skeleton loader for the question detail
 function QuestionDetailSkeleton() {
   return (
     <div className="space-y-6">
@@ -20,25 +18,13 @@ function QuestionDetailSkeleton() {
   );
 }
 
-// Generate metadata dynamically
-export async function generateMetadata({
+export default async function QuestionDetailPage({
   params,
 }: {
-  params: { id: string };
-}): Promise<Metadata> {
-  return {
-    title: `Question #${params.id} - Ask HR - Cave ERP`,
-    description: "View and respond to HR question",
-  };
-}
-
-export default function QuestionDetailPage({
-  params,
-}: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  // Parse and validate the ID parameter
-  const questionId = Number(params.id);
+  const { id } = await params;
+  const questionId = Number(id);
 
   if (Number.isNaN(questionId) || questionId <= 0) {
     notFound();

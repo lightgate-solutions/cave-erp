@@ -50,6 +50,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  type EmploymentHistoryFormValues,
+  addEmploymentHistory,
+  deleteEmploymentHistory,
+  getEmployeeHistory,
+  updateEmploymentHistory,
+} from "@/actions/hr/employee-history";
+import * as z from "zod";
 
 const employmentHistorySchema = z.object({
   employeeId: z.number(),
@@ -60,15 +68,6 @@ const employmentHistorySchema = z.object({
     .enum(["Full-time", "Part-time", "Contract", "Intern"])
     .nullable(),
 });
-
-import {
-  type EmploymentHistoryFormValues,
-  addEmploymentHistory,
-  deleteEmploymentHistory,
-  getEmployeeHistory,
-  updateEmploymentHistory,
-} from "@/actions/hr/employee-history";
-import z from "zod";
 
 interface EmploymentHistoryProps {
   employeeId: number;

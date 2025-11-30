@@ -50,11 +50,10 @@ function calculateDeductionAmount(deduction: any, baseSalary: number): number {
   return Number(deduction.amount || 0);
 }
 
-export default async function StructureDetailPage({
-  params,
-}: {
-  params: { id: string };
+export default async function StructureDetailPage(props: {
+  params: Promise<{ id: string }>;
 }) {
+  const params = await props.params;
   const structureId = parseInt(params.id, 10);
   const structure = await getSalaryStructure(structureId);
 
