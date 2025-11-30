@@ -1,206 +1,188 @@
 "use client";
 
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useId, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
-import { FormError, FormSuccess } from "../ui/form-messages";
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { changePassword } from "@/actions/settings/settings";
-import { toast } from "sonner";
-import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSet,
+} from "@/components/ui/field";
+import { authClient } from "@/lib/auth-client";
+import PasswordInput from "../auth/password-input";
+import { Checkbox } from "../ui/checkbox";
+import { LoadingSwap } from "../ui/loading-swap";
+import { WdsPasswordInput } from "../ui/password-input";
 
-const schema = z
+const changePasswordSchema = z
   .object({
-    currentPassword: z
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(8, "Password must be at least 8 characters."),
+    confirmNewPassword: z
       .string()
-      .min(1, { message: "Current password is required" }),
-    newPassword: z
-      .string()
-      .min(8, { message: "Password must be at least 8 characters" }),
-    confirmPassword: z
-      .string()
-      .min(1, { message: "Please confirm your password" }),
+      .min(8, "Password must be at least 8 characters."),
+    revokeOtherSessions: z.boolean(),
   })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords don't match",
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
     path: ["confirmPassword"],
+    message: "Passwords does not match",
   });
 
-type FormData = z.infer<typeof schema>;
+type ChangePasswordForm = z.infer<typeof changePasswordSchema>;
 
 export function ChangePasswordForm() {
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
+  const form = useForm<ChangePasswordForm>({
+    resolver: zodResolver(changePasswordSchema),
     defaultValues: {
       currentPassword: "",
       newPassword: "",
-      confirmPassword: "",
+      confirmNewPassword: "",
+      revokeOtherSessions: true,
     },
   });
 
-  const [isCurrentVisible, setIsCurrentVisible] = useState(false);
-  const [isNewVisible, setIsNewVisible] = useState(false);
-  const [isConfirmVisible, setIsConfirmVisible] = useState(false);
-  const [formState, setFormState] = useState<{
-    success?: string;
-    error?: string;
-  }>({});
+  const { isSubmitting } = form.formState;
 
-  const currentId = useId();
-  const newId = useId();
-  const confirmId = useId();
-
-  const toggleCurrentVisibility = () => setIsCurrentVisible((prev) => !prev);
-  const toggleNewVisibility = () => setIsNewVisible((prev) => !prev);
-  const toggleConfirmVisibility = () => setIsConfirmVisible((prev) => !prev);
-
-  const onSubmit = async (data: FormData) => {
-    setFormState({});
-
-    const res = await changePassword(data.currentPassword, data.newPassword);
-
-    if (res.error) {
-      setFormState({ error: res.error.reason || "Failed to change password" });
-    } else {
-      setFormState({ success: "Password changed successfully" });
-      toast.success(res.success.reason);
-      reset();
-    }
-  };
+  async function onSubmit(data: ChangePasswordForm) {
+    await authClient.changePassword(data, {
+      onError: (error) => {
+        toast.error(error.error.message || "Failed to change password");
+      },
+      onSuccess: () => {
+        toast.success("Password changed successfully");
+        form.reset();
+      },
+    });
+  }
 
   return (
-    <Card>
+    <Card className="border-border">
       <CardHeader>
         <CardTitle>Change Password</CardTitle>
         <CardDescription>
-          Update your password to keep your account secure
+          Update your password for improved security.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
-          <FormSuccess message={formState.success || ""} />
-          <FormError message={formState.error || ""} />
+      <CardContent className="space-y-4">
+        <form
+          id="update-password-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="space-y-4"
+        >
+          <FieldGroup>
+            <Controller
+              name="currentPassword"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="change-current-password">
+                    Current Password
+                  </FieldLabel>
+                  <WdsPasswordInput
+                    {...field}
+                    placeholder="Current Password"
+                    id="change-current-password"
+                    aria-invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={currentId}>Current Password *</Label>
-            <div className="relative">
-              <Input
-                id={currentId}
-                type={isCurrentVisible ? "text" : "password"}
-                placeholder="Enter current password"
-                autoComplete="current-password"
-                className="pe-9"
-                {...register("currentPassword")}
-              />
-              <button
-                className="text-muted-foreground/80 hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md transition-[color,box-shadow] outline-none focus:z-10 focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-                type="button"
-                onClick={toggleCurrentVisibility}
-                aria-label={
-                  isCurrentVisible ? "Hide password" : "Show password"
-                }
-                aria-pressed={isCurrentVisible}
-              >
-                {isCurrentVisible ? (
-                  <EyeOffIcon size={16} aria-hidden="true" />
-                ) : (
-                  <EyeIcon size={16} aria-hidden="true" />
-                )}
-              </button>
-            </div>
-            {errors.currentPassword && (
-              <span className="text-xs text-red-500">
-                {errors.currentPassword.message}
-              </span>
-            )}
-          </div>
+            <Controller
+              name="newPassword"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="new-password">New Password</FieldLabel>
+                  <PasswordInput
+                    {...field}
+                    id="new-password"
+                    aria-invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={newId}>New Password *</Label>
-            <div className="relative">
-              <Input
-                id={newId}
-                type={isNewVisible ? "text" : "password"}
-                placeholder="Enter new password"
-                autoComplete="new-password"
-                className="pe-9"
-                {...register("newPassword")}
-              />
-              <button
-                className="text-muted-foreground/80 hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md transition-[color,box-shadow] outline-none focus:z-10 focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-                type="button"
-                onClick={toggleNewVisibility}
-                aria-label={isNewVisible ? "Hide password" : "Show password"}
-                aria-pressed={isNewVisible}
-              >
-                {isNewVisible ? (
-                  <EyeOffIcon size={16} aria-hidden="true" />
-                ) : (
-                  <EyeIcon size={16} aria-hidden="true" />
-                )}
-              </button>
-            </div>
-            {errors.newPassword && (
-              <span className="text-xs text-red-500">
-                {errors.newPassword.message}
-              </span>
-            )}
-          </div>
+            <Controller
+              name="confirmNewPassword"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="confirm-new-password">
+                    Confirm New Password
+                  </FieldLabel>
+                  <WdsPasswordInput
+                    {...field}
+                    placeholder="Confirm New Password"
+                    id="confirm-new-password"
+                    aria-invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={confirmId}>Confirm New Password *</Label>
-            <div className="relative">
-              <Input
-                id={confirmId}
-                type={isConfirmVisible ? "text" : "password"}
-                placeholder="Confirm new password"
-                autoComplete="new-password"
-                className="pe-9"
-                {...register("confirmPassword")}
-              />
-              <button
-                className="text-muted-foreground/80 hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md transition-[color,box-shadow] outline-none focus:z-10 focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-                type="button"
-                onClick={toggleConfirmVisibility}
-                aria-label={
-                  isConfirmVisible ? "Hide password" : "Show password"
-                }
-                aria-pressed={isConfirmVisible}
-              >
-                {isConfirmVisible ? (
-                  <EyeOffIcon size={16} aria-hidden="true" />
-                ) : (
-                  <EyeIcon size={16} aria-hidden="true" />
-                )}
-              </button>
-            </div>
-            {errors.confirmPassword && (
-              <span className="text-xs text-red-500">
-                {errors.confirmPassword.message}
-              </span>
-            )}
-          </div>
-
-          <Button type="submit" className="mt-2" disabled={isSubmitting}>
-            {isSubmitting ? "Changing Password..." : "Change Password"}
-          </Button>
+            <Controller
+              name="revokeOtherSessions"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <FieldSet data-invalid={fieldState.invalid}>
+                  <FieldGroup data-slot="checkbox-group">
+                    <Field orientation="horizontal">
+                      <Checkbox
+                        id="other-sessions-check"
+                        name={field.name}
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                      <FieldLabel
+                        htmlFor="other-sessions-check"
+                        className="font-normal"
+                      >
+                        Log out other sessions
+                      </FieldLabel>
+                    </Field>
+                  </FieldGroup>
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </FieldSet>
+              )}
+            />
+          </FieldGroup>
         </form>
       </CardContent>
+
+      <CardFooter className="flex flex-col space-y-4">
+        <Button
+          type="submit"
+          form="update-password-form"
+          className="w-full hover:cursor-pointer"
+          disabled={isSubmitting}
+        >
+          <LoadingSwap isLoading={isSubmitting}>Change Password</LoadingSwap>
+        </Button>
+      </CardFooter>
     </Card>
   );
 }

@@ -49,7 +49,7 @@ export async function addEmploymentHistory(data: EmploymentHistoryFormValues) {
       employmentType: data.employmentType || null,
     });
 
-    revalidatePath(`/dashboard/hr/employees`);
+    revalidatePath(`/hr/employees`);
     return { success: true };
   } catch (_error) {
     return { success: false, error: "Failed to add employment history" };
@@ -75,7 +75,7 @@ export async function updateEmploymentHistory(
       })
       .where(eq(employmentHistory.id, id));
 
-    revalidatePath(`/dashboard/hr/employees`);
+    revalidatePath(`/hr/employees`);
     return { success: true };
   } catch (_error) {
     return { success: false, error: "Failed to update employment history" };
@@ -88,7 +88,7 @@ export async function deleteEmploymentHistory(id: number) {
   try {
     await db.delete(employmentHistory).where(eq(employmentHistory.id, id));
 
-    revalidatePath(`/dashboard/hr/employees`);
+    revalidatePath(`/hr/employees`);
     return { success: true };
   } catch (_error) {
     return { success: false, error: "Failed to delete employment history" };

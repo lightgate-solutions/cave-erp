@@ -25,6 +25,14 @@ export default async function RootLayout({
   });
   if (!session) redirect("/auth/login");
 
+  const data = await auth.api.listOrganizations({
+    headers: await headers(),
+  });
+
+  if (!data || data.length === 0) {
+    redirect("/organizations/create");
+  }
+
   // Get employee data and today's attendance for the pop-up
   const authData = await requireAuth();
   const myAttendance = await getMyTodayAttendance();

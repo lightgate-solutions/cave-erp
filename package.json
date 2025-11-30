@@ -14,13 +14,19 @@
     "db:stop": "docker compose stop",
     "db:studio": "drizzle-kit studio --port=5678 --host=127.0.0.1",
     "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
+    "@arcjet/ip": "1.0.0-beta.15",
+    "@arcjet/next": "1.0.0-beta.15",
     "@aws-sdk/client-s3": "^3.913.0",
     "@aws-sdk/s3-request-presigner": "^3.913.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^5.2.2",
+    "@opennextjs/cloudflare": "^1.14.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -48,13 +54,14 @@
     "better-auth": "^1.3.26",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "convex": "^1.29.3",
     "cmdk": "^1.1.1",
+    "convex": "^1.29.3",
     "csv-writer": "^1.6.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.18",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.6",
+    "input-otp": "^1.4.2",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.545.0",
@@ -73,6 +80,7 @@
     "sonner": "^2.0.7",
     "swr": "^2.3.6",
     "tailwind-merge": "^3.3.1",
+    "ua-parser-js": "^2.0.6",
     "use-debounce": "^10.0.6",
     "uuid": "^13.0.0",
     "zod": "^4.1.12",
@@ -92,7 +100,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
     "tw-animate-css": "^1.4.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.51.0"
   },
   "lint-staged": {
     "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [

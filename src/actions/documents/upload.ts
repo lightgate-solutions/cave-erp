@@ -316,12 +316,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
     }
 
     // CRITICAL: Revalidate all dashboard and document-related pages
-    revalidatePath("/dashboard", "page");
-    revalidatePath("/dashboard/admin", "page");
-    revalidatePath("/dashboard/manager", "page");
-    revalidatePath("/dashboard/staff", "page");
     revalidatePath("/documents", "layout");
-    revalidatePath("/documents/all", "page");
 
     return {
       success: { reason: "Uploaded document/s successfully!" },

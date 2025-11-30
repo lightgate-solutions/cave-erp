@@ -120,10 +120,9 @@ export function ResetPasswordForm() {
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="reset-password">Password *</FieldLabel>
+                  <FieldLabel htmlFor="reset-password">Password</FieldLabel>
                   <PasswordInput
                     {...field}
-                    onChangeAction={field.onChange}
                     id="reset-password"
                     aria-invalid={fieldState.invalid}
                   />
@@ -140,7 +139,7 @@ export function ResetPasswordForm() {
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="reset-confirm-password">
-                    Confirm Password *
+                    Confirm Password
                   </FieldLabel>
                   <WdsPasswordInput
                     {...field}

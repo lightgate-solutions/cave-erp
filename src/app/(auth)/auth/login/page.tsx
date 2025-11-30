@@ -1,27 +1,24 @@
-"use client";
+import { LoginForm } from "@/components/auth/login-form";
+import { Logo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
-import LoginForm from "@/components/auth/login-form";
-import { Card, CardContent } from "@/components/ui/card";
-import { GalleryVerticalEnd } from "lucide-react";
-
-const LoginPage = () => {
+export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-100">
-      <div className="flex flex-col items-center w-full max-w-md gap-6">
-        <div className="flex items-center gap-2 self-center font-medium">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <GalleryVerticalEnd className="size-4" />
-          </div>
-          Cave ERP
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center space-y-2">
+          <Logo size="lg" />
+          <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
+          <p className="text-muted-foreground text-center">
+            Sign in to your CAVE account to manage your organizations
+          </p>
         </div>
-        <Card className="w-full">
-          <CardContent className="flex flex-col gap-4 pt-6">
-            <LoginForm />
-          </CardContent>
-        </Card>
+        <LoginForm />
       </div>
     </div>
   );
-};
-
-export default LoginPage;
+}

@@ -1,19 +1,19 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
 import { CheckIcon, EyeIcon, EyeOffIcon, XIcon } from "lucide-react";
+import { useId, useMemo, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 
 export type PasswordInputProps = {
   value: string;
-  onChangeAction: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   id?: string;
 };
 
 export default function PasswordInput({
   value,
-  onChangeAction,
+  onChange,
   id: idProp,
 }: PasswordInputProps) {
   const id = useId();
@@ -71,7 +71,7 @@ export default function PasswordInput({
             placeholder="Password"
             type={isVisible ? "text" : "password"}
             value={value}
-            onChange={onChangeAction}
+            onChange={onChange}
             aria-describedby={`${inputId}-description`}
           />
           <button

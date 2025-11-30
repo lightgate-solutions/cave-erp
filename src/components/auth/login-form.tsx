@@ -1,113 +1,241 @@
 "use client";
 
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useId, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormError, FormSuccess } from "../ui/form-messages";
-import { loginUser } from "@/actions/auth/login";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { authClient } from "@/lib/auth-client";
+import { LoadingSwap } from "../ui/loading-swap";
+import { WdsPasswordInput } from "../ui/password-input";
+import { BetterAuthActionButton } from "./better-auth-action-button";
 
-const schema = z.object({
-  email: z.email({ message: "Invalid email address" }),
-  password: z.string().min(1, { message: "Password is required" }),
+// biome-ignore lint/style/noNonNullAssertion: <>
+const callbackUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_CALLBACK_URL!;
+
+const signInSchema = z.object({
+  email: z.email({ error: "Email is required" }).min(1, "Email is required"),
+  password: z.string().min(1, "Password is required."),
 });
 
-type FormData = z.infer<typeof schema>;
+type SignInFormType = z.infer<typeof signInSchema>;
 
-const LoginForm = () => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
-  });
-
-  const [isVisible, setIsVisible] = useState(false);
-  const [formState, setFormState] = useState<{
-    success?: string;
-    error?: string;
-  }>({});
-
-  const id = useId();
+export function LoginForm() {
+  const [email, setEmail] = useState("");
+  const [timeToNextResend, setTimeToNextResend] = useState(60);
+  const interval = useRef<NodeJS.Timeout>(undefined);
   const router = useRouter();
 
-  const toggleVisibility = () => setIsVisible((prev) => !prev);
+  const form = useForm<SignInFormType>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+  const { isSubmitting } = form.formState;
 
-  const onSubmit = async (data: FormData) => {
-    setFormState({});
-    const result = await loginUser(data);
-    if (result.success) {
-      setFormState({ success: result.success.reason });
-      router.push("/");
-    } else if (result.error) {
-      setFormState({ error: result.error.reason });
-    }
-  };
+  async function onSubmit(data: SignInFormType) {
+    await authClient.signIn.email(
+      {
+        email: data.email,
+        password: data.password,
+        callbackURL: callbackUrl,
+      },
+      {
+        onError: (err) => {
+          console.log(err);
+          toast.error(err.error.message || "Failed to Sign In");
+          if (err.error.message === "Email not verified") {
+            setEmail(data.email);
+            authClient.sendVerificationEmail({
+              email: data.email,
+              callbackURL: callbackUrl,
+            });
+          }
+          form.reset();
+        },
+        onSuccess: async (ctx) => {
+          form.reset();
+          if (ctx.data.twoFactorRedirect) {
+            const { data } = await authClient.twoFactor.sendOtp();
+            if (data) {
+              router.push("/auth/verify-2fa");
+            } else {
+              toast.error("Failed to Sign In. Try Again!");
+            }
+          }
+        },
+      },
+    );
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <>
+  useEffect(() => {
+    startEmailVerificationCountdown();
+  }, []);
+
+  function startEmailVerificationCountdown(time = 60) {
+    setTimeToNextResend(time);
+
+    clearInterval(interval.current);
+    interval.current = setInterval(() => {
+      setTimeToNextResend((t) => {
+        const newT = t - 1;
+
+        if (newT <= 0) {
+          clearInterval(interval.current);
+          return 0;
+        }
+        return newT;
+      });
+    }, 1000);
+  }
+
+  if (email) {
+    return (
+      <Card>
+        <CardHeader className="text-2xl font-bold">
+          <CardTitle>Verify Your Email</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground mt-2">
+              We sent you a verification link. Please check your email and click
+              the link to verify your account.
+            </p>
+
+            <BetterAuthActionButton
+              variant="outline"
+              className="w-full hover:cursor-pointer"
+              successMessage="Verification email sent!"
+              disabled={timeToNextResend > 0}
+              action={() => {
+                startEmailVerificationCountdown();
+                return authClient.sendVerificationEmail({
+                  email,
+                  callbackURL: callbackUrl,
+                });
+              }}
+            >
+              {timeToNextResend > 0
+                ? `Resend Email (${timeToNextResend})`
+                : "Resend Email"}
+            </BetterAuthActionButton>
+          </div>
+        </CardContent>
+        <CardFooter className="text-sm text-muted-foreground">
+          Can't find the email? Check spam folder
+        </CardFooter>
+      </Card>
+    );
+  }
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="flex w-full flex-col gap-5"
-    >
-      <FormSuccess message={formState.success || ""} />
-      <FormError message={formState.error || ""} />
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email *</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="you@example.com"
-          autoComplete="email"
-          {...register("email")}
-        />
-        {errors.email && (
-          <span className="text-xs text-red-500">{errors.email.message}</span>
-        )}
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={id}>Password *</Label>
-        <div className="relative">
-          <Input
-            id={id}
-            type={isVisible ? "text" : "password"}
-            placeholder="Password"
-            autoComplete="current-password"
-            className="pe-9"
-            {...register("password")}
-          />
-          <button
-            className="text-muted-foreground/80 hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md transition-[color,box-shadow] outline-none focus:z-10 focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-            type="button"
-            onClick={toggleVisibility}
-            aria-label={isVisible ? "Hide password" : "Show password"}
-            aria-pressed={isVisible}
-            aria-controls="password"
-          >
-            {isVisible ? (
-              <EyeOffIcon size={16} aria-hidden="true" />
-            ) : (
-              <EyeIcon size={16} aria-hidden="true" />
-            )}
-          </button>
-        </div>
-        {errors.password && (
-          <span className="text-xs text-red-500">
-            {errors.password.message}
-          </span>
-        )}
-      </div>
-      <Button type="submit" className="mt-2 w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Logging in..." : "Login"}
-      </Button>
-    </form>
-  );
-};
+    <Card className="border-border">
+      <CardHeader>
+        <CardTitle>Sign in</CardTitle>
+        <CardDescription>
+          Enter your credentials to access your account
+        </CardDescription>
+      </CardHeader>
 
-export default LoginForm;
+      <CardContent className="space-y-4">
+        <form
+          id="sign-in-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="space-y-4"
+        >
+          <FieldGroup>
+            <Controller
+              name="email"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="sign-in-email">Email</FieldLabel>
+                  <Input
+                    {...field}
+                    id="sign-in-email"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="abc@ventures.com.ng"
+                    autoComplete="email"
+                    type="email"
+                  />
+                  <FieldDescription>
+                    This is your active email address
+                  </FieldDescription>
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="password"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <div className="flex justify-between items-center">
+                    <FieldLabel htmlFor="sign-in-password">Password</FieldLabel>
+                    <Link
+                      href="/auth/forgot-password"
+                      className="text-sm hover:underline text-muted-foreground"
+                    >
+                      Forgot Password?
+                    </Link>
+                  </div>
+                  <WdsPasswordInput
+                    {...field}
+                    placeholder="Password"
+                    id="sign-in-password"
+                    aria-invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+          </FieldGroup>
+        </form>
+      </CardContent>
+
+      <CardFooter className="flex flex-col space-y-4">
+        <Button
+          type="submit"
+          form="sign-in-form"
+          className="w-full hover:cursor-pointer"
+          disabled={isSubmitting}
+        >
+          <LoadingSwap isLoading={isSubmitting}>Sign In</LoadingSwap>
+        </Button>
+        <p className="text-sm text-muted-foreground text-center">
+          Don't have an account?{" "}
+          <Link href="/auth/register" className="text-primary hover:underline">
+            Sign up
+          </Link>
+        </p>
+      </CardFooter>
+    </Card>
+  );
+}

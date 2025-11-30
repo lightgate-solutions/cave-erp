@@ -24,7 +24,6 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { TeamSwitcher } from "./team-switcher";
 import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import type { User } from "better-auth";
@@ -32,6 +31,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getUser as getEmployee } from "@/actions/auth/dal";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { OrganizationSwitcher } from "../settings/organization-switcher";
 
 const data = {
   org: [
@@ -270,7 +270,7 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.org} />
+        <OrganizationSwitcher size="md" />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={groupedItems.overview} />

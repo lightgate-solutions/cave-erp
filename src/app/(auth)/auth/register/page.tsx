@@ -1,37 +1,26 @@
-"use client";
+import { SignupForm } from "@/components/auth/signup-form";
+import { Logo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
-import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import RegisterForm from "@/components/auth/register-form";
-import { GalleryVerticalEnd } from "lucide-react";
-
-const RegisterPage = () => {
+export default function SignupPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-100">
-      <div className="flex flex-col items-center w-full max-w-md gap-6">
-        <div className="flex items-center gap-2 self-center font-medium">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <GalleryVerticalEnd className="size-4" />
-          </div>
-          Cave ERP
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center space-y-2">
+          <Logo size="lg" />
+          <h1 className="text-2xl font-bold text-foreground">
+            Create your account
+          </h1>
+          <p className="text-muted-foreground text-center">
+            Start managing your organizations safely in one place
+          </p>
         </div>
-        <Card className="w-full">
-          <CardContent className="flex flex-col gap-4 pt-6">
-            <RegisterForm />
-            <div className="text-center text-sm mt-4">
-              Already have an account?{" "}
-              <Link
-                href="/auth/login"
-                className="text-primary underline hover:no-underline font-medium"
-              >
-                Login
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <SignupForm />
       </div>
     </div>
   );
-};
-
-export default RegisterPage;
+}

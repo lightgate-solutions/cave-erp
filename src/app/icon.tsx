@@ -13,7 +13,7 @@ export default function Icon() {
     // ImageResponse JSX element
     <div
       style={{
-        fontSize: 20,
+        fontSize: 18,
         background: "black",
         width: "100%",
         height: "100%",
@@ -23,7 +23,7 @@ export default function Icon() {
         color: "white",
       }}
     >
-      BM
+      ERP
     </div>,
     // ImageResponse options
     {
