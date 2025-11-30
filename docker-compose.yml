@@ -1,4 +1,4 @@
-name: cave_erp
+name: cave-erp
 
 services:
   postgres:
