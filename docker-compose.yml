@@ -1,0 +1,23 @@
+name: cave_erp
+
+services:
+  postgres:
+    image: postgres
+    container_name: cave-erp-postgres
+    environment:
+      POSTGRES_DB: cave-erp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - cave_erp_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  cave_erp_postgres_data:

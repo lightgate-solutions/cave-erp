@@ -1,0 +1,1 @@
+ALTER TYPE "public"."leave_status" ADD VALUE 'To be reviewed';
