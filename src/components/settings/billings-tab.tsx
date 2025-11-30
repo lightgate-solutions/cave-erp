@@ -20,12 +20,13 @@ export default function BillingsTab({
 }: {
   user: { id: string; email: string; name: string; emailVerified: boolean };
 }) {
-  console.log(user);
   const [role, _setRole] = useState<string>("");
   const [_roleLoading, _setRoleLoading] = useState(true);
   const [_roleError, _setRoleError] = useState<string | null>(null);
   const pathname = usePathname();
   const [activePlan, _setActivePlan] = useState<string>("standard");
+
+  if (!user) return null;
 
   return (
     <div>

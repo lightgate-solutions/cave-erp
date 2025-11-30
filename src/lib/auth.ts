@@ -20,6 +20,7 @@ import {
   sendPasswordResetEmail,
   sendWelcomeEmail,
 } from "./emails";
+import { createEmployee } from "@/actions/hr/employees";
 
 export const auth = betterAuth({
   appName: "Cave-ERP",
@@ -136,6 +137,8 @@ export const auth = betterAuth({
         const user = ctx.context.newSession?.user ?? {
           name: ctx.body.name,
           email: ctx.body.email,
+          id: ctx.body.id,
+          role: ctx.body.role,
         };
 
         if (user != null) {
@@ -161,6 +164,23 @@ export const auth = betterAuth({
               activeOrganizationId: membership?.organizationId,
             },
           };
+        },
+      },
+    },
+
+    user: {
+      create: {
+        after: async (user) => {
+          await createEmployee({
+            name: user.name,
+            authId: user.id,
+            email: user.email,
+            role: "admin",
+            isManager: true,
+            data: {
+              department: "admin",
+            },
+          });
         },
       },
     },
