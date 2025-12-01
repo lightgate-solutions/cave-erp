@@ -23,8 +23,8 @@ import {
 import { createEmployee } from "@/actions/hr/employees";
 
 export const auth = betterAuth({
-  appName: "Cave-ERP",
-  trustedOrigins: ["http://localhost:3000", "https://cave.ng"],
+  appName: "Cave ERP",
+  trustedOrigins: ["http://localhost:3000", "https://*.cave.ng"],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
