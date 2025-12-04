@@ -108,7 +108,9 @@ export function NavUser({ user }: { user: User }) {
                 <Bell />
                 Notification Preferences
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/settings")}>
+              <DropdownMenuItem
+                onClick={() => router.push("/settings/profile")}
+              >
                 <Settings />
                 Settings
               </DropdownMenuItem>
