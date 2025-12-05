@@ -49,9 +49,7 @@ export function OrganizationSwitcher({
 
   if (userPending || orgPending)
     return (
-      <p className="flex justify-center items-center w-full h-full ">
-        Loading...
-      </p>
+      <div className="h-10 animate-pulse bg-primary  w-full hover:cursor-pointer"></div>
     );
 
   if (!userData?.user.id) return null;
@@ -90,7 +88,8 @@ function Switcher({
     slug: string;
   }[];
 }) {
-  const { data: activeOrganization } = authClient.useActiveOrganization();
+  const { data: activeOrganization, isPending: orgPending } =
+    authClient.useActiveOrganization();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const form = useForm<CreateOrganizationForm>({
@@ -99,6 +98,11 @@ function Switcher({
       name: "",
     },
   });
+
+  if (orgPending)
+    return (
+      <div className="h-10 animate-pulse bg-primary  w-full hover:cursor-pointer"></div>
+    );
 
   const { isSubmitting } = form.formState;
 

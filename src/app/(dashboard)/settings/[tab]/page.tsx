@@ -106,7 +106,7 @@ export default async function Page({
           <TabsTrigger
             value="danger"
             asChild
-            className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:-mb-0.5 data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
+            className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
           >
             <Link href="/settings/danger">Danger</Link>
           </TabsTrigger>
