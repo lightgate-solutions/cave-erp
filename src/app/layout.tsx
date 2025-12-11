@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import NextTopLoader from "nextjs-toploader";
 import QueryProvider from "@/components/providers/query-provider";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -32,7 +33,10 @@ export default function RootLayout({
         >
           <NextTopLoader showSpinner={false} />
           <QueryProvider>
-            <div>{children}</div>
+            <div>
+              {children}
+              <Analytics mode="production" />
+            </div>
           </QueryProvider>
           <SonnerToaster richColors position="top-center" />
         </ThemeProvider>
