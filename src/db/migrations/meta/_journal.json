@@ -8,6 +8,13 @@
       "when": 1764520055097,
       "tag": "0000_first_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1765461863299,
+      "tag": "0001_mean_firestar",
+      "breakpoints": true
     }
   ]
 }
