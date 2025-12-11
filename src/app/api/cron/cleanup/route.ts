@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { and, eq, lt, inArray } from "drizzle-orm";
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response("Unauthorized", {

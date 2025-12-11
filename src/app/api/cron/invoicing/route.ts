@@ -24,7 +24,7 @@ import {
 
 dayjs.extend(utc);
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
 

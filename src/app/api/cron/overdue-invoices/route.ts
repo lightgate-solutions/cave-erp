@@ -7,7 +7,7 @@ import { and, eq, lt } from "drizzle-orm";
 import { sendOverdueInvoiceEmail } from "@/lib/emails";
 import { calculateDaysOverdue } from "@/lib/billing-utils";
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
 
