@@ -66,6 +66,7 @@ export const employees = pgTable(
     isManager: boolean("is_manager").notNull().default(false),
     department: text("department").notNull(),
     managerId: integer("manager_id"),
+    organizationsCount: integer("organizations_count").default(0),
     dateOfBirth: date("date_of_birth"),
     address: text("address"),
     status: text("status"),

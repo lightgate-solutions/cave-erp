@@ -6,7 +6,9 @@ import {
   boolean,
   index,
   unique,
+  integer,
 } from "drizzle-orm/pg-core";
+import { subscriptions } from "./subscriptions";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -14,6 +16,7 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  organizationsCount: integer("organizations_count").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -96,6 +99,8 @@ export const organization = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     logo: text("logo"),
+    membersCount: integer("members_count").default(0),
+    status: text("status").default("active"),
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -117,6 +122,7 @@ export const member = pgTable("member", {
     .references(() => user.id, { onDelete: "cascade" }),
   role: text("role").default("member").notNull(),
   createdAt: timestamp("created_at").notNull(),
+  deletedAt: timestamp("deleted_at"), // For soft-delete and proration tracking
 });
 
 export const invitation = pgTable("invitation", {
@@ -142,12 +148,13 @@ export const twoFactor = pgTable("two_factor", {
     .references(() => user.id, { onDelete: "cascade" }),
 });
 
-export const userRelations = relations(user, ({ many }) => ({
+export const userRelations = relations(user, ({ many, one }) => ({
   sessions: many(session),
   accounts: many(account),
   members: many(member),
   invitations: many(invitation),
   twoFactors: many(twoFactor),
+  subscription: one(subscriptions),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({

@@ -16,7 +16,7 @@ export async function sendEmail({
   text: string;
   replyTo?: string;
 }) {
-  return await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: `Cave ERP <${passwordSendEmail}>`,
     to: to,
     subject: subject,
@@ -24,6 +24,13 @@ export async function sendEmail({
     html: html,
     text: text,
   });
+
+  if (error) {
+    console.error("Resend API Error");
+    throw new Error(`Failed to send email: ${error.message}`);
+  }
+
+  return data;
 }
 
 export function sendPasswordResetEmail({
@@ -424,5 +431,174 @@ export async function sendWelcomeEmail(user: { name: string; email: string }) {
       </div>
     `,
     text: `Hello ${user.name},\n\nThank you for signing up for our app! We're excited to have you on board.\n\nBest regards,\nThe Cave Team`,
+  });
+}
+
+export async function sendInvoiceEmail({
+  to,
+  invoiceDetails,
+}: {
+  to: string;
+  invoiceDetails: {
+    invoiceId: string;
+    amount: number;
+    dueDate: string;
+    items: Array<{ description: string; amount: string }>;
+    paymentLink?: string;
+  };
+}) {
+  const currencyFormatter = new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+  });
+
+  const itemsHtml = invoiceDetails.items
+    .map(
+      (item) => `
+    <tr style="border-bottom: 1px solid #eee;">
+      <td style="padding: 12px 0; color: #333;">${item.description}</td>
+      <td style="padding: 12px 0; text-align: right; color: #333; font-weight: 500;">${currencyFormatter.format(
+        parseFloat(item.amount),
+      )}</td>
+    </tr>
+  `,
+    )
+    .join("");
+
+  const itemsText = invoiceDetails.items
+    .map(
+      (item) =>
+        `${item.description}: ${currencyFormatter.format(parseFloat(item.amount))}`,
+    )
+    .join("\n");
+
+  const payButtonUrl =
+    invoiceDetails.paymentLink ||
+    `${process.env.NEXT_PUBLIC_APP_URL}/settings/billing`;
+
+  await sendEmail({
+    to,
+    subject: `New Invoice Available - ${invoiceDetails.invoiceId}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h2 style="color: #333; margin: 0;">New Invoice Available</h2>
+          <p style="color: #666; margin-top: 8px;">Invoice #${
+            invoiceDetails.invoiceId
+          }</p>
+        </div>
+        
+        <div style="padding: 24px; border: 1px solid #eee; border-top: none; background-color: white;">
+          <p>Hello,</p>
+          <p>A new invoice has been generated for your account. Here are the details:</p>
+          
+          <div style="margin: 24px 0;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: #666;">Due Date:</span>
+              <span style="font-weight: 500;">${invoiceDetails.dueDate}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #666;">Total Amount:</span>
+              <span style="font-weight: bold; color: #007bff; font-size: 18px;">${currencyFormatter.format(
+                invoiceDetails.amount,
+              )}</span>
+            </div>
+          </div>
+
+          <h3 style="color: #333; font-size: 16px; border-bottom: 2px solid #eee; padding-bottom: 8px; margin-top: 32px;">Invoice Items</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            ${itemsHtml}
+          </table>
+          
+          <div style="margin-top: 32px; text-align: center;">
+            <a href="${payButtonUrl}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Pay Now</a>
+          </div>
+          <div style="margin-top: 16px; text-align: center;">
+             <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings/billing" style="color: #007bff; text-decoration: none; font-size: 14px;">View Invoice Details</a>
+          </div>
+        </div>
+        
+        <div style="padding: 16px; text-align: center; color: #999; font-size: 12px;">
+          <p>Thank you for your business!</p>
+          <p>The Cave Team</p>
+        </div>
+      </div>
+    `,
+    text: `Hello,\n\nA new invoice has been generated for your account.\n\nInvoice #${
+      invoiceDetails.invoiceId
+    }\nDue Date: ${invoiceDetails.dueDate}\nTotal Amount: ${currencyFormatter.format(
+      invoiceDetails.amount,
+    )}\n\nItems:\n${itemsText}\n\nPay Now: ${payButtonUrl}\nView Invoice Details: ${
+      process.env.NEXT_PUBLIC_APP_URL
+    }/settings/billing\n\nThank you for your business!\nThe Cave Team`,
+  });
+}
+
+export async function sendOverdueInvoiceEmail({
+  to,
+  userName,
+  invoiceId,
+  amount,
+  dueDate,
+  daysOverdue,
+}: {
+  to: string;
+  userName: string;
+  invoiceId: string;
+  amount: number;
+  dueDate: string;
+  daysOverdue: number;
+}) {
+  const currencyFormatter = new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+  });
+
+  const formattedAmount = currencyFormatter.format(amount);
+  const payButtonUrl = `${process.env.NEXT_PUBLIC_APP_URL}/settings/billing`;
+
+  await sendEmail({
+    to,
+    subject: `Overdue Invoice Reminder - ${invoiceId}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #fff3cd; padding: 24px; text-align: center; border-radius: 8px 8px 0 0; border-bottom: 1px solid #ffeeba;">
+          <h2 style="color: #856404; margin: 0;">Payment Overdue</h2>
+          <p style="color: #856404; margin-top: 8px;">Invoice #${invoiceId}</p>
+        </div>
+        
+        <div style="padding: 24px; border: 1px solid #eee; border-top: none; background-color: white;">
+          <p>Hello ${userName},</p>
+          <p>This is a friendly reminder that we haven't received payment for invoice <strong>#${invoiceId}</strong>, which was due on <strong>${dueDate}</strong>.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 4px; margin: 24px 0;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: #666;">Amount Due:</span>
+              <span style="font-weight: bold; color: #dc3545;">${formattedAmount}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #666;">Days Overdue:</span>
+              <span style="font-weight: 500;">${daysOverdue} days</span>
+            </div>
+          </div>
+
+          <p>Please make the payment as soon as possible to avoid any service interruption.</p>
+          
+          <div style="margin-top: 32px; text-align: center;">
+            <a href="${payButtonUrl}" style="background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Pay Now</a>
+          </div>
+          
+          <div style="margin-top: 16px; text-align: center;">
+             <a href="${payButtonUrl}" style="color: #007bff; text-decoration: none; font-size: 14px;">View Invoice Details</a>
+          </div>
+        </div>
+        
+        <div style="padding: 16px; text-align: center; color: #999; font-size: 12px;">
+          <p>If you have already made this payment, please disregard this email.</p>
+          <p>The Cave Team</p>
+        </div>
+      </div>
+    `,
+    text: `Hello ${userName},\n\nThis is a friendly reminder that we haven't received payment for invoice #${invoiceId}, which was due on ${dueDate}.\n\nAmount Due: ${formattedAmount}\nDays Overdue: ${daysOverdue}\n\nPlease make the payment as soon as possible to avoid any service interruption.\n\nPay Now: ${payButtonUrl}\n\nIf you have already made this payment, please disregard this email.\n\nThe Cave Team`,
   });
 }

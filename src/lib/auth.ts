@@ -21,6 +21,7 @@ import {
   sendWelcomeEmail,
 } from "./emails";
 import { createEmployee } from "@/actions/hr/employees";
+import { subscriptions } from "@/db/schema/subscriptions";
 
 export const auth = betterAuth({
   appName: "Cave ERP",
@@ -171,6 +172,7 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
+          // Create employee record
           await createEmployee({
             name: user.name,
             authId: user.id,
@@ -181,6 +183,27 @@ export const auth = betterAuth({
               department: "admin",
             },
           });
+
+          // Initialize subscription with free plan
+          try {
+            await db.insert(subscriptions).values({
+              id: `sub_${user.id}_${Date.now()}`,
+              userId: user.id,
+              plan: "free",
+              status: "active",
+              pricePerMember: "0.00",
+              currentPeriodStart: new Date(),
+              currentPeriodEnd: null,
+              trialEnd: null,
+            });
+          } catch (error) {
+            // Log error but don't fail user creation if subscription creation fails
+            console.error(
+              "Failed to create free subscription for user:",
+              user.id,
+              error,
+            );
+          }
         },
       },
     },

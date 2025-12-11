@@ -52,6 +52,17 @@ export function CreateOrganizationButton() {
   const { isSubmitting } = form.formState;
 
   async function handleCreateOrganization(data: CreateOrganizationForm) {
+    // Validate organization creation limit
+    const { validateOrganizationCreation } = await import(
+      "@/actions/organizations"
+    );
+    const validation = await validateOrganizationCreation();
+
+    if (!validation.canCreate) {
+      toast.error(validation.error || "Cannot create organization");
+      return;
+    }
+
     const slug = data.name
       .trim()
       .toLowerCase()
