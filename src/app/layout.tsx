@@ -6,6 +6,7 @@ import NextTopLoader from "nextjs-toploader";
 import QueryProvider from "@/components/providers/query-provider";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -36,6 +37,7 @@ export default function RootLayout({
             <div>
               {children}
               <Analytics mode="production" />
+              <SpeedInsights />
             </div>
           </QueryProvider>
           <SonnerToaster richColors position="top-center" />
