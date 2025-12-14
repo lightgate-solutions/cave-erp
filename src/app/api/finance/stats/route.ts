@@ -4,11 +4,18 @@ import {
   loanApplications,
   balanceTransactions,
 } from "@/db/schema";
-import { sql, inArray, and, gte, lte, type SQL } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { sql, inArray, and, gte, lte, type SQL, eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) return null;
+
     const searchParams = request.nextUrl.searchParams;
     const from = searchParams.get("from");
     const to = searchParams.get("to");
@@ -33,20 +40,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Total Expenses (Filtered)
     const [expensesResult] = await db
       .select({ total: sql<string>`sum(${companyExpenses.amount})` })
       .from(companyExpenses)
-      .where(expenseWhere);
+      .where(
+        and(expenseWhere, eq(companyExpenses.organizationId, organization.id)),
+      );
 
-    // Active Loans Count (Global state - not filtered by date usually, but can be if needed. Keeping global for now as per plan)
     const [loansResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(loanApplications)
-      .where(inArray(loanApplications.status, ["active", "disbursed"]));
+      .where(
+        and(
+          inArray(loanApplications.status, ["active", "disbursed"]),
+          eq(loanApplications.organizationId, organization.id),
+        ),
+      );
 
-    // Chart Data - Aggregate expenses and income by day
-    // We'll use balanceTransactions for this as it tracks both
     const chartData = await db
       .select({
         date: sql<string>`DATE(${balanceTransactions.createdAt})`,
@@ -54,15 +64,18 @@ export async function GET(request: NextRequest) {
         amount: sql<string>`sum(${balanceTransactions.amount})`,
       })
       .from(balanceTransactions)
-      .where(chartWhere)
+      .where(
+        and(
+          chartWhere,
+          eq(balanceTransactions.organizationId, organization.id),
+        ),
+      )
       .groupBy(
         sql`DATE(${balanceTransactions.createdAt})`,
         balanceTransactions.transactionType,
       )
       .orderBy(sql`DATE(${balanceTransactions.createdAt})`);
 
-    // Process chart data into format for Recharts
-    // { date: 'YYYY-MM-DD', income: 100, expense: 50 }
     const processedChartData: Record<
       string,
       { date: string; income: number; expense: number }

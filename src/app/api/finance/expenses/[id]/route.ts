@@ -1,6 +1,8 @@
 import { db } from "@/db";
 import { companyExpenses, companyBalance } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { and, eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function GET(
@@ -8,12 +10,22 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) return null;
+
     const { id } = await params;
     const expenseId = Number(id);
     const [expense] = await db
       .select()
       .from(companyExpenses)
-      .where(eq(companyExpenses.id, expenseId));
+      .where(
+        and(
+          eq(companyExpenses.id, expenseId),
+          eq(companyExpenses.organizationId, organization.id),
+        ),
+      );
     if (!expense) {
       return NextResponse.json({ error: "Expense not found" }, { status: 404 });
     }
@@ -32,6 +44,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) return null;
+
     const { id } = await params;
     const expenseId = Number(id);
     const body = await request.json();
@@ -41,7 +58,12 @@ export async function PUT(
     const [oldExpense] = await db
       .select()
       .from(companyExpenses)
-      .where(eq(companyExpenses.id, expenseId));
+      .where(
+        and(
+          eq(companyExpenses.id, expenseId),
+          eq(companyExpenses.organizationId, organization.id),
+        ),
+      );
 
     if (!oldExpense) {
       return NextResponse.json({ error: "Expense not found" }, { status: 404 });
@@ -62,12 +84,21 @@ export async function PUT(
         expenseDate: expenseDate ? new Date(expenseDate) : undefined,
         updatedAt: new Date(),
       })
-      .where(eq(companyExpenses.id, expenseId))
+      .where(
+        and(
+          eq(companyExpenses.id, expenseId),
+          eq(companyExpenses.organizationId, organization.id),
+        ),
+      )
       .returning();
 
     // Update company balance if amount changed
     if (amountDifference !== 0) {
-      const [balanceRecord] = await db.select().from(companyBalance).limit(1);
+      const [balanceRecord] = await db
+        .select()
+        .from(companyBalance)
+        .limit(1)
+        .where(eq(companyBalance.organizationId, organization.id));
 
       if (balanceRecord) {
         const currentBalance = Number(balanceRecord.balance);
@@ -79,7 +110,12 @@ export async function PUT(
             balance: newBalance.toString(),
             updatedAt: new Date(),
           })
-          .where(eq(companyBalance.id, balanceRecord.id));
+          .where(
+            and(
+              eq(companyBalance.id, balanceRecord.id),
+              eq(companyBalance.organizationId, organization.id),
+            ),
+          );
       }
     }
 
@@ -98,6 +134,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) return null;
+
     const { id } = await params;
     const expenseId = Number(id);
 
@@ -105,7 +146,12 @@ export async function DELETE(
     const [expense] = await db
       .select()
       .from(companyExpenses)
-      .where(eq(companyExpenses.id, expenseId));
+      .where(
+        and(
+          eq(companyExpenses.id, expenseId),
+          eq(companyExpenses.organizationId, organization.id),
+        ),
+      );
 
     if (!expense) {
       return NextResponse.json({ error: "Expense not found" }, { status: 404 });
@@ -114,10 +160,21 @@ export async function DELETE(
     const expenseAmount = Number(expense.amount);
 
     // Delete the expense
-    await db.delete(companyExpenses).where(eq(companyExpenses.id, expenseId));
+    await db
+      .delete(companyExpenses)
+      .where(
+        and(
+          eq(companyExpenses.id, expenseId),
+          eq(companyExpenses.organizationId, organization.id),
+        ),
+      );
 
     // Restore balance (add back the expense amount)
-    const [balanceRecord] = await db.select().from(companyBalance).limit(1);
+    const [balanceRecord] = await db
+      .select()
+      .from(companyBalance)
+      .limit(1)
+      .where(eq(companyBalance.organizationId, organization.id));
 
     if (balanceRecord) {
       const currentBalance = Number(balanceRecord.balance);
@@ -128,7 +185,12 @@ export async function DELETE(
           balance: newBalance.toString(),
           updatedAt: new Date(),
         })
-        .where(eq(companyBalance.id, balanceRecord.id));
+        .where(
+          and(
+            eq(companyBalance.id, balanceRecord.id),
+            eq(companyBalance.organizationId, organization.id),
+          ),
+        );
     }
 
     return NextResponse.json({ success: true });

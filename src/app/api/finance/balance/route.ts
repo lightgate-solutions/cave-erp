@@ -1,13 +1,23 @@
 import { db } from "@/db";
 import { companyBalance, balanceTransactions, employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import type { InferSelectModel } from "drizzle-orm";
+import { headers } from "next/headers";
 
 export async function GET() {
   try {
-    const [balance] = await db.select().from(companyBalance).limit(1);
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) return null;
+
+    const [balance] = await db
+      .select()
+      .from(companyBalance)
+      .limit(1)
+      .where(eq(companyBalance.organizationId, organization.id));
 
     if (!balance) {
       // Return default balance if no record exists
@@ -38,6 +48,10 @@ export async function PUT(request: NextRequest) {
     const h = Object.fromEntries(request.headers);
     const session = await auth.api.getSession({ headers: h });
     const authUserId = session?.user?.id;
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) return null;
 
     if (!authUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -66,7 +80,11 @@ export async function PUT(request: NextRequest) {
     } = body ?? {};
 
     // Get or create balance record
-    const [existing] = await db.select().from(companyBalance).limit(1);
+    const [existing] = await db
+      .select()
+      .from(companyBalance)
+      .limit(1)
+      .where(eq(companyBalance.organizationId, organization.id));
 
     const balanceBefore = existing ? Number(existing.balance) : 0;
     let finalBalance: string;
@@ -98,7 +116,12 @@ export async function PUT(request: NextRequest) {
           currency: currency || existing.currency,
           updatedAt: new Date(),
         })
-        .where(eq(companyBalance.id, existing.id))
+        .where(
+          and(
+            eq(companyBalance.id, existing.id),
+            eq(companyBalance.organizationId, organization.id),
+          ),
+        )
         .returning();
       updated = result[0];
     } else {
@@ -107,6 +130,7 @@ export async function PUT(request: NextRequest) {
         .values({
           balance: finalBalance,
           currency: currency || "NGN",
+          organizationId: organization.id,
         })
         .returning();
       updated = result[0];
@@ -118,6 +142,7 @@ export async function PUT(request: NextRequest) {
         userId: employee.id,
         amount: transactionAmount,
         transactionType,
+        organizationId: organization.id,
         description:
           description ||
           (transactionType === "top-up"
