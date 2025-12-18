@@ -31,10 +31,14 @@ export const projects = pgTable(
     supervisorId: integer("supervisor_id").references(() => employees.id, {
       onDelete: "set null",
     }),
+    organizationId: text("organization_id").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => [index("projects_supervisor_idx").on(table.supervisorId)],
+  (table) => [
+    index("projects_supervisor_idx").on(table.supervisorId),
+    index("projects_organization_idx").on(table.organizationId),
+  ],
 );
 
 export const projectsRelations = relations(projects, ({ one }) => ({

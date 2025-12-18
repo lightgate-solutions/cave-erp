@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -89,23 +90,47 @@ export function ProjectFormDialog({ trigger, initial, onCompleted }: Props) {
         budgetActual: Number(budgetActual) || 0,
         status,
       };
+      let res: Response;
       if (initial?.id) {
-        await fetch(`/api/projects/${initial.id}`, {
+        res = await fetch(`/api/projects/${initial.id}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
       } else {
-        await fetch(`/api/projects`, {
+        res = await fetch(`/api/projects`, {
           method: "POST",
           body: JSON.stringify(payload),
         });
       }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.error?.includes("Project limit reached")) {
+          toast.error(data.error, {
+            description: "Please upgrade your plan to create more projects.",
+            action: {
+              label: "Upgrade",
+              onClick: () => {
+                window.location.href = "/settings/billing";
+              },
+            },
+            duration: 10000,
+          });
+        }
+
+        toast.error(data.error || "Something went wrong");
+        return;
+      }
+
+      toast.success(initial?.id ? "Project updated" : "Project created");
       setOpen(false);
       onCompleted?.();
-      // Notify dashboards/cards to refresh
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("projects:changed"));
       }
+    } catch (_error) {
+      toast.error("Failed to save project");
     } finally {
       setSaving(false);
     }
@@ -129,7 +154,6 @@ export function ProjectFormDialog({ trigger, initial, onCompleted }: Props) {
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          {/* Code is auto-generated server-side (e.g., 1BM, 2BM). */}
           <div className="grid gap-2">
             <Label htmlFor="location">Location</Label>
             <Input

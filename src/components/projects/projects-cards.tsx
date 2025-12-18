@@ -16,7 +16,6 @@ export function ProjectsCards() {
     let mounted = true;
     async function load(next?: { q?: string; status?: string }) {
       const q = next?.q ?? filters.q ?? "";
-      // Always filter by in-progress status for cards (ongoing projects only)
       const status = "in-progress";
       const params = new URLSearchParams();
       if (q) params.set("q", q);
@@ -35,6 +34,7 @@ export function ProjectsCards() {
       load(detail);
     };
     window.addEventListener("projects:changed", handler);
+    window.addEventListener("organization:changed", handler);
     window.addEventListener(
       "projects:filters",
       filtersHandler as EventListener,
@@ -42,6 +42,7 @@ export function ProjectsCards() {
     return () => {
       mounted = false;
       window.removeEventListener("projects:changed", handler);
+      window.removeEventListener("organization:changed", handler);
       window.removeEventListener(
         "projects:filters",
         filtersHandler as EventListener,

@@ -18,6 +18,7 @@ export function SimpleListSkeleton() {
           <div className="space-y-3">
             {Array.from({ length: 10 }).map((_, i) => (
               <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
                 key={i}
                 className="flex items-center gap-4 p-3 rounded-lg border"
               >

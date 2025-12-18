@@ -1,0 +1,1020 @@
+﻿node.exe : convex\_generated
+\api.d.ts:34:21 lint/suspici
+ous/noExplicitAny ΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöü
+At C:\Users\hp\AppData\Roami
+ng\npm\pnpm.ps1:24 char:5
++     & "node$exe"  "$basedi
+r/node_modules/pnpm/bin/pnpm
+.cjs" $args
++     ~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (conve  
+  x\_generat...ΓöüΓöüΓöüΓ   
+ öüΓöü:String) [], Remot    
+eException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+
+  ! Unexpected any. Specify 
+a different type.
+  
+    32 Γöé export declare 
+const api: FilterApi<
+    33 Γöé   typeof fullApi,
+  > 34 Γöé   
+FunctionReference<any, 
+"public">
+       Γöé                  
+   ^^^
+    35 Γöé >;
+    36 Γöé 
+  
+  i any disables many type 
+checking rules. Its use 
+should be avoided.
+  
+
+convex\_generated\api.d.ts:4
+7:21 lint/suspicious/noExpli
+citAny ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöü
+
+  ! Unexpected any. Specify 
+a different type.
+  
+    45 Γöé export declare 
+const internal: FilterApi<
+    46 Γöé   typeof fullApi,
+  > 47 Γöé   
+FunctionReference<any, 
+"internal">
+       Γöé                  
+   ^^^
+    48 Γöé >;
+    49 Γöé 
+  
+  i any disables many type 
+checking rules. Its use 
+should be avoided.
+  
+
+convex\_generated\api.d.ts:5
+0:34 lint/complexity/noBanne
+dTypes ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöü
+
+  ! Don't use '{}' as a 
+type.
+  
+    48 Γöé >;
+    49 Γöé 
+  > 50 Γöé export declare 
+const components: {};
+       Γöé                  
+                ^^
+    51 Γöé 
+  
+  i Prefer explicitly 
+define the object shape. 
+'{}' means "any 
+non-nullable value".
+  
+
+convex\_generated\api.d.ts:2
+:1 suppressions/unused ΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öü
+
+  ! Suppression comment has 
+no effect. Remove the 
+suppression or make sure 
+you are suppressing the 
+correct rule.
+  
+    1 Γöé /* eslint-disable 
+*/
+  > 2 Γöé // biome-ignore 
+lint: auto-generated file
+      Γöé ^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+    3 Γöé /**
+    4 Γöé  * Generated 
+`api` utility.
+  
+
+src\components\skeletons\bas
+e\action-buttons-skeleton.ts
+x:26:33 lint/suspicious/noAr
+rayIndexKey ΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    24 Γöé       
+{Array.from({ length: count 
+}).map((_, i) => (
+    25 Γöé         <Card
+  > 26 Γöé           
+key={`action-button-${i}`}
+       Γöé                  
+               ^
+    27 Γöé           
+className="border 
+border-gray-200/60 
+dark:border-gray-800 
+bg-white/80 
+dark:bg-gray-900/50 
+shadow-sm rounded-xl"
+    28 Γöé         >
+  
+  i This is the source of 
+the key value.
+  
+    22 Γöé       )}
+    23 Γöé     >
+  > 24 Γöé       
+{Array.from({ length: count 
+}).map((_, i) => (
+       Γöé                  
+                            
+^
+    25 Γöé         <Card
+    26 Γöé           
+key={`action-button-${i}`}
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\bas
+e\card-skeleton.tsx:37:36 li
+nt/suspicious/noArrayIndexKe
+y ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    35 Γöé           
+{Array.from({ length: 
+contentLines }).map((_, i) 
+=> (
+    36 Γöé             
+<Skeleton
+  > 37 Γöé               
+key={`content-line-${i}`}
+       Γöé                  
+                  ^
+    38 Γöé               
+className={cn("h-5", i === 
+contentLines - 1 ? "w-2/3" 
+: "w-full")}
+    39 Γöé             />
+  
+  i This is the source of 
+the key value.
+  
+    33 Γöé       
+<CardContent>
+    34 Γöé         <div 
+className="space-y-3">
+  > 35 Γöé           
+{Array.from({ length: 
+contentLines }).map((_, i) 
+=> (
+       Γöé                  
+                            
+           ^
+    36 Γöé             
+<Skeleton
+    37 Γöé               
+key={`content-line-${i}`}
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\bas
+e\filters-skeleton.tsx:21:43
+ lint/suspicious/noArrayInde
+xKey ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    19 Γöé       
+{showSearch && <Skeleton 
+className="h-10 w-64" />}
+    20 Γöé       
+{Array.from({ length: 
+dropdownCount }).map((_, i) 
+=> (
+  > 21 Γöé         
+<Skeleton key={`filter-dropd
+own-${i}`} className="h-10 
+w-32" />
+       Γöé                  
+                         ^
+    22 Γöé       ))}
+    23 Γöé       
+{showDateRange && <Skeleton 
+className="h-10 w-48" />}
+  
+  i This is the source of 
+the key value.
+  
+    18 Γöé     <div 
+className={cn("flex 
+flex-wrap items-center 
+gap-3", className)}>
+    19 Γöé       
+{showSearch && <Skeleton 
+className="h-10 w-64" />}
+  > 20 Γöé       
+{Array.from({ length: 
+dropdownCount }).map((_, i) 
+=> (
+       Γöé                  
+                            
+        ^
+    21 Γöé         
+<Skeleton key={`filter-dropd
+own-${i}`} className="h-10 
+w-32" />
+    22 Γöé       ))}
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\bas
+e\form-skeleton.tsx:25:37 li
+nt/suspicious/noArrayIndexKe
+y ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    23 Γöé         <div 
+className="space-y-6">
+    24 Γöé           
+{Array.from({ length: 
+fieldCount }).map((_, i) => 
+(
+  > 25 Γöé             <div 
+key={`form-field-${i}`} 
+className="space-y-2">
+       Γöé                  
+                   ^
+    26 Γöé               
+<Skeleton className="h-5 
+w-32" />
+    27 Γöé               
+<Skeleton className="h-10 
+w-full" />
+  
+  i This is the source of 
+the key value.
+  
+    22 Γöé       
+<CardContent>
+    23 Γöé         <div 
+className="space-y-6">
+  > 24 Γöé           
+{Array.from({ length: 
+fieldCount }).map((_, i) => 
+(
+       Γöé                  
+                            
+         ^
+    25 Γöé             <div 
+key={`form-field-${i}`} 
+className="space-y-2">
+    26 Γöé               
+<Skeleton className="h-5 
+w-32" />
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\bas
+e\stats-card-skeleton.tsx:17
+:34 lint/suspicious/noArrayI
+ndexKey ΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    15 Γöé     <div 
+className={cn("grid gap-4 
+md:grid-cols-2 
+lg:grid-cols-4", 
+className)}>
+    16 Γöé       
+{Array.from({ length: count 
+}).map((_, i) => (
+  > 17 Γöé         <Card 
+key={`stats-card-${i}`} 
+className="shadow-sm">
+       Γöé                  
+                ^
+    18 Γöé           
+<CardContent 
+className="p-6">
+    19 Γöé             <div 
+className="flex 
+items-center gap-4">
+  
+  i This is the source of 
+the key value.
+  
+    14 Γöé   return (
+    15 Γöé     <div 
+className={cn("grid gap-4 
+md:grid-cols-2 
+lg:grid-cols-4", 
+className)}>
+  > 16 Γöé       
+{Array.from({ length: count 
+}).map((_, i) => (
+       Γöé                  
+                            
+^
+    17 Γöé         <Card 
+key={`stats-card-${i}`} 
+className="shadow-sm">
+    18 Γöé           
+<CardContent 
+className="p-6">
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\bas
+e\table-skeleton.tsx:33:43 l
+int/suspicious/noArrayIndexK
+ey ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    31 Γöé         
+<TableRow>
+    32 Γöé           
+{Array.from({ length: 
+columns }).map((_, i) => (
+  > 33 Γöé             
+<TableHead 
+key={`table-head-${i}`}>
+       Γöé                  
+                         ^
+    34 Γöé               
+<Skeleton className="h-5 
+w-24" />
+    35 Γöé             
+</TableHead>
+  
+  i This is the source of 
+the key value.
+  
+    30 Γöé       
+<TableHeader>
+    31 Γöé         
+<TableRow>
+  > 32 Γöé           
+{Array.from({ length: 
+columns }).map((_, i) => (
+       Γöé                  
+                            
+      ^
+    33 Γöé             
+<TableHead 
+key={`table-head-${i}`}>
+    34 Γöé               
+<Skeleton className="h-5 
+w-24" />
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\bas
+e\table-skeleton.tsx:48:31 l
+int/suspicious/noArrayIndexK
+ey ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    46 Γöé           
+<TableRow key={index}>
+    47 Γöé             
+{Array.from({ length: 
+columns }).map((_, 
+colIndex) => (
+  > 48 Γöé               
+<TableCell key={colIndex}>
+       Γöé                  
+             ^^^^^^^^
+    49 Γöé                 
+{colIndex === 0 && 
+showAvatar ? (
+    50 Γöé                  
+ <div className="flex 
+items-center gap-3">
+  
+  i This is the source of 
+the key value.
+  
+    45 Γöé         
+{skeletonRows.map((index) 
+=> (
+    46 Γöé           
+<TableRow key={index}>
+  > 47 Γöé             
+{Array.from({ length: 
+columns }).map((_, 
+colIndex) => (
+       Γöé                  
+                            
+        ^^^^^^^^
+    48 Γöé               
+<TableCell key={colIndex}>
+    49 Γöé                 
+{colIndex === 0 && 
+showAvatar ? (
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\das
+hboard\finance-dashboard-ske
+leton.tsx:9:8 lint/correctne
+ss/noUnusedImports  FIXABLE 
+ ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+Γöü
+
+  ! This import is unused.
+  
+     7 Γöé } from 
+"@/components/ui/card";
+     8 Γöé import { 
+Skeleton } from 
+"@/components/ui/skeleton";
+   > 9 Γöé import { 
+StatsCardSkeleton } from "..
+/base/stats-card-skeleton";
+       Γöé        
+^^^^^^^^^^^^^^^^^^^^^
+    10 Γöé import { 
+ActionButtonsSkeleton } 
+from "../base/action-buttons
+-skeleton";
+    11 Γöé 
+  
+  i Unused imports might be 
+the result of an incomplete 
+refactoring.
+  
+  i Unsafe fix: Remove the 
+unused imports.
+  
+     7  7 Γöé   } from 
+"@/components/ui/card";
+     8  8 Γöé   import { 
+Skeleton } from 
+"@/components/ui/skeleton";
+     9    Γöé - import┬╖{┬╖S
+tatsCardSkeleton┬╖}┬╖from┬╖"
+../base/stats-card-skeleton"
+;
+    10  9 Γöé   import { 
+ActionButtonsSkeleton } 
+from "../base/action-buttons
+-skeleton";
+    11 10 Γöé   
+  
+
+src\components\skeletons\das
+hboard\finance-dashboard-ske
+leton.tsx:10:8 lint/correctn
+ess/noUnusedImports  
+FIXABLE  ΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöü
+
+  ! This import is unused.
+  
+     8 Γöé import { 
+Skeleton } from 
+"@/components/ui/skeleton";
+     9 Γöé import { 
+StatsCardSkeleton } from "..
+/base/stats-card-skeleton";
+  > 10 Γöé import { 
+ActionButtonsSkeleton } 
+from "../base/action-buttons
+-skeleton";
+       Γöé        
+^^^^^^^^^^^^^^^^^^^^^^^^^
+    11 Γöé 
+    12 Γöé export function 
+FinanceDashboardSkeleton() {
+  
+  i Unused imports might be 
+the result of an incomplete 
+refactoring.
+  
+  i Unsafe fix: Remove the 
+unused imports.
+  
+     8  8 Γöé   import { 
+Skeleton } from 
+"@/components/ui/skeleton";
+     9  9 Γöé   import { 
+StatsCardSkeleton } from "..
+/base/stats-card-skeleton";
+    10    Γöé - import┬╖{┬╖A
+ctionButtonsSkeleton┬╖}┬╖fro
+m┬╖"../base/action-buttons-s
+keleton";
+    11 10 Γöé   
+    12 11 Γöé   export 
+function 
+FinanceDashboardSkeleton() {
+  
+
+src\components\skeletons\das
+hboard\finance-dashboard-ske
+leton.tsx:27:22 lint/suspici
+ous/noArrayIndexKey ΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    25 Γöé       <div 
+className="grid gap-4 
+md:grid-cols-2 
+lg:grid-cols-3">
+    26 Γöé         
+{Array.from({ length: 3 
+}).map((_, i) => (
+  > 27 Γöé           <Card 
+key={i} 
+className="shadow-sm">
+       Γöé                  
+    ^
+    28 Γöé             
+<CardContent 
+className="p-6">
+    29 Γöé               
+<div className="flex 
+items-center gap-4">
+  
+  i This is the source of 
+the key value.
+  
+    24 Γöé       {/* Stats 
+Row - 3 cards */}
+    25 Γöé       <div 
+className="grid gap-4 
+md:grid-cols-2 
+lg:grid-cols-3">
+  > 26 Γöé         
+{Array.from({ length: 3 
+}).map((_, i) => (
+       Γöé                  
+                          ^
+    27 Γöé           <Card 
+key={i} 
+className="shadow-sm">
+    28 Γöé             
+<CardContent 
+className="p-6">
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\das
+hboard\finance-dashboard-ske
+leton.tsx:77:32 lint/suspici
+ous/noArrayIndexKey ΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    75 Γöé             <div 
+className="space-y-3">
+    76 Γöé               
+{Array.from({ length: 4 
+}).map((_, i) => (
+  > 77 Γöé                 
+<Skeleton key={i} 
+className="h-12 w-full 
+rounded-lg" />
+       Γöé                  
+              ^
+    78 Γöé               ))}
+    79 Γöé             
+</div>
+  
+  i This is the source of 
+the key value.
+  
+    74 Γöé           
+<CardContent>
+    75 Γöé             <div 
+className="space-y-3">
+  > 76 Γöé               
+{Array.from({ length: 4 
+}).map((_, i) => (
+       Γöé                  
+                            
+    ^
+    77 Γöé                 
+<Skeleton key={i} 
+className="h-12 w-full 
+rounded-lg" />
+    78 Γöé               ))}
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\das
+hboard\staff-dashboard-skele
+ton.tsx:64:24 lint/suspiciou
+s/noArrayIndexKey ΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    62 Γöé               
+{Array.from({ length: 3 
+}).map((_, i) => (
+    63 Γöé                 
+<div
+  > 64 Γöé                  
+ key={i}
+       Γöé                  
+      ^
+    65 Γöé                  
+ className="flex 
+items-start justify-between 
+border-b 
+border-purple-100/50 
+dark:border-gray-800 pb-3 
+last:border-0"
+    66 Γöé                 >
+  
+  i This is the source of 
+the key value.
+  
+    60 Γöé           
+<CardContent>
+    61 Γöé             <div 
+className="space-y-3">
+  > 62 Γöé               
+{Array.from({ length: 3 
+}).map((_, i) => (
+       Γöé                  
+                            
+    ^
+    63 Γöé                 
+<div
+    64 Γöé                  
+ key={i}
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\das
+hboard\staff-dashboard-skele
+ton.tsx:101:24 lint/suspicio
+us/noArrayIndexKey ΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+     99 Γöé               
+{Array.from({ length: 4 
+}).map((_, i) => (
+    100 Γöé                 
+<div
+  > 101 Γöé                 
+  key={i}
+        Γöé                 
+       ^
+    102 Γöé                 
+  className="flex 
+items-start justify-between 
+border-b 
+border-emerald-100/50 
+dark:border-gray-800 pb-3 
+last:border-0"
+    103 Γöé                 
+>
+  
+  i This is the source of 
+the key value.
+  
+     97 Γöé           
+<CardContent>
+     98 Γöé             
+<div className="space-y-3">
+   > 99 Γöé               
+{Array.from({ length: 4 
+}).map((_, i) => (
+        Γöé                 
+                            
+     ^
+    100 Γöé                 
+<div
+    101 Γöé                 
+  key={i}
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\das
+hboard\staff-dashboard-skele
+ton.tsx:138:24 lint/suspicio
+us/noArrayIndexKey ΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    136 Γöé               
+{Array.from({ length: 4 
+}).map((_, i) => (
+    137 Γöé                 
+<div
+  > 138 Γöé                 
+  key={i}
+        Γöé                 
+       ^
+    139 Γöé                 
+  className="flex 
+items-start justify-between 
+border-b 
+border-purple-100/50 
+dark:border-gray-800 pb-3 
+last:border-0"
+    140 Γöé                 
+>
+  
+  i This is the source of 
+the key value.
+  
+    134 Γöé           
+<CardContent>
+    135 Γöé             
+<div className="space-y-3">
+  > 136 Γöé               
+{Array.from({ length: 4 
+}).map((_, i) => (
+        Γöé                 
+                            
+     ^
+    137 Γöé                 
+<div
+    138 Γöé                 
+  key={i}
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\doc
+uments\documents-folder-skel
+eton.tsx:16:22 lint/suspicio
+us/noArrayIndexKey ΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    14 Γöé             
+{Array.from({ length: 8 
+}).map((_, i) => (
+    15 Γöé               
+<div
+  > 16 Γöé                 
+key={i}
+       Γöé                  
+    ^
+    17 Γöé                 
+className="flex 
+items-center gap-4 p-3 
+rounded-lg 
+hover:bg-accent/50"
+    18 Γöé               >
+  
+  i This is the source of 
+the key value.
+  
+    12 Γöé         
+<CardContent 
+className="p-6">
+    13 Γöé           <div 
+className="space-y-3">
+  > 14 Γöé             
+{Array.from({ length: 8 
+}).map((_, i) => (
+       Γöé                  
+                            
+  ^
+    15 Γöé               
+<div
+    16 Γöé                 
+key={i}
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+src\components\skeletons\doc
+uments\documents-overview-sk
+eleton.tsx:29:18 lint/suspic
+ious/noArrayIndexKey ΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Avoid using the index 
+of an array as key property 
+in an element.
+  
+    27 Γöé         
+{Array.from({ length: 6 
+}).map((_, i) => (
+    28 Γöé           <Card
+  > 29 Γöé             
+key={i}
+       Γöé                  
+^
+    30 Γöé             
+className="shadow-sm 
+hover:shadow-md 
+transition-shadow 
+cursor-pointer"
+    31 Γöé           >
+  
+  i This is the source of 
+the key value.
+  
+    25 Γöé       {/* Folder 
+Grid */}
+    26 Γöé       <div 
+className="grid gap-4 
+md:grid-cols-2 
+lg:grid-cols-3">
+  > 27 Γöé         
+{Array.from({ length: 6 
+}).map((_, i) => (
+       Γöé                  
+                          ^
+    28 Γöé           <Card
+    29 Γöé             
+key={i}
+  
+  i The order of the items 
+may change, and this also 
+affects performances and 
+component state.
+  
+  i Check the React 
+documentation. 
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 10.
+Checked 543 files in 1534ms. No fixes applied.
+Found 3 errors.
+Found 27 warnings.
+check ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöü
+
+  ├ù Some errors were 
+emitted while running 
+checks.
+  
+

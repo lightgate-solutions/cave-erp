@@ -26,6 +26,7 @@ export function TaskBoardSkeleton() {
             <CardContent>
               <div className="space-y-3">
                 {Array.from({ length: 4 }).map((_, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
                   <Card key={i} className="border shadow-sm">
                     <CardContent className="p-4 space-y-2">
                       <Skeleton className="h-5 w-full" />

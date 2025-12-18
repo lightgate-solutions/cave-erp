@@ -61,6 +61,7 @@ export function StaffDashboardSkeleton() {
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
                   key={i}
                   className="flex items-start justify-between border-b border-purple-100/50 dark:border-gray-800 pb-3 last:border-0"
                 >
@@ -98,6 +99,7 @@ export function StaffDashboardSkeleton() {
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
                   key={i}
                   className="flex items-start justify-between border-b border-emerald-100/50 dark:border-gray-800 pb-3 last:border-0"
                 >
@@ -135,6 +137,7 @@ export function StaffDashboardSkeleton() {
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
                   key={i}
                   className="flex items-start justify-between border-b border-purple-100/50 dark:border-gray-800 pb-3 last:border-0"
                 >
