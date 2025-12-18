@@ -34,7 +34,8 @@ export function CardSkeleton({
         <div className="space-y-3">
           {Array.from({ length: contentLines }).map((_, i) => (
             <Skeleton
-              key={i}
+              // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
+              key={`content-line-${i}`}
               className={cn("h-5", i === contentLines - 1 ? "w-2/3" : "w-full")}
             />
           ))}

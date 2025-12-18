@@ -107,7 +107,6 @@ function Switcher({
   const { isSubmitting } = form.formState;
 
   async function handleCreateOrganization(data: CreateOrganizationForm) {
-    // Validate organization creation limit
     const { validateOrganizationCreation } = await import(
       "@/actions/organizations"
     );
@@ -146,6 +145,9 @@ function Switcher({
         },
         onSuccess: () => {
           router.refresh();
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("organization:changed"));
+          }
         },
       },
     );
