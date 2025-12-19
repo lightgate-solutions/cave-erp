@@ -10,12 +10,19 @@ import {
   deductions as deductionsSchema,
   salaryStructure,
 } from "@/db/schema/payroll";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 // Get all deductions for a specific employee
 export async function getEmployeeDeductions(employeeId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     const result = await db
@@ -38,7 +45,12 @@ export async function getEmployeeDeductions(employeeId: number) {
         salaryStructure,
         eq(employeeDeductions.salaryStructureId, salaryStructure.id),
       )
-      .where(eq(employeeDeductions.employeeId, employeeId))
+      .where(
+        and(
+          eq(employeeDeductions.employeeId, employeeId),
+          eq(employeeDeductions.organizationId, organization.id),
+        ),
+      )
       .orderBy(desc(employeeDeductions.effectiveFrom));
 
     return result;
@@ -52,6 +64,11 @@ export async function getActiveEmployeeDeductions(employeeId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     const result = await db
@@ -77,6 +94,7 @@ export async function getActiveEmployeeDeductions(employeeId: number) {
         and(
           eq(employeeDeductions.employeeId, employeeId),
           eq(employeeDeductions.active, true),
+          eq(employeeDeductions.organizationId, organization.id),
         ),
       )
       .orderBy(desc(employeeDeductions.effectiveFrom));
@@ -93,6 +111,11 @@ export async function getDeductionTypes() {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const result = await db
       .select({
@@ -103,6 +126,7 @@ export async function getDeductionTypes() {
         percentage: deductionsSchema.percentage,
       })
       .from(deductionsSchema)
+      .where(eq(deductionsSchema.organizationId, organization.id))
       .orderBy(deductionsSchema.name);
 
     return result;
@@ -129,6 +153,11 @@ export async function addDeductionToEmployee(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       // Check if employee exists
@@ -149,7 +178,12 @@ export async function addDeductionToEmployee(
       const structure = await tx
         .select({ id: salaryStructure.id, name: salaryStructure.name })
         .from(salaryStructure)
-        .where(eq(salaryStructure.id, data.salaryStructureId))
+        .where(
+          and(
+            eq(salaryStructure.id, data.salaryStructureId),
+            eq(salaryStructure.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (structure.length === 0) {
@@ -184,6 +218,7 @@ export async function addDeductionToEmployee(
         name: data.name.trim(),
         employeeId: data.employeeId,
         salaryStructureId: data.salaryStructureId,
+        organizationId: organization.id,
         amount: data.amount?.toString(),
         percentage: data.percentage?.toString(),
         originalAmount: data.originalAmount?.toString(),
@@ -235,6 +270,11 @@ export async function updateEmployeeDeduction(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       // Check if the deduction exists
@@ -245,7 +285,12 @@ export async function updateEmployeeDeduction(
           name: employeeDeductions.name,
         })
         .from(employeeDeductions)
-        .where(eq(employeeDeductions.id, deductionId))
+        .where(
+          and(
+            eq(employeeDeductions.id, deductionId),
+            eq(employeeDeductions.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (deduction.length === 0) {
@@ -310,6 +355,11 @@ export async function deactivateEmployeeDeduction(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       // Check if the deduction exists
@@ -320,7 +370,12 @@ export async function deactivateEmployeeDeduction(
           name: employeeDeductions.name,
         })
         .from(employeeDeductions)
-        .where(eq(employeeDeductions.id, deductionId))
+        .where(
+          and(
+            eq(employeeDeductions.id, deductionId),
+            eq(employeeDeductions.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (deduction.length === 0) {

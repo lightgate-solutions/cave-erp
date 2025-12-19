@@ -9,12 +9,19 @@ import {
   employeeAllowances,
   allowances as allowancesSchema,
 } from "@/db/schema/payroll";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 // Get all allowances for a specific employee
 export async function getEmployeeAllowances(employeeId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     const result = await db
@@ -37,7 +44,12 @@ export async function getEmployeeAllowances(employeeId: number) {
         allowancesSchema,
         eq(employeeAllowances.allowanceId, allowancesSchema.id),
       )
-      .where(eq(employeeAllowances.employeeId, employeeId))
+      .where(
+        and(
+          eq(employeeAllowances.employeeId, employeeId),
+          eq(employeeAllowances.organizationId, organization.id),
+        ),
+      )
       .orderBy(desc(employeeAllowances.effectiveFrom));
 
     return result;
@@ -51,6 +63,11 @@ export async function getActiveEmployeeAllowances(employeeId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     const result = await db
@@ -76,6 +93,7 @@ export async function getActiveEmployeeAllowances(employeeId: number) {
         and(
           eq(employeeAllowances.employeeId, employeeId),
           isNull(employeeAllowances.effectiveTo),
+          eq(employeeAllowances.organizationId, organization.id),
         ),
       )
       .orderBy(desc(employeeAllowances.effectiveFrom));
@@ -92,6 +110,11 @@ export async function getAvailableAllowancesForEmployee(employeeId: number) {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     // First, get all allowances that are currently assigned to the employee
     const assignedAllowanceIds = await db
@@ -101,6 +124,7 @@ export async function getAvailableAllowancesForEmployee(employeeId: number) {
         and(
           eq(employeeAllowances.employeeId, employeeId),
           isNull(employeeAllowances.effectiveTo),
+          eq(employeeAllowances.organizationId, organization.id),
         ),
       );
 
@@ -123,12 +147,16 @@ export async function getAvailableAllowancesForEmployee(employeeId: number) {
       })
       .from(allowancesSchema)
       .where(
-        sql`${allowancesSchema.id} NOT IN (
-          SELECT ${employeeAllowances.allowanceId}
-          FROM ${employeeAllowances}
-          WHERE ${employeeAllowances.employeeId} = ${employeeId}
-          AND ${employeeAllowances.effectiveTo} IS NULL
-        )`,
+        and(
+          eq(allowancesSchema.organizationId, organization.id),
+          sql`${allowancesSchema.id} NOT IN (
+            SELECT ${employeeAllowances.allowanceId}
+            FROM ${employeeAllowances}
+            WHERE ${employeeAllowances.employeeId} = ${employeeId}
+            AND ${employeeAllowances.effectiveTo} IS NULL
+            AND ${employeeAllowances.organizationId} = ${organization.id}
+          )`,
+        ),
       )
       .orderBy(allowancesSchema.name);
 
@@ -148,6 +176,11 @@ export async function addAllowanceToEmployee(
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     return await db.transaction(async (tx) => {
@@ -169,7 +202,12 @@ export async function addAllowanceToEmployee(
       const allowance = await tx
         .select({ id: allowancesSchema.id, name: allowancesSchema.name })
         .from(allowancesSchema)
-        .where(eq(allowancesSchema.id, allowanceId))
+        .where(
+          and(
+            eq(allowancesSchema.id, allowanceId),
+            eq(allowancesSchema.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (allowance.length === 0) {
@@ -188,6 +226,7 @@ export async function addAllowanceToEmployee(
             eq(employeeAllowances.employeeId, employeeId),
             eq(employeeAllowances.allowanceId, allowanceId),
             isNull(employeeAllowances.effectiveTo),
+            eq(employeeAllowances.organizationId, organization.id),
           ),
         )
         .limit(1);
@@ -205,6 +244,7 @@ export async function addAllowanceToEmployee(
       await tx.insert(employeeAllowances).values({
         employeeId,
         allowanceId,
+        organizationId: organization.id,
         effectiveFrom,
       });
 
@@ -243,6 +283,11 @@ export async function removeAllowanceFromEmployee(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       // Check if the relationship exists
@@ -253,7 +298,12 @@ export async function removeAllowanceFromEmployee(
           allowanceId: employeeAllowances.allowanceId,
         })
         .from(employeeAllowances)
-        .where(eq(employeeAllowances.id, employeeAllowanceId))
+        .where(
+          and(
+            eq(employeeAllowances.id, employeeAllowanceId),
+            eq(employeeAllowances.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (relationship.length === 0) {

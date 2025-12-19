@@ -20,6 +20,8 @@ import {
 import { loanApplications, loanRepayments } from "@/db/schema/loans";
 import { revalidatePath } from "next/cache";
 import { not } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 type PayrunType = "salary" | "allowance";
 
@@ -39,6 +41,11 @@ export async function generatePayrun(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   const { type, allowanceId, month, year, day = 1 } = data;
 
   try {
@@ -53,6 +60,7 @@ export async function generatePayrun(
             eq(payrun.month, month),
             eq(payrun.day, day),
             eq(payrun.type, type),
+            eq(payrun.organizationId, organization.id),
             type === "allowance" && allowanceId
               ? eq(payrun.allowanceId, allowanceId)
               : isNull(payrun.allowanceId),
@@ -159,6 +167,7 @@ export async function generatePayrun(
           day,
           month,
           year,
+          organizationId: organization.id,
           totalEmployees: employeePayrollData.length,
           totalGrossPay: totalGrossPay.toFixed(2),
           totalDeductions: totalDeductionsAmount.toFixed(2),
@@ -176,6 +185,7 @@ export async function generatePayrun(
             type: type === "salary" ? "salary" : "allowance",
             payrunId: newPayrun.id,
             employeeId: empData.employeeId,
+            organizationId: organization.id,
             baseSalary: empData.baseSalary.toFixed(2),
             totalAllowances: empData.totalAllowances.toFixed(2),
             totalDeductions: empData.totalDeductions.toFixed(2),
@@ -272,7 +282,12 @@ export async function generatePayrun(
         }
 
         if (detailRecords.length > 0) {
-          await tx.insert(payrunItemDetails).values(detailRecords);
+          // Add organizationId to all detail records
+          const detailRecordsWithOrg = detailRecords.map((record) => ({
+            ...record,
+            organizationId: organization.id,
+          }));
+          await tx.insert(payrunItemDetails).values(detailRecordsWithOrg);
         }
       }
 
@@ -628,6 +643,11 @@ export async function getPayruns() {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const payruns = await db
       .select({
@@ -653,6 +673,7 @@ export async function getPayruns() {
       .from(payrun)
       .leftJoin(allowances, eq(payrun.allowanceId, allowances.id))
       .leftJoin(employees, eq(payrun.generatedBy, employees.id))
+      .where(eq(payrun.organizationId, organization.id))
       .orderBy(desc(payrun.createdAt));
 
     return payruns;
@@ -665,6 +686,11 @@ export async function getPayrunById(id: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     const payrunData = await db
@@ -691,7 +717,7 @@ export async function getPayrunById(id: number) {
       .from(payrun)
       .leftJoin(allowances, eq(payrun.allowanceId, allowances.id))
       .leftJoin(employees, eq(payrun.generatedBy, employees.id))
-      .where(eq(payrun.id, id))
+      .where(and(eq(payrun.id, id), eq(payrun.organizationId, organization.id)))
       .limit(1);
 
     if (payrunData.length === 0) {
@@ -1041,6 +1067,11 @@ export async function getApprovedPayruns() {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const payruns = await db
       .select({
@@ -1063,7 +1094,12 @@ export async function getApprovedPayruns() {
       .from(payrun)
       .leftJoin(allowances, eq(payrun.allowanceId, allowances.id))
       .leftJoin(employees, eq(payrun.generatedBy, employees.id))
-      .where(or(eq(payrun.status, "approved"), eq(payrun.status, "paid")))
+      .where(
+        and(
+          or(eq(payrun.status, "approved"), eq(payrun.status, "paid")),
+          eq(payrun.organizationId, organization.id),
+        ),
+      )
       .orderBy(desc(payrun.approvedAt));
 
     return payruns;
@@ -1077,6 +1113,11 @@ export async function getAllAllowances() {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db
       .select({
@@ -1085,6 +1126,7 @@ export async function getAllAllowances() {
         type: allowances.type,
       })
       .from(allowances)
+      .where(eq(allowances.organizationId, organization.id))
       .orderBy(allowances.name);
   } catch (_error) {
     return [];
