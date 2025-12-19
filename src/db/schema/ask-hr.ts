@@ -10,6 +10,7 @@ import {
   boolean,
 } from "drizzle-orm/pg-core";
 import { employees } from "./hr";
+import { organization } from "./auth";
 
 // Enums for Ask HR module
 export const askHrStatusEnum = pgEnum("ask_hr_status", [
@@ -40,6 +41,9 @@ export const askHrQuestions = pgTable(
       .notNull()
       .references(() => employees.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     question: text("question").notNull(),
     isAnonymous: boolean("is_anonymous").notNull().default(false),
     isPublic: boolean("is_public").notNull().default(false),
@@ -71,6 +75,9 @@ export const askHrResponses = pgTable(
     respondentId: integer("respondent_id")
       .notNull()
       .references(() => employees.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     response: text("response").notNull(),
     isInternal: boolean("is_internal").notNull().default(false), // For HR internal notes
     createdAt: timestamp("created_at").notNull().defaultNow(),
