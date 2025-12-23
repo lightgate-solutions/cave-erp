@@ -25,7 +25,7 @@ export default async function InvitationPage({
       headers: await headers(),
       query: { id },
     })
-    .catch(() => redirect("/"));
+    .catch(() => redirect("/dashboard"));
 
   return (
     <div className="container mx-auto my-6 max-w-2xl px-4">

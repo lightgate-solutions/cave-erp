@@ -6,8 +6,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatsCardSkeleton } from "../base/stats-card-skeleton";
-import { ActionButtonsSkeleton } from "../base/action-buttons-skeleton";
 
 export function FinanceDashboardSkeleton() {
   return (
@@ -24,7 +22,7 @@ export function FinanceDashboardSkeleton() {
       {/* Stats Row - 3 cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Card key={i} className="shadow-sm">
+          <Card key={`finance-stat-${i}`} className="shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <Skeleton className="h-12 w-12 rounded-xl" />
@@ -74,7 +72,10 @@ export function FinanceDashboardSkeleton() {
           <CardContent>
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                <Skeleton
+                  key={`finance-action-${i}`}
+                  className="h-12 w-full rounded-lg"
+                />
               ))}
             </div>
           </CardContent>

@@ -227,7 +227,7 @@ export function UsersTable() {
             </TableHeader>
             <TableBody>
               {Array.from({ length: 3 }).map((_, index) => (
-                <TableRow key={index}>
+                <TableRow key={`users-skeleton-row-${index}`}>
                   <TableCell className="px-4 py-3">
                     <div className="flex items-center gap-4">
                       <Skeleton className="h-10 w-10 rounded-full" />
@@ -243,7 +243,10 @@ export function UsersTable() {
                   <TableCell className="px-4 py-3">
                     <div className="flex -space-x-2">
                       {Array.from({ length: 2 }).map((_, i) => (
-                        <Skeleton key={i} className="h-8 w-8 rounded-full" />
+                        <Skeleton
+                          key={`users-skeleton-avatar-${index}-${i}`}
+                          className="h-8 w-8 rounded-full"
+                        />
                       ))}
                     </div>
                   </TableCell>
@@ -382,7 +385,7 @@ export function UsersTable() {
           <TableBody>
             {isLoading
               ? Array.from({ length: 3 }).map((_, index) => (
-                  <TableRow key={index}>
+                  <TableRow key={`users-loading-row-${index}`}>
                     <TableCell className="px-4 py-3">
                       <div className="flex items-center gap-4">
                         <Skeleton className="h-10 w-10 rounded-full" />
@@ -398,7 +401,10 @@ export function UsersTable() {
                     <TableCell className="px-4 py-3">
                       <div className="flex -space-x-2">
                         {Array.from({ length: 2 }).map((_, i) => (
-                          <Skeleton key={i} className="h-8 w-8 rounded-full" />
+                          <Skeleton
+                            key={`users-loading-avatar-${index}-${i}`}
+                            className="h-8 w-8 rounded-full"
+                          />
                         ))}
                       </div>
                     </TableCell>

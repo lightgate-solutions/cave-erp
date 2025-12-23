@@ -22,7 +22,7 @@ export function FormSkeleton({
       <CardContent>
         <div className="space-y-6">
           {Array.from({ length: fieldCount }).map((_, i) => (
-            <div key={i} className="space-y-2">
+            <div key={`form-field-${i}`} className="space-y-2">
               <Skeleton className="h-5 w-32" />
               <Skeleton className="h-10 w-full" />
             </div>

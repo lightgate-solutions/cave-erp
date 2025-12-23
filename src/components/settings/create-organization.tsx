@@ -81,7 +81,7 @@ export function CreateOrganizationButton() {
       await authClient.organization.setActive({ organizationId: res.data.id });
       toast.success("Organization created successfully!");
       setTimeout(() => {
-        router.refresh();
+        router.push("/dashboard");
       }, 1500);
     }
   }

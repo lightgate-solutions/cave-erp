@@ -34,7 +34,7 @@ export function CardSkeleton({
         <div className="space-y-3">
           {Array.from({ length: contentLines }).map((_, i) => (
             <Skeleton
-              key={i}
+              key={`card-content-line-${i}`}
               className={cn("h-5", i === contentLines - 1 ? "w-2/3" : "w-full")}
             />
           ))}

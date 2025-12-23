@@ -62,11 +62,11 @@ export default function OtpPage() {
         },
         onSuccess: () => {
           form.reset();
-          toast.success("OTP Login Successfull!", {
-            description: "Redirecting to login...",
+          toast.success("OTP Login Successful!", {
+            description: "Redirecting to dashboard...",
           });
           setTimeout(() => {
-            router.push("/");
+            router.push("/dashboard");
           }, 1000);
         },
       },

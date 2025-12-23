@@ -30,7 +30,7 @@ export function TableSkeleton({
       <TableHeader>
         <TableRow>
           {Array.from({ length: columns }).map((_, i) => (
-            <TableHead key={i}>
+            <TableHead key={`table-head-${i}`}>
               <Skeleton className="h-5 w-24" />
             </TableHead>
           ))}
@@ -43,9 +43,9 @@ export function TableSkeleton({
       </TableHeader>
       <TableBody>
         {skeletonRows.map((index) => (
-          <TableRow key={index}>
+          <TableRow key={`table-row-${index}`}>
             {Array.from({ length: columns }).map((_, colIndex) => (
-              <TableCell key={colIndex}>
+              <TableCell key={`table-cell-${index}-${colIndex}`}>
                 {colIndex === 0 && showAvatar ? (
                   <div className="flex items-center gap-3">
                     <Skeleton className="h-10 w-10 rounded-full" />

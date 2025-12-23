@@ -30,7 +30,7 @@ export function SettingsPageSkeleton() {
           </CardHeader>
           <CardContent className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="space-y-2">
+              <div key={`profile-field-${i}`} className="space-y-2">
                 <Skeleton className="h-5 w-24" />
                 <Skeleton className="h-10 w-full" />
               </div>
@@ -54,7 +54,7 @@ export function SettingsPageSkeleton() {
           </CardHeader>
           <CardContent className="space-y-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="space-y-2">
+              <div key={`password-field-${i}`} className="space-y-2">
                 <Skeleton className="h-5 w-32" />
                 <Skeleton className="h-10 w-full" />
               </div>

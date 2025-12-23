@@ -785,7 +785,6 @@ export function DocumentSheet({
                 <div className="relative border-l ml-2 space-y-6 pl-6 py-2">
                   {/* biome-ignore lint/suspicious/noExplicitAny: Pending proper type definition */}
                   {logs.map((log: any, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: Log ID not available
                     <div key={i} className="relative">
                       <div className="absolute -left-[29px] top-1 h-3 w-3 rounded-full border bg-background" />
                       <div className="text-sm">

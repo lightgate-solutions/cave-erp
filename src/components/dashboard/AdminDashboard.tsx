@@ -167,7 +167,6 @@ export default function AdminDashboard({ employeeId }: { employeeId: number }) {
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: Static array for loading skeletons
             <Skeleton key={i} className="h-28 rounded-lg" />
           ))}
         </div>

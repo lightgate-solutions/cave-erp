@@ -146,7 +146,6 @@ export function FinancePayrunTable() {
     return (
       <div className="space-y-2">
         {[...Array(5)].map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton array
           <Skeleton key={i} className="h-12 w-full" />
         ))}
       </div>

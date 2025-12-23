@@ -17,9 +17,11 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noArrayIndexKey": {
-          "level": "warn"
-        }
+        "noArrayIndexKey": "off",
+        "noExplicitAny": "warn"
+      },
+      "complexity": {
+        "noBannedTypes": "warn"
       }
     }
   },

@@ -95,7 +95,6 @@ export default function RecentNotifications({
         <CardContent>
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: Static array for loading skeletons
               <Skeleton key={i} className="h-20 w-full rounded-lg" />
             ))}
           </div>

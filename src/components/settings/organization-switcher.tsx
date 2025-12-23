@@ -152,7 +152,7 @@ function Switcher({
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
           size="lg"

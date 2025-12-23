@@ -33,9 +33,6 @@ import {
   SUPPORTED_OAUTH_PROVIDERS,
 } from "@/lib/o-auth-providers";
 
-// biome-ignore lint/style/noNonNullAssertion: <>
-const callbackUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_CALLBACK_URL!;
-
 const signUpSchema = z
   .object({
     email: z.email({ error: "Email is required" }).min(1, "Email is required"),
@@ -74,7 +71,7 @@ export function SignupForm() {
         email: data.email,
         password: data.password,
         name: data.name,
-        callbackURL: callbackUrl,
+        callbackURL: "/dashboard",
       },
       {
         onError: (err) => {
@@ -136,7 +133,7 @@ export function SignupForm() {
                 startEmailVerificationCountdown();
                 return authClient.sendVerificationEmail({
                   email,
-                  callbackURL: callbackUrl,
+                  callbackURL: "/dashboard",
                 });
               }}
             >
@@ -283,7 +280,7 @@ export function SocialAuthButtons() {
         action={() => {
           return authClient.signIn.social({
             provider,
-            callbackURL: "/",
+            callbackURL: "/dashboard",
           });
         }}
       >

@@ -7,10 +7,15 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Check if user is already authenticated
   const session = await auth.api.getSession({
     headers: await headers(),
   });
-  if (session) redirect("/");
+
+  // If user is authenticated, redirect to dashboard
+  if (session) {
+    redirect("/dashboard");
+  }
 
   return <div>{children}</div>;
 }

@@ -33,9 +33,6 @@ import {
   SUPPORTED_OAUTH_PROVIDERS,
 } from "@/lib/o-auth-providers";
 
-// biome-ignore lint/style/noNonNullAssertion: <>
-const callbackUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_CALLBACK_URL!;
-
 const signInSchema = z.object({
   email: z.email({ error: "Email is required" }).min(1, "Email is required"),
   password: z.string().min(1, "Password is required."),
@@ -63,7 +60,7 @@ export function LoginForm() {
       {
         email: data.email,
         password: data.password,
-        callbackURL: callbackUrl,
+        callbackURL: "/dashboard",
       },
       {
         onError: (err) => {
@@ -73,7 +70,7 @@ export function LoginForm() {
             setEmail(data.email);
             authClient.sendVerificationEmail({
               email: data.email,
-              callbackURL: callbackUrl,
+              callbackURL: "/dashboard",
             });
           }
           form.reset();
@@ -87,6 +84,10 @@ export function LoginForm() {
             } else {
               toast.error("Failed to Sign In. Try Again!");
             }
+          } else {
+            // Redirect to dashboard after successful login
+            toast.success("Successfully signed in!");
+            router.push("/dashboard");
           }
         },
       },
@@ -137,7 +138,7 @@ export function LoginForm() {
                 startEmailVerificationCountdown();
                 return authClient.sendVerificationEmail({
                   email,
-                  callbackURL: callbackUrl,
+                  callbackURL: "/dashboard",
                 });
               }}
             >
@@ -255,7 +256,7 @@ export function SocialAuthButtons() {
         action={() => {
           return authClient.signIn.social({
             provider,
-            callbackURL: "/",
+            callbackURL: "/dashboard",
           });
         }}
       >

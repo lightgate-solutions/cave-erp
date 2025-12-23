@@ -25,7 +25,10 @@ export function ProjectsPageSkeleton() {
       {/* Projects Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i} className="shadow-sm hover:shadow-md transition-shadow">
+          <Card
+            key={`project-card-${i}`}
+            className="shadow-sm hover:shadow-md transition-shadow"
+          >
             <CardContent className="p-6 space-y-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-2 flex-1">

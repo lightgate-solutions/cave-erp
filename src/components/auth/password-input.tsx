@@ -121,7 +121,6 @@ export default function PasswordInput({
           {/* Password requirements list */}
           <ul className="space-y-1.5" aria-label="Password requirements">
             {strength.map((req, index) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: <>
               <li key={index} className="flex items-center gap-2">
                 {req.met ? (
                   <CheckIcon

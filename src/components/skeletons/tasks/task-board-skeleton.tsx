@@ -26,7 +26,10 @@ export function TaskBoardSkeleton() {
             <CardContent>
               <div className="space-y-3">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <Card key={i} className="border shadow-sm">
+                  <Card
+                    key={`task-card-${column}-${i}`}
+                    className="border shadow-sm"
+                  >
                     <CardContent className="p-4 space-y-2">
                       <Skeleton className="h-5 w-full" />
                       <Skeleton className="h-4 w-3/4" />

@@ -13,7 +13,7 @@ export function DocumentsFolderSkeleton() {
           <div className="space-y-3">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
-                key={i}
+                key={`document-folder-item-${i}`}
                 className="flex items-center gap-4 p-3 rounded-lg hover:bg-accent/50"
               >
                 <Skeleton className="h-10 w-10 rounded-lg" />

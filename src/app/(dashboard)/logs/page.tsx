@@ -20,7 +20,7 @@ export default async function LogsPage() {
 
   const userRole = session.user.role?.toLowerCase().trim();
   if (userRole !== "admin") {
-    redirect("/");
+    redirect("/dashboard");
   }
 
   return (

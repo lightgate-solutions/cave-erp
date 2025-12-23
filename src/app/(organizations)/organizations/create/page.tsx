@@ -14,7 +14,7 @@ export default async function Page() {
   });
 
   if (data.length > 0) {
-    redirect("/");
+    redirect("/dashboard");
   }
 
   return (

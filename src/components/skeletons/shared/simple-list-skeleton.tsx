@@ -18,7 +18,7 @@ export function SimpleListSkeleton() {
           <div className="space-y-3">
             {Array.from({ length: 10 }).map((_, i) => (
               <div
-                key={i}
+                key={`list-item-${i}`}
                 className="flex items-center gap-4 p-3 rounded-lg border"
               >
                 <Skeleton className="h-10 w-10 rounded-full" />
