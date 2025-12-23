@@ -177,7 +177,7 @@ function Switcher({
         sideOffset={4}
       >
         <DropdownMenuLabel className="text-muted-foreground text-xs">
-          Oragnizations
+          Organizations
         </DropdownMenuLabel>
         {organizations.map((org, index) => (
           <DropdownMenuItem
