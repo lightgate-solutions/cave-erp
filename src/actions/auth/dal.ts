@@ -19,8 +19,11 @@ export const verifySession = cache(async () => {
 });
 
 export const getUser = cache(async () => {
-  const session = await verifySession();
-  if (!session.userId) return null;
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) return null;
+
+  // Get active organization from session
+  const activeOrgId = session.session?.activeOrganizationId;
 
   const [user] = await db
     .select({
@@ -34,12 +37,13 @@ export const getUser = cache(async () => {
       managerId: employees.managerId,
       isManager: employees.isManager,
       authId: employees.authId,
+      organizationId: employees.organizationId,
     })
     .from(employees)
-    .where(eq(employees.authId, session.userId))
+    .where(eq(employees.authId, session.user.id))
     .limit(1);
 
-  return user;
+  return user ? { ...user, activeOrgId } : null;
 });
 
 export const getSessionRole = cache(async () => {

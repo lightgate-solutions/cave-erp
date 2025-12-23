@@ -27,6 +27,7 @@ export async function getActiveFolderDocuments(
 ) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
+  const orgId = user.activeOrgId || user.organizationId;
 
   try {
     const { docs, total } = await db.transaction(async (tx) => {
@@ -40,7 +41,12 @@ export async function getActiveFolderDocuments(
           department: documentFolders.department,
         })
         .from(documentFolders)
-        .where(eq(documentFolders.id, folderId))
+        .where(
+          and(
+            eq(documentFolders.id, folderId),
+            orgId ? eq(documentFolders.organizationId, orgId) : undefined,
+          ),
+        )
         .limit(1);
 
       if (folder.length === 0) throw new Error("Folder not found");
@@ -82,6 +88,7 @@ export async function getActiveFolderDocuments(
           and(
             eq(document.folderId, folderId),
             eq(document.status, "active"),
+            orgId ? eq(document.organizationId, orgId) : undefined,
             visibilityCondition,
           ),
         );
@@ -118,6 +125,7 @@ export async function getActiveFolderDocuments(
           and(
             eq(document.folderId, folderId),
             eq(document.status, "active"),
+            orgId ? eq(document.organizationId, orgId) : undefined,
             visibilityCondition,
           ),
         )

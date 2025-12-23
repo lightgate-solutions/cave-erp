@@ -11,12 +11,16 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { employees } from "./hr";
+import { organization } from "./auth";
 
 export const documentFolders = pgTable(
   "document_folders",
   {
     id: serial("id").primaryKey(),
     name: text("name").notNull(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     parentId: integer("parent_id"),
     root: boolean("root").default(true).notNull(),
     department: text("department").notNull(),
@@ -33,6 +37,7 @@ export const documentFolders = pgTable(
     foldersNameIdx: index("folders_name_idx").on(table.name),
     foldersDepartmentIdx: index("folders_department_idx").on(table.department),
     foldersParentIdx: index("folders_parent_idx").on(table.parentId),
+    foldersOrgIdx: index("folders_organization_idx").on(table.organizationId),
     documentFoldersParentFk: foreignKey({
       columns: [table.parentId],
       foreignColumns: [table.id],
@@ -49,6 +54,9 @@ export const document = pgTable(
     description: text("description"),
     upstashId: uuid("upstash_id").notNull().defaultRandom(),
     originalFileName: text("original_file_name"),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     department: text("department").notNull(),
     departmental: boolean("departmental").default(false),
     folderId: integer("folder_id").references(() => documentFolders.id),
@@ -63,6 +71,7 @@ export const document = pgTable(
   (table) => [
     index("documents_name_idx").on(table.title),
     index("documents_version_id_idx").on(table.currentVersionId),
+    index("documents_organization_idx").on(table.organizationId),
   ],
 );
 

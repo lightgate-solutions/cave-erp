@@ -42,6 +42,7 @@ interface UploadActionProps {
 async function getUsersFolderId(folder: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
+  const orgId = user.activeOrgId || user.organizationId;
 
   let folderQuery: any;
 
@@ -54,6 +55,7 @@ async function getUsersFolderId(folder: string) {
           eq(documentFolders.name, folder),
           eq(documentFolders.department, user.department),
           eq(documentFolders.departmental, true),
+          orgId ? eq(documentFolders.organizationId, orgId) : undefined,
         ),
       )
       .limit(1);
@@ -65,7 +67,12 @@ async function getUsersFolderId(folder: string) {
     folderQuery = await db
       .select({ id: documentFolders.id })
       .from(documentFolders)
-      .where(eq(documentFolders.name, "public"))
+      .where(
+        and(
+          eq(documentFolders.name, "public"),
+          orgId ? eq(documentFolders.organizationId, orgId) : undefined,
+        ),
+      )
       .limit(1);
 
     if (folderQuery.length > 0) return folderQuery;
@@ -78,6 +85,7 @@ async function getUsersFolderId(folder: string) {
       and(
         eq(documentFolders.name, folder),
         eq(documentFolders.createdBy, user.id),
+        orgId ? eq(documentFolders.organizationId, orgId) : undefined,
       ),
     )
     .limit(1);
@@ -91,6 +99,7 @@ async function getUsersFolderId(folder: string) {
       createdBy: user.id,
       department: user.department,
       departmental: user.department === folder,
+      organizationId: orgId,
     })
     .returning({ id: documentFolders.id });
 
@@ -100,6 +109,7 @@ async function getUsersFolderId(folder: string) {
 export async function uploadDocumentsAction(data: UploadActionProps) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
+  const orgId = user.activeOrgId || user.organizationId;
 
   const folderResult = await getUsersFolderId(data.folder);
   if (!folderResult.length) {
@@ -132,6 +142,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
             title: data.Files.length > 1 ? `${data.title}-${idx}` : data.title,
             description: data.description ?? "No description",
             originalFileName: file.originalFileName,
+            organizationId: orgId,
             department: user.department,
             departmental: effectiveDepartmental,
             folderId,

@@ -14,6 +14,7 @@ import {
 import { tasks } from "./tasks/tasks";
 import { taskSubmissions } from "./tasks/taskSubmissions";
 import { taskReviews } from "./tasks/tasksReviews";
+import { organization } from "./auth";
 
 export const employmentTypeEnum = pgEnum("employment_type", [
   "Full-time",
@@ -57,6 +58,9 @@ export const employees = pgTable(
   "employees",
   {
     id: serial("id").primaryKey(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     name: text("name").notNull(),
     authId: text("auth_id").notNull().default(""),
     email: text("email").notNull().unique(),
@@ -79,6 +83,7 @@ export const employees = pgTable(
   (table) => [
     index("employee_manager_idx").on(table.managerId),
     index("employees_department_role_idx").on(table.department, table.role),
+    index("employees_organization_idx").on(table.organizationId),
   ],
 );
 
