@@ -11,12 +11,15 @@ import {
   document,
   documentVersions,
 } from "@/db/schema";
+import { subscriptions } from "@/db/schema/subscriptions";
 import { createNotification } from "../notification/notification";
 import { and, eq, or, ilike, sql, desc, inArray } from "drizzle-orm";
 import * as z from "zod";
 import { getUser } from "../auth/dal";
 import { sendInAppEmailNotification } from "@/lib/emails";
 import { filterUsersByEmailPreference } from "@/lib/notification-helpers";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 /**
  * Send external email notifications to recipients who have email notifications enabled
@@ -148,6 +151,15 @@ export async function sendEmail(
       return { success: false, data: null, error: "Log in to continue" };
     }
 
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return { success: false, data: null, error: "Organization not found" };
+    }
+
     const validated = sendEmailSchema.parse(data);
 
     const emailRecord = await db.transaction(async (tx) => {
@@ -171,6 +183,7 @@ export async function sendEmail(
           subject: validated.subject,
           body: validated.body,
           type: "sent",
+          organizationId: organization.id,
         })
         .returning();
 
@@ -279,13 +292,31 @@ export async function replyToEmail(data: z.infer<typeof replyEmailSchema>) {
       };
     }
 
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return {
+        success: false,
+        data: null,
+        error: "Organization not found",
+      };
+    }
+
     const validated = replyEmailSchema.parse(data);
 
     const result = await db.transaction(async (tx) => {
       const [parentEmail] = await tx
         .select()
         .from(email)
-        .where(eq(email.id, validated.parentEmailId))
+        .where(
+          and(
+            eq(email.id, validated.parentEmailId),
+            eq(email.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (!parentEmail) {
@@ -317,6 +348,7 @@ export async function replyToEmail(data: z.infer<typeof replyEmailSchema>) {
           body: validated.body,
           type: "reply",
           parentEmailId: validated.parentEmailId,
+          organizationId: organization.id,
         })
         .returning();
 
@@ -425,13 +457,31 @@ export async function forwardEmail(data: z.infer<typeof forwardEmailSchema>) {
         data: null,
       };
     }
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return {
+        success: false,
+        error: "Organization not found",
+        data: null,
+      };
+    }
+
     const validated = forwardEmailSchema.parse(data);
 
     const result = await db.transaction(async (tx) => {
       const [parentEmail] = await tx
         .select()
         .from(email)
-        .where(eq(email.id, validated.parentEmailId))
+        .where(
+          and(
+            eq(email.id, validated.parentEmailId),
+            eq(email.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (!parentEmail) {
@@ -463,6 +513,7 @@ export async function forwardEmail(data: z.infer<typeof forwardEmailSchema>) {
           body: validated.body,
           type: "forward",
           parentEmailId: validated.parentEmailId,
+          organizationId: organization.id,
         })
         .returning();
 
@@ -570,6 +621,19 @@ export async function getInboxEmails(page = 1, limit = 20) {
         data: null,
       };
     }
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return {
+        success: false,
+        error: "Organization not found",
+        data: null,
+      };
+    }
+
     const offset = (page - 1) * limit;
 
     return await db.transaction(async (tx) => {
@@ -594,6 +658,7 @@ export async function getInboxEmails(page = 1, limit = 20) {
             eq(emailRecipient.recipientId, currentUser.id),
             eq(emailRecipient.isArchived, false),
             eq(emailRecipient.isDeleted, false),
+            eq(email.organizationId, organization.id),
           ),
         )
         .orderBy(desc(email.createdAt))
@@ -645,6 +710,19 @@ export async function getArchivedEmails(page = 1, limit = 20) {
         data: null,
       };
     }
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return {
+        success: false,
+        error: "Organization not found",
+        data: null,
+      };
+    }
+
     const offset = (page - 1) * limit;
 
     return await db.transaction(async (tx) => {
@@ -670,6 +748,7 @@ export async function getArchivedEmails(page = 1, limit = 20) {
             eq(emailRecipient.recipientId, currentUser.id),
             eq(emailRecipient.isArchived, true),
             eq(emailRecipient.isDeleted, false),
+            eq(email.organizationId, organization.id),
           ),
         )
         .orderBy(desc(emailRecipient.archivedAt))
@@ -723,6 +802,19 @@ export async function getSentEmails(page = 1, limit = 20) {
         data: null,
       };
     }
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return {
+        success: false,
+        error: "Organization not found",
+        data: null,
+      };
+    }
+
     const offset = (page - 1) * limit;
 
     return await db.transaction(async (tx) => {
@@ -751,7 +843,12 @@ export async function getSentEmails(page = 1, limit = 20) {
         .from(email)
         .innerJoin(emailRecipient, eq(email.id, emailRecipient.emailId))
         .innerJoin(employees, eq(emailRecipient.recipientId, employees.id))
-        .where(eq(email.senderId, currentUser.id))
+        .where(
+          and(
+            eq(email.senderId, currentUser.id),
+            eq(email.organizationId, organization.id),
+          ),
+        )
         .groupBy(email.id)
         .orderBy(desc(email.createdAt))
         .limit(limit)
@@ -798,6 +895,19 @@ export async function getTrashEmails(page = 1, limit = 20) {
       };
     }
 
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return {
+        success: false,
+        error: "Organization not found",
+        data: null,
+      };
+    }
+
     const offset = (page - 1) * limit;
 
     return await db.transaction(async (tx) => {
@@ -821,6 +931,7 @@ export async function getTrashEmails(page = 1, limit = 20) {
           and(
             eq(emailRecipient.recipientId, currentUser.id),
             eq(emailRecipient.isDeleted, true),
+            eq(email.organizationId, organization.id),
           ),
         )
         .orderBy(desc(emailRecipient.deletedAt))
@@ -872,6 +983,19 @@ export async function getEmailById(emailId: number) {
       };
     }
 
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return {
+        success: false,
+        error: "Organization not found",
+        data: null,
+      };
+    }
+
     return await db.transaction(async (tx) => {
       const [emailData] = await tx
         .select({
@@ -888,7 +1012,9 @@ export async function getEmailById(emailId: number) {
         })
         .from(email)
         .innerJoin(employees, eq(email.senderId, employees.id))
-        .where(eq(email.id, emailId))
+        .where(
+          and(eq(email.id, emailId), eq(email.organizationId, organization.id)),
+        )
         .limit(1);
 
       if (!emailData) {
@@ -1368,6 +1494,19 @@ export async function searchEmails(data: z.infer<typeof searchEmailSchema>) {
       };
     }
 
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return {
+        success: false,
+        error: "Organization not found",
+        data: null,
+      };
+    }
+
     return await db.transaction(async (tx) => {
       const validated = searchEmailSchema.parse(data);
       const searchTerm = `%${validated.query}%`;
@@ -1396,6 +1535,7 @@ export async function searchEmails(data: z.infer<typeof searchEmailSchema>) {
               eq(emailRecipient.recipientId, currentUser.id),
               eq(emailRecipient.isArchived, false),
               eq(emailRecipient.isDeleted, false),
+              eq(email.organizationId, organization.id),
               or(
                 ilike(email.subject, searchTerm),
                 ilike(email.body, searchTerm),
@@ -1431,6 +1571,7 @@ export async function searchEmails(data: z.infer<typeof searchEmailSchema>) {
               eq(emailRecipient.recipientId, currentUser.id),
               eq(emailRecipient.isArchived, true),
               eq(emailRecipient.isDeleted, false),
+              eq(email.organizationId, organization.id),
               or(
                 ilike(email.subject, searchTerm),
                 ilike(email.body, searchTerm),
@@ -1463,6 +1604,7 @@ export async function searchEmails(data: z.infer<typeof searchEmailSchema>) {
           .where(
             and(
               eq(email.senderId, currentUser.id),
+              eq(email.organizationId, organization.id),
               or(
                 ilike(email.subject, searchTerm),
                 ilike(email.body, searchTerm),
@@ -2051,4 +2193,28 @@ export async function getAccessibleDocumentsForAttachmentPaginated(
       error: error instanceof Error ? error.message : "Failed to get documents",
     };
   }
+}
+
+export async function checkMailAccess() {
+  const h = await headers();
+  const organization = await auth.api.getFullOrganization({
+    headers: h,
+  });
+
+  if (!organization) {
+    return { allowed: false, message: "Organization not found" };
+  }
+
+  const ownerId = organization.ownerId;
+  const subscription = await db.query.subscriptions.findFirst({
+    where: eq(subscriptions.userId, ownerId),
+  });
+
+  const planId = subscription?.plan ?? "free";
+
+  if (planId === "free") {
+    return { allowed: false, message: "Upgrade to Pro to access Mail module." };
+  }
+
+  return { allowed: true };
 }

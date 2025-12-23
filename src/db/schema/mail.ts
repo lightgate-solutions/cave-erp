@@ -28,11 +28,13 @@ export const email = pgTable(
     parentEmailId: integer("parent_email_id"),
     type: text("type").notNull().default("sent"),
     hasBeenOpened: boolean("has_been_opened").default(false).notNull(),
+    organizationId: text("organization_id").notNull(),
   },
   (table) => [
     index("email_sender_id_idx").on(table.senderId),
     index("email_created_at_idx").on(table.createdAt),
     index("email_parent_email_id_idx").on(table.parentEmailId),
+    index("email_organization_id_idx").on(table.organizationId),
   ],
 );
 

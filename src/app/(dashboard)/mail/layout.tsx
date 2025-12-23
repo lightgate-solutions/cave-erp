@@ -7,7 +7,11 @@ import { RefreshCw, ChevronRight, ChevronLeft, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MailSearch } from "@/components/mail/mail-search";
 import { InboxWrapper } from "@/components/mail/inbox-wrapper";
-import { getEmailById, getEmailStats } from "@/actions/mail/email";
+import {
+  getEmailById,
+  getEmailStats,
+  checkMailAccess,
+} from "@/actions/mail/email";
 import { getAllEmployees } from "@/actions/hr/employees";
 import { MailSidebar } from "@/components/mail/mail-sidebar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -58,6 +62,14 @@ export default function RootLayout({
     createdAt: Date;
   } | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [access, setAccess] = useState<{
+    checked: boolean;
+    allowed: boolean;
+    message?: string;
+  }>({
+    checked: false,
+    allowed: false,
+  });
 
   const _currentFolder: Folder = useMemo(() => {
     const path = pathname || "";
@@ -68,6 +80,13 @@ export default function RootLayout({
   }, [pathname]);
 
   const emailId = searchParams.get("id");
+
+  // Check access
+  useEffect(() => {
+    checkMailAccess().then((res) => {
+      setAccess({ checked: true, allowed: res.allowed, message: res.message });
+    });
+  }, []);
 
   // Fetch sidebar stats and users once and refresh when route changes
   useEffect(() => {
@@ -87,18 +106,20 @@ export default function RootLayout({
       setUsers(usersRes);
     };
 
-    load();
+    if (access.allowed) {
+      load();
+    }
     return () => {
       mounted = false;
     };
-  }, [pathname]);
+  }, [pathname, access.allowed]);
 
   // Fetch selected email for global reply/forward dialog support
   useEffect(() => {
     let mounted = true;
 
     const loadSelected = async () => {
-      if (!emailId) {
+      if (!emailId || !access.allowed) {
         if (mounted) setSelectedEmail(null);
         return;
       }
@@ -124,7 +145,7 @@ export default function RootLayout({
     return () => {
       mounted = false;
     };
-  }, [emailId]);
+  }, [emailId, access.allowed]);
 
   const triggerCompose = () => {
     document.querySelector<HTMLElement>("[data-compose-trigger]")?.click();
@@ -183,7 +204,7 @@ export default function RootLayout({
         <div className="md:hidden absolute top-4 left-4 z-50">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" suppressHydrationWarning>
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -216,7 +237,30 @@ export default function RootLayout({
               </Button>
             </div>
           </div>
-          <div className="flex-1 overflow-hidden relative">{children}</div>
+          <div className="flex-1 overflow-hidden relative">
+            {!access.checked ? (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-muted-foreground animate-pulse">
+                  Checking access...
+                </p>
+              </div>
+            ) : !access.allowed ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center animate-in fade-in zoom-in duration-300">
+                <div className="bg-primary/10 p-6 rounded-full">
+                  <span className="text-4xl">🔒</span>
+                </div>
+                <h2 className="text-2xl font-bold">Feature Locked</h2>
+                <p className="text-muted-foreground max-w-md">
+                  {access.message}
+                </p>
+                <Button onClick={() => router.push("/settings/billing")}>
+                  Upgrade to Pro
+                </Button>
+              </div>
+            ) : (
+              children
+            )}
+          </div>
         </div>
       </div>
     </InboxWrapper>
