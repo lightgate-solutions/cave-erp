@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { Button } from "@/components/ui/button";
 
 import { Card } from "@/components/ui/card";
@@ -11,6 +9,12 @@ import { NavLinks } from "@/components/marketing/nav-links";
 import { PricingSection } from "@/components/marketing/pricing-section";
 
 import { AuthButton } from "@/components/marketing/auth-button";
+
+import { Logo } from "@/components/marketing/logo";
+
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+
+import Link from "next/link";
 
 import {
   ArrowRight,
@@ -25,26 +29,18 @@ import {
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#faf9f7]">
+    <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-[#e8e8e8] bg-white/98 backdrop-blur supports-[backdrop-filter]:bg-white/95 shadow-sm">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/95 shadow-sm">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-md">
-              <span className="text-xl font-extrabold text-primary-foreground">
-                C
-              </span>
-            </div>
-            <span className="text-2xl font-extrabold tracking-tight">
-              CAVE ERP
-            </span>
-          </Link>
+          <Logo />
           <NavLinks />
           <div className="flex items-center space-x-3">
+            <ThemeToggle />
             <AuthButton
               variant="outline"
               size="sm"
-              className="hidden md:flex rounded-full font-medium px-6 h-10 bg-white border-[#e0e0e0] text-foreground hover:bg-[#faf9f7] hover:border-[#d0d0d0] shadow-sm"
+              className="hidden md:flex rounded-full font-medium px-6 h-10 bg-card border-border text-card-foreground hover:bg-accent hover:text-accent-foreground shadow-sm"
               href="/auth/login"
             >
               Sign In
@@ -52,7 +48,7 @@ export default function HomePage() {
             <Button
               size="sm"
               asChild
-              className="rounded-full font-semibold px-6 h-10 bg-foreground text-background hover:bg-foreground/90 shadow-md hover:shadow-lg transition-all"
+              className="rounded-full font-semibold px-6 h-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
             >
               <Link href="/auth/register" prefetch={true}>
                 Try It Free
@@ -61,17 +57,20 @@ export default function HomePage() {
           </div>
         </div>
       </header>
-      <main className="flex-1 bg-white">
+      <main className="flex-1 bg-background">
         {/* Hero Section */}
-        <section className="container mx-auto px-4 py-20 md:px-6 md:py-32 bg-white">
+        <section className="container mx-auto px-4 py-20 md:px-6 md:py-32 bg-background">
           <div className="mx-auto max-w-4xl text-center">
-            <Badge variant="secondary" className="mb-6 font-bold">
+            <Badge
+              variant="secondary"
+              className="mb-6 font-bold text-sm md:text-base"
+            >
               Enterprise Resource Planning Platform
             </Badge>
-            <h1 className="mb-6 text-balance text-4xl font-bold tracking-tight md:text-6xl lg:text-7xl">
+            <h1 className="mb-6 text-balance text-4xl font-bold tracking-tight text-foreground md:text-6xl lg:text-7xl">
               The Complete Operating System for Your Organization
             </h1>
-            <p className="mb-8 text-pretty text-lg text-muted-foreground md:text-xl">
+            <p className="mb-8 text-pretty text-lg text-foreground/80 md:text-xl leading-relaxed">
               Transform your entire organization with AI-powered automation,
               seamless integration, and enterprise-grade security. From startups
               to global conglomerates.
@@ -89,7 +88,7 @@ export default function HomePage() {
           </div>
           {/* Video Section */}
           <div className="mx-auto mt-16 max-w-5xl">
-            <div className="aspect-video overflow-hidden rounded-lg border border-[#e8e8e8] bg-[#f8f8f8]">
+            <div className="aspect-video overflow-hidden rounded-lg border border-border bg-muted">
               {/* biome-ignore lint/a11y/useMediaCaption: Video captions would be added when available */}
               <video
                 className="h-full w-full object-cover"
@@ -107,7 +106,7 @@ export default function HomePage() {
           </div>
         </section>
         {/* Trust Section */}
-        <section className="border-y border-[#e8e8e8] bg-[#faf9f7] py-16">
+        <section className="border-y border-border bg-muted/50 py-16">
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto max-w-5xl text-center">
               <h2 className="mb-4 text-3xl font-bold">
@@ -124,7 +123,7 @@ export default function HomePage() {
                     key={`company-${num}`}
                     className="flex items-center justify-center"
                   >
-                    <div className="flex h-16 w-32 items-center justify-center rounded bg-white border border-[#e8e8e8] text-sm font-semibold text-muted-foreground">
+                    <div className="flex h-16 w-32 items-center justify-center rounded bg-card border border-border text-sm font-semibold text-muted-foreground">
                       Company {num}
                     </div>
                   </div>
@@ -163,7 +162,7 @@ export default function HomePage() {
                 ].map((testimonial) => (
                   <Card
                     key={testimonial.author}
-                    className="p-6 text-left bg-white border-[#e8e8e8]"
+                    className="p-6 text-left bg-card border-border"
                   >
                     <p className="mb-4 text-sm leading-relaxed">
                       &ldquo;{testimonial.quote}&rdquo;
@@ -178,7 +177,7 @@ export default function HomePage() {
                 ))}
               </div>
               {/* Results Stats */}
-              <div className="mt-12 rounded-lg border border-[#e8e8e8] bg-white p-8">
+              <div className="mt-12 rounded-lg border border-border bg-card p-8">
                 <h3 className="mb-6 text-xl font-bold">
                   Real results from real Organisations
                 </h3>
@@ -219,7 +218,7 @@ export default function HomePage() {
         {/* Features Section */}
         <section
           id="features"
-          className="container mx-auto px-4 py-20 md:px-6 md:py-32 bg-white"
+          className="container mx-auto px-4 py-20 md:px-6 md:py-32 bg-background"
         >
           <div className="mx-auto max-w-5xl">
             <div className="mb-16 text-center">
@@ -269,10 +268,7 @@ export default function HomePage() {
                     "Reduce operational costs by up to 40% through intelligent resource allocation and automation.",
                 },
               ].map((feature) => (
-                <Card
-                  key={feature.title}
-                  className="p-6 bg-white border-[#e8e8e8]"
-                >
+                <Card key={feature.title} className="p-6 bg-card border-border">
                   <feature.icon className="mb-4 h-10 w-10 text-primary" />
                   <h3 className="mb-2 text-xl font-semibold">
                     {feature.title}
@@ -284,7 +280,7 @@ export default function HomePage() {
               ))}
             </div>
             {/* Additional Features List */}
-            <div className="mt-16 rounded-lg border border-[#e8e8e8] bg-[#faf9f7] p-8 md:p-12">
+            <div className="mt-16 rounded-lg border border-border bg-muted/50 p-8 md:p-12">
               <h3 className="mb-8 text-2xl font-bold">
                 Complete Organizational Control
               </h3>
@@ -447,7 +443,7 @@ export default function HomePage() {
           ]}
         />
         {/* CTA Section */}
-        <section className="container mx-auto px-4 py-20 md:px-6 md:py-32 bg-[#faf9f7]">
+        <section className="container mx-auto px-4 py-20 md:px-6 md:py-32 bg-muted/50">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="mb-4 text-3xl font-bold md:text-4xl">
               Ready to Transform Your Organization?
@@ -470,19 +466,12 @@ export default function HomePage() {
         </section>
       </main>
       {/* Footer */}
-      <footer className="border-t border-[#e8e8e8] bg-[#faf9f7]">
+      <footer className="border-t border-border bg-muted/50">
         <div className="container mx-auto px-4 py-16 md:px-6">
           <div className="grid gap-10 md:grid-cols-4">
             <div>
-              <div className="mb-6 flex items-center space-x-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-md">
-                  <span className="text-xl font-extrabold text-primary-foreground">
-                    C
-                  </span>
-                </div>
-                <span className="text-2xl font-extrabold tracking-tight">
-                  CAVE ERP
-                </span>
+              <div className="mb-6">
+                <Logo />
               </div>
               <p className="text-base leading-relaxed text-muted-foreground">
                 The complete operating system for your organization
@@ -606,7 +595,7 @@ export default function HomePage() {
               </ul>
             </div>
           </div>
-          <div className="mt-12 border-t border-[#e8e8e8] pt-8 text-center">
+          <div className="mt-12 border-t border-border pt-8 text-center">
             <p className="text-base font-medium text-muted-foreground">
               &copy; 2025 CAVE ERP. All rights reserved.
             </p>

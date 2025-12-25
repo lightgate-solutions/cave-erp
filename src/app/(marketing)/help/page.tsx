@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AnchorLink } from "@/components/marketing/anchor-link";
 import { HelpSearch } from "@/components/marketing/help-search";
+import { Logo } from "@/components/marketing/logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   Accordion,
   AccordionContent,
@@ -21,20 +23,11 @@ import {
 
 export default function HelpPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#faf9f7]">
+    <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-[#e8e8e8] bg-white/98 backdrop-blur supports-[backdrop-filter]:bg-white/95 shadow-sm">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/95 shadow-sm">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-md">
-              <span className="text-xl font-extrabold text-primary-foreground">
-                C
-              </span>
-            </div>
-            <span className="text-2xl font-extrabold tracking-tight">
-              CAVE ERP
-            </span>
-          </Link>
+          <Logo />
 
           <nav className="hidden items-center space-x-6 md:flex">
             <AnchorLink
@@ -64,11 +57,12 @@ export default function HelpPage() {
           </nav>
 
           <div className="flex items-center space-x-3">
+            <ThemeToggle />
             <Button
               variant="outline"
               size="sm"
               asChild
-              className="hidden md:flex rounded-full font-medium px-6 h-10 bg-white border-[#e0e0e0] text-foreground hover:bg-[#faf9f7] hover:border-[#d0d0d0] shadow-sm"
+              className="hidden md:flex rounded-full font-medium px-6 h-10 bg-card border-border text-card-foreground hover:bg-accent hover:text-accent-foreground shadow-sm"
             >
               <Link href="/auth/login" prefetch={true}>
                 Sign In
@@ -77,7 +71,7 @@ export default function HelpPage() {
             <Button
               size="sm"
               asChild
-              className="rounded-full font-semibold px-6 h-10 bg-foreground text-background hover:bg-foreground/90 shadow-md hover:shadow-lg transition-all"
+              className="rounded-full font-semibold px-6 h-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
             >
               <Link href="/auth/register" prefetch={true}>
                 Try It Free
@@ -87,15 +81,15 @@ export default function HelpPage() {
         </div>
       </header>
 
-      <main className="flex-1 bg-white">
+      <main className="flex-1 bg-background">
         {/* Hero Section */}
-        <section className="border-b border-[#e8e8e8] bg-[#faf9f7] py-16">
+        <section className="border-b border-border bg-background py-16">
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto max-w-3xl text-center">
-              <h1 className="mb-4 text-4xl font-bold md:text-5xl">
+              <h1 className="mb-4 text-4xl font-bold text-foreground md:text-5xl">
                 How can we help you?
               </h1>
-              <p className="mb-8 text-lg text-muted-foreground">
+              <p className="mb-8 text-lg text-foreground/80 leading-relaxed">
                 Search for answers or browse our help categories below
               </p>
 
@@ -111,7 +105,9 @@ export default function HelpPage() {
           className="container mx-auto px-4 py-12 md:px-6 md:py-16"
         >
           <div className="mx-auto max-w-5xl">
-            <h2 className="mb-8 text-3xl font-bold">Browse by Category</h2>
+            <h2 className="mb-8 text-3xl font-bold text-foreground">
+              Browse by Category
+            </h2>
 
             <div className="grid gap-5 md:grid-cols-3">
               {[
@@ -157,13 +153,13 @@ export default function HelpPage() {
                   className="flex h-full flex-col p-5 transition-colors hover:border-primary"
                 >
                   <category.icon className="mb-3 h-10 w-10 text-primary" />
-                  <h3 className="mb-3 text-xl font-semibold leading-tight">
+                  <h3 className="mb-3 text-xl font-semibold leading-tight text-foreground">
                     {category.title}
                   </h3>
-                  <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+                  <p className="mb-4 text-sm leading-relaxed text-foreground/70">
                     {category.description}
                   </p>
-                  <p className="mt-auto text-xs font-medium text-muted-foreground">
+                  <p className="mt-auto text-xs font-medium text-foreground/60">
                     {category.articles}
                   </p>
                 </Card>
@@ -175,11 +171,11 @@ export default function HelpPage() {
         {/* FAQs */}
         <section
           id="faqs"
-          className="border-t border-[#e8e8e8] bg-white py-12 md:py-16"
+          className="border-t border-border bg-background py-12 md:py-16"
         >
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto max-w-3xl">
-              <h2 className="mb-8 text-3xl font-bold">
+              <h2 className="mb-8 text-3xl font-bold text-foreground">
                 Frequently Asked Questions
               </h2>
 
@@ -188,7 +184,7 @@ export default function HelpPage() {
                   <AccordionTrigger className="text-left">
                     How do I get started with CAVE ERP?
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
+                  <AccordionContent className="text-foreground/80">
                     Getting started is easy! Sign up for a free trial, create
                     your organization profile, and follow our quick setup
                     wizard. You'll be up and running in less than 10 minutes.
@@ -201,7 +197,7 @@ export default function HelpPage() {
                   <AccordionTrigger className="text-left">
                     What payment methods do you accept?
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
+                  <AccordionContent className="text-foreground/80">
                     We accept all major credit cards (Visa, Mastercard, American
                     Express), bank transfers, and PayPal. For enterprise
                     customers, we also offer invoice-based billing with NET 30
@@ -213,7 +209,7 @@ export default function HelpPage() {
                   <AccordionTrigger className="text-left">
                     Can I migrate data from my current system?
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
+                  <AccordionContent className="text-foreground/80">
                     Yes! CAVE ERP supports data migration from most major ERP
                     systems. Our migration specialists will work with you to
                     ensure a smooth transition with zero data loss. We provide
@@ -226,7 +222,7 @@ export default function HelpPage() {
                   <AccordionTrigger className="text-left">
                     Is my data secure?
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
+                  <AccordionContent className="text-foreground/80">
                     Absolutely. We use bank-grade 256-bit SSL encryption for all
                     data transmission and storage. Our infrastructure is SOC 2
                     Type II certified, GDPR compliant, and ISO 27001 certified.
@@ -239,7 +235,7 @@ export default function HelpPage() {
                   <AccordionTrigger className="text-left">
                     Can I customize CAVE ERP for my organization?
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
+                  <AccordionContent className="text-foreground/80">
                     Yes! CAVE ERP is highly customizable. You can create custom
                     fields, workflows, reports, and integrations. Enterprise
                     customers can also request custom modules developed
@@ -251,7 +247,7 @@ export default function HelpPage() {
                   <AccordionTrigger className="text-left">
                     What kind of support do you offer?
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
+                  <AccordionContent className="text-foreground/80">
                     We offer email support for all plans, priority support for
                     Professional plans, and 24/7 phone support with dedicated
                     account managers for Enterprise customers. We also provide
@@ -264,7 +260,7 @@ export default function HelpPage() {
                   <AccordionTrigger className="text-left">
                     Do you offer training for my team?
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
+                  <AccordionContent className="text-foreground/80">
                     Yes! We offer comprehensive training programs including live
                     webinars, on-site training for enterprise customers, video
                     tutorials, and a self-paced learning platform. Training can
@@ -276,7 +272,7 @@ export default function HelpPage() {
                   <AccordionTrigger className="text-left">
                     Can I cancel my subscription anytime?
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
+                  <AccordionContent className="text-foreground/80">
                     Yes, you can cancel your subscription at any time with no
                     cancellation fees. If you cancel, you'll have access to your
                     data for 30 days, and we can provide a full data export upon
@@ -291,7 +287,7 @@ export default function HelpPage() {
         {/* Contact Support */}
         <section className="container mx-auto px-4 py-12 md:px-6 md:py-16">
           <div className="mx-auto max-w-5xl">
-            <h2 className="mb-8 text-center text-3xl font-bold">
+            <h2 className="mb-8 text-center text-3xl font-bold text-foreground">
               Still need help?
             </h2>
 
@@ -300,8 +296,10 @@ export default function HelpPage() {
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                   <MessageCircle className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="mb-2 text-lg font-semibold">Live Chat</h3>
-                <p className="mb-4 text-sm text-muted-foreground">
+                <h3 className="mb-2 text-lg font-semibold text-foreground">
+                  Live Chat
+                </h3>
+                <p className="mb-4 text-sm text-foreground/70">
                   Chat with our support team in real-time
                 </p>
                 <Button className="w-full">Start Chat</Button>
@@ -311,8 +309,10 @@ export default function HelpPage() {
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                   <Mail className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="mb-2 text-lg font-semibold">Email Support</h3>
-                <p className="mb-4 text-sm text-muted-foreground">
+                <h3 className="mb-2 text-lg font-semibold text-foreground">
+                  Email Support
+                </h3>
+                <p className="mb-4 text-sm text-foreground/70">
                   Get help via email within 24 hours
                 </p>
                 <Button
@@ -330,8 +330,10 @@ export default function HelpPage() {
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                   <Phone className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="mb-2 text-lg font-semibold">Phone Support</h3>
-                <p className="mb-4 text-sm text-muted-foreground">
+                <h3 className="mb-2 text-lg font-semibold text-foreground">
+                  Phone Support
+                </h3>
+                <p className="mb-4 text-sm text-foreground/70">
                   Call us for immediate assistance
                 </p>
                 <Button
@@ -348,8 +350,10 @@ export default function HelpPage() {
             <Card className="mt-8 p-6">
               <div className="text-center">
                 <Clock className="mx-auto mb-4 h-8 w-8 text-primary" />
-                <h3 className="mb-2 text-lg font-semibold">Support Hours</h3>
-                <div className="space-y-1 text-sm text-muted-foreground">
+                <h3 className="mb-2 text-lg font-semibold text-foreground">
+                  Support Hours
+                </h3>
+                <div className="space-y-1 text-sm text-foreground/70">
                   <p>Monday - Friday: 8:00 AM - 8:00 PM (EST)</p>
                   <p>Saturday: 10:00 AM - 6:00 PM (EST)</p>
                   <p>Sunday: Closed</p>
@@ -365,11 +369,13 @@ export default function HelpPage() {
         {/* Guides Section */}
         <section
           id="guides"
-          className="border-t border-[#e8e8e8] bg-white py-12 md:py-16"
+          className="border-t border-border bg-background py-12 md:py-16"
         >
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto max-w-5xl">
-              <h2 className="mb-8 text-3xl font-bold">Popular Guides</h2>
+              <h2 className="mb-8 text-3xl font-bold text-foreground">
+                Popular Guides
+              </h2>
 
               <div className="grid gap-5 md:grid-cols-2">
                 {[
@@ -400,13 +406,13 @@ export default function HelpPage() {
                 ].map((guide) => (
                   <Link key={guide.title} href="#">
                     <Card className="flex h-full flex-col p-5 transition-colors hover:border-primary">
-                      <h3 className="mb-3 text-lg font-semibold leading-tight">
+                      <h3 className="mb-3 text-lg font-semibold leading-tight text-foreground">
                         {guide.title}
                       </h3>
-                      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+                      <p className="mb-4 text-sm leading-relaxed text-foreground/70">
                         {guide.description}
                       </p>
-                      <p className="mt-auto text-xs font-medium text-muted-foreground">
+                      <p className="mt-auto text-xs font-medium text-foreground/60">
                         {guide.readTime}
                       </p>
                     </Card>
@@ -419,21 +425,14 @@ export default function HelpPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#e8e8e8] bg-[#faf9f7]">
+      <footer className="border-t border-border bg-muted/50">
         <div className="container mx-auto px-4 py-16 md:px-6">
           <div className="grid gap-10 md:grid-cols-4">
             <div>
-              <div className="mb-6 flex items-center space-x-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-md">
-                  <span className="text-xl font-extrabold text-primary-foreground">
-                    C
-                  </span>
-                </div>
-                <span className="text-2xl font-extrabold tracking-tight">
-                  CAVE ERP
-                </span>
+              <div className="mb-6">
+                <Logo />
               </div>
-              <p className="text-base leading-relaxed text-muted-foreground">
+              <p className="text-base leading-relaxed text-foreground/80">
                 The complete operating system for your organization
               </p>
             </div>
@@ -559,7 +558,7 @@ export default function HelpPage() {
             </div>
           </div>
 
-          <div className="mt-12 border-t border-[#e8e8e8] pt-8 text-center">
+          <div className="mt-12 border-t border-border pt-8 text-center">
             <p className="text-base font-medium text-muted-foreground">
               &copy; 2025 CAVE ERP. All rights reserved.
             </p>

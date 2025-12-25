@@ -3,6 +3,12 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   BookOpen,
   Code,
   Zap,
@@ -12,23 +18,16 @@ import {
 } from "lucide-react";
 import { DocumentationSearch } from "@/components/marketing/documentation-search";
 import { AnchorLink } from "@/components/marketing/anchor-link";
+import { Logo } from "@/components/marketing/logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function DocumentationPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#faf9f7]">
+    <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-[#e8e8e8] bg-white/98 backdrop-blur supports-[backdrop-filter]:bg-white/95 shadow-sm">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/95 shadow-sm">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-md">
-              <span className="text-xl font-extrabold text-primary-foreground">
-                C
-              </span>
-            </div>
-            <span className="text-2xl font-extrabold tracking-tight">
-              CAVE ERP
-            </span>
-          </Link>
+          <Logo />
 
           <nav className="hidden items-center space-x-6 md:flex">
             <AnchorLink
@@ -58,11 +57,12 @@ export default function DocumentationPage() {
           </nav>
 
           <div className="flex items-center space-x-3">
+            <ThemeToggle />
             <Button
               variant="outline"
               size="sm"
               asChild
-              className="hidden md:flex rounded-full font-medium px-6 h-10 bg-white border-[#e0e0e0] text-foreground hover:bg-[#faf9f7] hover:border-[#d0d0d0] shadow-sm"
+              className="hidden md:flex rounded-full font-medium px-6 h-10 bg-card border-border text-card-foreground hover:bg-accent hover:text-accent-foreground shadow-sm"
             >
               <Link href="/auth/login" prefetch={true}>
                 Sign In
@@ -71,7 +71,7 @@ export default function DocumentationPage() {
             <Button
               size="sm"
               asChild
-              className="rounded-full font-semibold px-6 h-10 bg-foreground text-background hover:bg-foreground/90 shadow-md hover:shadow-lg transition-all"
+              className="rounded-full font-semibold px-6 h-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
             >
               <Link href="/auth/register" prefetch={true}>
                 Try It Free
@@ -81,16 +81,16 @@ export default function DocumentationPage() {
         </div>
       </header>
 
-      <main className="flex-1 bg-white">
+      <main className="flex-1 bg-background">
         {/* Hero Section */}
-        <section className="border-b border-[#e8e8e8] bg-[#faf9f7] py-16">
+        <section className="border-b border-border bg-muted/50 py-16">
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto max-w-3xl text-center">
               <h1 className="mb-4 text-4xl font-bold md:text-5xl">
-                Documentation
+                CAVE ERP Documentation
               </h1>
               <p className="mb-8 text-lg text-muted-foreground">
-                Everything you need to know about CAVE ERP
+                Everything you need to know, explained simply
               </p>
 
               {/* Search Bar */}
@@ -246,8 +246,7 @@ export default function DocumentationPage() {
                 {
                   icon: Zap,
                   title: "Getting Started",
-                  description:
-                    "Learn the basics and set up your first project in minutes",
+                  description: "Learn the basics and set up your first project",
                   href: "#getting-started",
                 },
                 {
@@ -260,7 +259,7 @@ export default function DocumentationPage() {
                 {
                   icon: BookOpen,
                   title: "Tutorials",
-                  description: "Step-by-step guides for common use cases",
+                  description: "Step-by-step guides with screenshots",
                   href: "#tutorials",
                 },
               ].map((item) => (
@@ -281,7 +280,7 @@ export default function DocumentationPage() {
         </section>
 
         {/* Main Documentation Categories */}
-        <section className="border-t border-[#e8e8e8] bg-white py-12 md:py-16">
+        <section className="border-t border-border bg-background py-12 md:py-16">
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto max-w-5xl">
               <h2 className="mb-8 text-3xl font-bold">
@@ -291,7 +290,7 @@ export default function DocumentationPage() {
               <div className="space-y-8">
                 {/* Getting Started */}
                 <Card className="p-6">
-                  <div className="mb-4 flex items-center gap-3">
+                  <div className="mb-6 flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                       <Zap className="h-6 w-6 text-primary" />
                     </div>
@@ -303,40 +302,38 @@ export default function DocumentationPage() {
                         <h4 className="mb-3 font-semibold leading-tight group-hover:text-primary">
                           Installation & Setup
                         </h4>
-                        <p className="mt-auto text-sm leading-relaxed text-muted-foreground">
-                          Install CAVE ERP from an online download or the
-                          Microsoft Store
+                        <p className="mt-auto text-sm text-muted-foreground">
+                          Install CAVE ERP from web, desktop, or Microsoft Store
                         </p>
                       </div>
                     </Link>
                     <Link href="#first-steps" className="group">
                       <div className="flex h-full flex-col rounded-lg border p-5 transition-colors hover:border-primary">
-                        <h4 className="mb-3 font-semibold leading-tight group-hover:text-primary">
+                        <h4 className="mb-2 font-semibold leading-tight group-hover:text-primary">
                           First Steps
                         </h4>
-                        <p className="mt-auto text-sm leading-relaxed text-muted-foreground">
-                          Create your organization and set up your organization
-                          name to get started with CAVE ERP
+                        <p className="mt-auto text-sm text-muted-foreground">
+                          Create your organization and set up your workspace
                         </p>
                       </div>
                     </Link>
                     <Link href="#user-management" className="group">
                       <div className="flex h-full flex-col rounded-lg border p-5 transition-colors hover:border-primary">
-                        <h4 className="mb-3 font-semibold leading-tight group-hover:text-primary">
+                        <h4 className="mb-2 font-semibold leading-tight group-hover:text-primary">
                           User Management
                         </h4>
-                        <p className="mt-auto text-sm leading-relaxed text-muted-foreground">
-                          Add users, set permissions, and manage roles
+                        <p className="mt-auto text-sm text-muted-foreground">
+                          Add users, assign roles, and set permissions
                         </p>
                       </div>
                     </Link>
                     <Link href="#dashboard-overview" className="group">
                       <div className="flex h-full flex-col rounded-lg border p-5 transition-colors hover:border-primary">
-                        <h4 className="mb-3 font-semibold leading-tight group-hover:text-primary">
+                        <h4 className="mb-2 font-semibold leading-tight group-hover:text-primary">
                           Dashboard Overview
                         </h4>
-                        <p className="mt-auto text-sm leading-relaxed text-muted-foreground">
-                          Navigate the main dashboard and key features
+                        <p className="mt-auto text-sm text-muted-foreground">
+                          Navigate the dashboard and access key features
                         </p>
                       </div>
                     </Link>
@@ -345,7 +342,7 @@ export default function DocumentationPage() {
 
                 {/* Core Modules */}
                 <Card className="p-6">
-                  <div className="mb-4 flex items-center gap-3">
+                  <div className="mb-6 flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                       <Settings className="h-6 w-6 text-primary" />
                     </div>
@@ -356,72 +353,72 @@ export default function DocumentationPage() {
                       // Core Business Functions
                       {
                         title: "Financial Management",
-                        desc: "Manage company balance, expenses, payruns, and loans",
+                        desc: "Track balances, expenses, payruns, and loans",
                         premium: false,
                       },
                       {
                         title: "Human Resources & Payroll",
-                        desc: "Employee management, payroll, and attendance",
+                        desc: "Manage employees, process payroll, and track attendance",
                         premium: false,
                       },
                       // Project & Task Management
                       {
                         title: "Project Management & Tracking",
-                        desc: "Task tracking, milestones, and team collaboration",
+                        desc: "Track tasks, milestones, and team collaboration",
                         premium: false,
                       },
                       {
                         title: "Task & Performance Management",
-                        desc: "Task assignment, performance tracking, and reviews",
+                        desc: "Assign tasks, track performance, and manage workflows",
                         premium: false,
                       },
                       // Document Management
                       {
                         title: "Document Management System",
-                        desc: "Organize, store, and manage documents with role-based access control and secure sharing features",
+                        desc: "Organize, store, and share documents securely",
                         premium: false,
                       },
                       {
                         title: "Digital E-Signature & Document Authentication",
-                        desc: "Sign documents, proposals, and memos electronically with secure document authentication",
+                        desc: "Sign documents electronically with secure authentication",
                         premium: true,
                       },
                       // Communication
                       {
                         title: "Email System",
-                        desc: "Internal email communication, inbox management, and messaging",
+                        desc: "Internal email communication and messaging",
                         premium: false,
                       },
                       {
                         title: "News Management",
-                        desc: "Create and publish news articles with organization-wide notifications",
+                        desc: "Create and publish company-wide announcements",
                         premium: false,
                       },
                       // Operations & Procurement
                       {
                         title: "Procurement & Vendor Management",
-                        desc: "Purchase orders, vendor management, and approvals",
+                        desc: "Manage purchase orders and vendor relationships",
                         premium: true,
                       },
                       {
                         title: "Asset & Maintenance Management",
-                        desc: "Track and manage company assets and resources",
+                        desc: "Track assets and schedule maintenance",
                         premium: true,
                       },
                       {
                         title: "Manufacturing & Production Planning",
-                        desc: "Production planning, manufacturing workflows, and resource allocation",
+                        desc: "Plan production and manage manufacturing workflows",
                         premium: true,
                       },
                       // Analytics & Compliance
                       {
                         title: "Business Intelligence & Reporting",
-                        desc: "Advanced analytics, custom reports, and business intelligence dashboards",
+                        desc: "Create custom reports and analytics dashboards",
                         premium: true,
                       },
                       {
                         title: "Compliance & Audit Management",
-                        desc: "Audit trails, compliance tracking, and regulatory reporting",
+                        desc: "Track audit trails and manage compliance",
                         premium: true,
                       },
                     ].map((item) => {
@@ -463,7 +460,7 @@ export default function DocumentationPage() {
 
                 {/* Advanced Features */}
                 <Card className="p-6">
-                  <div className="mb-4 flex items-center gap-3">
+                  <div className="mb-6 flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                       <Code className="h-6 w-6 text-primary" />
                     </div>
@@ -507,7 +504,7 @@ export default function DocumentationPage() {
 
                 {/* Tutorials with Screenshots */}
                 <Card className="p-6">
-                  <div className="mb-4 flex items-center gap-3">
+                  <div className="mb-6 flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                       <BookOpen className="h-6 w-6 text-primary" />
                     </div>
@@ -515,13 +512,15 @@ export default function DocumentationPage() {
                       Step-by-Step Tutorials
                     </h3>
                   </div>
-                  <div className="space-y-6">
+                  <Accordion type="single" collapsible className="w-full">
                     {[
                       {
                         id: "first-steps",
                         title: "First Steps: Creating Your Organization",
+                        summary:
+                          "Navigate to settings and click 'Create Organization'. Enter your organization name in the modal. Complete setup in under 2 minutes.",
                         steps:
-                          "Create your organization and set up your organization name to get started with CAVE ERP",
+                          "1. Go to Settings from your profile menu\n2. Click the 'Create Organization' button\n3. Enter your organization name in the modal\n4. Configure billing preferences\n5. Start inviting team members",
                         images: [
                           {
                             src: "/landing/images/create-organization-button.png",
@@ -536,27 +535,37 @@ export default function DocumentationPage() {
                       {
                         id: "user-management",
                         title: "User Management",
-                        steps: "Add users, set permissions, and manage roles",
+                        summary:
+                          "Invite users via email, assign roles, and customize permissions. Create custom roles for different access levels across modules.",
+                        steps:
+                          "1. Navigate to User Management from the admin menu\n2. Click 'Invite User' and enter their email\n3. Select a role or create a custom role\n4. Set module-specific permissions\n5. Activate the user account",
                         image: "/landing/images/user-management.png",
                       },
                       {
                         id: "dashboard-overview",
                         title: "Dashboard Overview",
-                        steps: "Navigate the main dashboard and key features",
+                        summary:
+                          "Access key modules from the sidebar. View metrics, tasks, and notifications. Customize widgets based on your role.",
+                        steps:
+                          "1. Use the left sidebar to navigate between modules\n2. View key metrics and recent activity on the dashboard\n3. Check notifications in the top bar\n4. Customize dashboard widgets via settings\n5. Switch between different views based on your role",
                         image: "/landing/images/dashboard-overview.png",
                       },
                       {
                         id: "financial-management",
                         title: "Financial Management",
+                        summary:
+                          "Track company balance, record expenses, process payruns, and manage loans. View financial reports and export data.",
                         steps:
-                          "Manage company balance, expenses, payruns, and loans",
+                          "1. View company balance and financial overview\n2. Record expenses with receipt attachments\n3. Process employee payruns monthly\n4. Manage employee loan applications\n5. Generate financial reports and export to CSV",
                         image: "/landing/images/finance-management.png",
                       },
                       {
                         id: "document-management",
                         title: "Document Management System",
+                        summary:
+                          "Organize documents in folders with custom permissions. Upload files, set sharing options, and search easily. Version control included.",
                         steps:
-                          "Organize, store, and manage documents with role-based access control and secure sharing features",
+                          "1. Create folders to organize documents\n2. Set folder permissions for different users/teams\n3. Upload files by dragging and dropping\n4. Configure sharing permissions for each document\n5. Use search to quickly find documents",
                         images: [
                           {
                             src: "/landing/images/document-management-main.png",
@@ -575,8 +584,10 @@ export default function DocumentationPage() {
                       {
                         id: "email-system",
                         title: "Email System",
+                        summary:
+                          "Send messages to individuals or groups. Attach documents, track delivery, and view notifications. All communication stays within CAVE ERP.",
                         steps:
-                          "Internal email communication, inbox management, and messaging",
+                          "1. Click 'Compose' to start a new message\n2. Select recipients (individuals or groups)\n3. Attach documents from your document library\n4. Send and track message delivery status\n5. View all sent messages and replies in your inbox",
                         images: [
                           {
                             src: "/landing/images/email-system-inbox.png",
@@ -595,8 +606,10 @@ export default function DocumentationPage() {
                       {
                         id: "project-management",
                         title: "Project Management & Tracking",
+                        summary:
+                          "Create projects with budgets and timelines. Track milestones, assign team members, and monitor progress. View expenses and generate reports.",
                         steps:
-                          "Task tracking, milestones, and team collaboration",
+                          "1. Click 'Create Project' and fill in project details\n2. Set budget, timeline, and milestones\n3. Assign team members to the project\n4. Track progress and update task statuses\n5. Monitor expenses against budget and generate reports",
                         images: [
                           {
                             src: "/landing/images/project-management-dashboard.png",
@@ -615,8 +628,10 @@ export default function DocumentationPage() {
                       {
                         id: "task-performance-management",
                         title: "Task & Performance Management",
+                        summary:
+                          "Use Kanban boards to manage tasks. Assign with priorities and deadlines. Track progress, add comments, and generate performance reports.",
                         steps:
-                          "Task assignment, performance tracking, and reviews",
+                          "1. Access the Task Management module\n2. Use the Kanban board to view tasks by status\n3. Create new tasks and assign to team members\n4. Set priorities and deadlines\n5. Track completion rates and generate performance reports",
                         images: [
                           {
                             src: "/landing/images/task-performance-management.png",
@@ -635,7 +650,10 @@ export default function DocumentationPage() {
                       {
                         id: "hr-payroll",
                         title: "Human Resources & Payroll",
-                        steps: "Employee management, payroll, and attendance",
+                        summary:
+                          "Track attendance, manage leave requests, process loans, define salary structures, and run payroll. All HR functions in one place.",
+                        steps:
+                          "1. Employees sign in/out to track attendance\n2. Submit leave requests and track balances\n3. Apply for employee loans if needed\n4. HR defines salary structures and benefits\n5. Process monthly payroll runs automatically",
                         images: [
                           {
                             src: "/landing/images/hr-attendance.png",
@@ -666,8 +684,10 @@ export default function DocumentationPage() {
                       {
                         id: "news-management",
                         title: "News Management",
+                        summary:
+                          "Create and publish company announcements. Add rich text, track views, enable comments, and notify all employees automatically.",
                         steps:
-                          "Create and publish news articles with organization-wide notifications",
+                          "1. Click 'Create News' to start a new article\n2. Write your announcement with rich text formatting\n3. Add categories and tags for organization\n4. Publish and automatically notify all employees\n5. Track views and engagement through comments",
                         images: [
                           {
                             src: "/landing/images/news-management-empty.png",
@@ -682,55 +702,105 @@ export default function DocumentationPage() {
                       {
                         id: "data-export",
                         title: "Data Export",
+                        summary:
+                          "Export data from any module to CSV. Filter by date, department, or project. Perfect for reporting and analysis.",
                         steps:
-                          "Download and export application data in CSV format for reporting and analysis",
+                          "1. Navigate to the Data Export Center\n2. Select the module you want to export\n3. Apply filters (date range, department, etc.)\n4. Click 'Export' to generate CSV file\n5. Download and use in Excel or other tools",
                         image: "/landing/images/data-export-center.png",
                       },
                     ].map((tutorial) => (
-                      <div
+                      <AccordionItem
                         key={tutorial.id || tutorial.title}
-                        id={tutorial.id || undefined}
-                        className="scroll-mt-20 rounded-lg border p-6"
+                        value={tutorial.id || tutorial.title}
+                        className="scroll-mt-20 border-b border-border"
                       >
-                        <h4 className="mb-3 text-lg font-semibold">
-                          {tutorial.title}
-                        </h4>
-                        <p className="mb-4 text-sm text-muted-foreground">
-                          {tutorial.steps}
-                        </p>
-                        {tutorial.images ? (
-                          <div className="space-y-4">
-                            {tutorial.images.map(
-                              (img: { src: string; alt: string }) => (
-                                <div
-                                  key={img.src}
-                                  className="overflow-hidden rounded-lg border"
-                                >
-                                  <Image
-                                    src={img.src}
-                                    alt={img.alt}
-                                    width={1200}
-                                    height={800}
-                                    className="h-auto w-full"
-                                  />
-                                </div>
-                              ),
+                        <AccordionTrigger className="py-6 text-left hover:no-underline [&>svg]:shrink-0">
+                          <div className="flex flex-col items-start gap-2 pr-8">
+                            <h4 className="text-lg font-semibold leading-tight">
+                              {tutorial.title}
+                            </h4>
+                            <p className="text-sm font-normal leading-relaxed text-muted-foreground">
+                              {tutorial.summary}
+                            </p>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-6">
+                          <div className="space-y-6">
+                            {tutorial.steps && (
+                              <div className="rounded-lg bg-muted/50 p-4">
+                                <h5 className="mb-3 text-sm font-semibold">
+                                  Step-by-Step Guide
+                                </h5>
+                                <ol className="space-y-2.5 text-sm leading-relaxed text-muted-foreground">
+                                  {tutorial.steps
+                                    .split("\n")
+                                    .filter((step) => step.trim())
+                                    .map((step, idx) => {
+                                      const stepNumber =
+                                        step.match(/^\d+\./)?.[0] ||
+                                        `${idx + 1}.`;
+                                      const stepText = step.replace(
+                                        /^\d+\.\s*/,
+                                        "",
+                                      );
+                                      return (
+                                        <li
+                                          key={`${tutorial.id}-step-${idx}`}
+                                          className="flex gap-3"
+                                        >
+                                          <span className="mt-0.5 shrink-0 font-semibold text-primary">
+                                            {stepNumber}
+                                          </span>
+                                          <span className="flex-1">
+                                            {stepText}
+                                          </span>
+                                        </li>
+                                      );
+                                    })}
+                                </ol>
+                              </div>
+                            )}
+                            {tutorial.images ? (
+                              <div className="space-y-4">
+                                {tutorial.images.map(
+                                  (img: { src: string; alt: string }) => (
+                                    <div
+                                      key={img.src}
+                                      className="overflow-hidden rounded-lg border bg-white"
+                                    >
+                                      <Image
+                                        src={img.src}
+                                        alt={img.alt}
+                                        width={1200}
+                                        height={800}
+                                        className="h-auto w-full"
+                                      />
+                                      {tutorial.images &&
+                                        tutorial.images.length > 1 && (
+                                          <p className="border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
+                                            {img.alt}
+                                          </p>
+                                        )}
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            ) : (
+                              <div className="overflow-hidden rounded-lg border bg-card">
+                                <Image
+                                  src={tutorial.image || "/placeholder.svg"}
+                                  alt={tutorial.title}
+                                  width={1200}
+                                  height={800}
+                                  className="h-auto w-full"
+                                />
+                              </div>
                             )}
                           </div>
-                        ) : (
-                          <div className="overflow-hidden rounded-lg border">
-                            <Image
-                              src={tutorial.image || "/placeholder.svg"}
-                              alt={tutorial.title}
-                              width={1200}
-                              height={800}
-                              className="h-auto w-full"
-                            />
-                          </div>
-                        )}
-                      </div>
+                        </AccordionContent>
+                      </AccordionItem>
                     ))}
-                  </div>
+                  </Accordion>
                 </Card>
               </div>
             </div>
@@ -745,9 +815,14 @@ export default function DocumentationPage() {
             <div className="grid gap-6 md:grid-cols-2">
               <Card className="p-6">
                 <FileText className="mb-4 h-8 w-8 text-primary" />
-                <h3 className="mb-2 text-xl font-semibold">Changelog</h3>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Stay updated with the latest features and improvements
+                <h3 className="mb-2 text-xl font-semibold">
+                  Changelog & Updates
+                </h3>
+                <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+                  Stay informed about the latest features, improvements, and
+                  enhancements we're continuously adding to CAVE ERP. Our
+                  changelog documents every update, bug fix, and new feature so
+                  you can take full advantage of platform improvements.
                 </p>
                 <Button variant="outline" size="sm" asChild>
                   <Link href="#">View Changelog</Link>
@@ -756,9 +831,14 @@ export default function DocumentationPage() {
 
               <Card className="p-6">
                 <HelpCircle className="mb-4 h-8 w-8 text-primary" />
-                <h3 className="mb-2 text-xl font-semibold">Need Help?</h3>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Can't find what you're looking for? Contact our support team
+                <h3 className="mb-2 text-xl font-semibold">
+                  Need Additional Help?
+                </h3>
+                <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+                  Can't find the answer you're looking for? Our dedicated
+                  support team is here to help. Browse our help center for FAQs
+                  and guides, or contact us directly for personalized assistance
+                  with your specific questions or challenges.
                 </p>
                 <Button variant="outline" size="sm" asChild>
                   <Link href="/help">Get Support</Link>
@@ -770,19 +850,12 @@ export default function DocumentationPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#e8e8e8] bg-[#faf9f7]">
+      <footer className="border-t border-border bg-muted/50">
         <div className="container mx-auto px-4 py-16 md:px-6">
           <div className="grid gap-10 md:grid-cols-4">
             <div>
-              <div className="mb-6 flex items-center space-x-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-md">
-                  <span className="text-xl font-extrabold text-primary-foreground">
-                    C
-                  </span>
-                </div>
-                <span className="text-2xl font-extrabold tracking-tight">
-                  CAVE ERP
-                </span>
+              <div className="mb-6">
+                <Logo />
               </div>
               <p className="text-base leading-relaxed text-muted-foreground">
                 The complete operating system for your organization
@@ -910,7 +983,7 @@ export default function DocumentationPage() {
             </div>
           </div>
 
-          <div className="mt-12 border-t border-[#e8e8e8] pt-8 text-center">
+          <div className="mt-12 border-t border-border pt-8 text-center">
             <p className="text-base font-medium text-muted-foreground">
               &copy; 2025 CAVE ERP. All rights reserved.
             </p>
