@@ -19,7 +19,8 @@ export function FiltersSkeleton({
     <div className={cn("flex flex-wrap items-center gap-3", className)}>
       {showSearch && <Skeleton className="h-10 w-64" />}
       {Array.from({ length: dropdownCount }).map((_, i) => (
-        <Skeleton key={i} className="h-10 w-32" />
+        // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
+        <Skeleton key={`filter-dropdown-${i}`} className="h-10 w-32" />
       ))}
       {showDateRange && <Skeleton className="h-10 w-48" />}
     </div>

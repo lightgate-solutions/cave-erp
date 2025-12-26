@@ -2,10 +2,15 @@
 
 import { db } from "@/db";
 import { projects } from "@/db/schema";
-import { DrizzleQueryError, asc, desc, eq, ilike, or } from "drizzle-orm";
+import { DrizzleQueryError, asc, desc, eq, ilike, or, and } from "drizzle-orm";
 import { createNotification } from "./notification/notification";
 import { requireAuth, requireAdmin, requireManager } from "@/actions/auth/dal";
 import { z } from "zod";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { subscriptions } from "@/db/schema/subscriptions";
+import { getPlanLimits } from "@/lib/plans";
+import { count } from "drizzle-orm";
 
 const projectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(255),
@@ -44,7 +49,22 @@ export async function listProjects(params: {
   const sortBy = params.sortBy ?? "createdAt";
   const sortDirection = params.sortDirection === "asc" ? "asc" : "desc";
 
-  const where = q
+  const h = await headers();
+  const organization = await auth.api.getFullOrganization({
+    headers: h,
+  });
+
+  if (!organization) {
+    return {
+      projects: [],
+      total: 0,
+      page,
+      limit,
+      totalPages: 0,
+    };
+  }
+
+  const qFilter = q
     ? or(
         ilike(projects.name, `%${q}%`),
         ilike(projects.code, `%${q}%`),
@@ -52,10 +72,12 @@ export async function listProjects(params: {
       )
     : undefined;
 
+  const finalWhere = and(eq(projects.organizationId, organization.id), qFilter);
+
   const totalRows = await db
     .select({ id: projects.id })
     .from(projects)
-    .where(where);
+    .where(finalWhere);
   const total = totalRows.length;
 
   const order =
@@ -64,7 +86,7 @@ export async function listProjects(params: {
   const rows = await db
     .select()
     .from(projects)
-    .where(where)
+    .where(finalWhere)
     .orderBy(order)
     .limit(limit)
     .offset(offset);
@@ -92,7 +114,49 @@ export async function createProject(input: ProjectInput) {
   const validatedInput = parsed.data;
 
   try {
-    // Generate code like 1BM, 2BM, ... based on max existing id
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return {
+        project: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
+    const ownerId = organization.ownerId;
+    if (!ownerId) {
+      return {
+        project: null,
+        error: { reason: "Organization owner not found" },
+      };
+    }
+
+    const subscription = await db.query.subscriptions.findFirst({
+      where: eq(subscriptions.userId, ownerId),
+    });
+
+    const planId = subscription?.plan ?? "free";
+    const limits = getPlanLimits(planId);
+
+    if (limits.maxProject !== null) {
+      const [currentCount] = await db
+        .select({ count: count() })
+        .from(projects)
+        .where(eq(projects.organizationId, organization.id));
+
+      if (currentCount.count >= limits.maxProject) {
+        return {
+          project: null,
+          error: {
+            reason: `Project limit reached for ${planId} plan. Please upgrade to create more projects.`,
+          },
+        };
+      }
+    }
+
     const { sql } = await import("drizzle-orm");
     const [{ maxId }] = await db
       .select({ maxId: sql<number>`max(${projects.id})` })
@@ -110,6 +174,7 @@ export async function createProject(input: ProjectInput) {
         supervisorId: validatedInput.supervisorId ?? null,
         budgetPlanned: validatedInput.budgetPlanned ?? 0,
         budgetActual: validatedInput.budgetActual ?? 0,
+        organizationId: organization.id,
       })
       .returning();
 

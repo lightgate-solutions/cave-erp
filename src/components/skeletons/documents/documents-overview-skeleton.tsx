@@ -26,6 +26,7 @@ export function DocumentsOverviewSkeleton() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <Card
+            // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
             key={i}
             className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
           >

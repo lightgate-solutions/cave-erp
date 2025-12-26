@@ -42,6 +42,7 @@ export default async function DashboardPage() {
     switch (defaultView) {
       case "documents":
         redirect("/documents");
+        break;
       case "tasks":
         // Redirect to appropriate tasks page based on role
         if (user.isManager) {
@@ -49,10 +50,13 @@ export default async function DashboardPage() {
         } else {
           redirect("/tasks/employee");
         }
+        break;
       case "projects":
         redirect("/projects");
+        break;
       case "mail":
         redirect("/mail/inbox");
+        break;
       default:
         // If invalid defaultView, continue to show dashboard
         break;

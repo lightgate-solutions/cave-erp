@@ -24,7 +24,8 @@ export function ActionButtonsSkeleton({
     >
       {Array.from({ length: count }).map((_, i) => (
         <Card
-          key={i}
+          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
+          key={`action-button-${i}`}
           className="border border-gray-200/60 dark:border-gray-800 bg-white/80 dark:bg-gray-900/50 shadow-sm rounded-xl"
         >
           <CardContent className="flex flex-col items-center justify-center p-6 text-center">

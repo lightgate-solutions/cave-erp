@@ -13,6 +13,7 @@ export function DocumentsFolderSkeleton() {
           <div className="space-y-3">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
                 key={i}
                 className="flex items-center gap-4 p-3 rounded-lg hover:bg-accent/50"
               >

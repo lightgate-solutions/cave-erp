@@ -30,6 +30,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { ProjectFormDialog } from "./project-form-dialog";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 type Project = {
   id: number;
@@ -52,6 +53,11 @@ export function ProjectsTable() {
   const [dateTo, setDateTo] = useState("");
   const [_loading, setLoading] = useState(false);
   const [_editProject, _setEditProject] = useState<Project | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,7 +80,6 @@ export function ProjectsTable() {
     }
   }, [page, limit, q, status, dateFrom, dateTo]);
 
-  // Reset to page 1 when filters change
   const prevFiltersRef = useRef({ q, status, dateFrom, dateTo });
   useEffect(() => {
     const prevFilters = prevFiltersRef.current;
@@ -92,16 +97,38 @@ export function ProjectsTable() {
 
   useEffect(() => {
     load();
+
+    const handler = () => load();
     if (typeof window !== "undefined") {
+      window.addEventListener("organization:changed", handler);
+      window.addEventListener("projects:changed", handler);
+
       const detail = { q, status, dateFrom, dateTo };
       window.dispatchEvent(new CustomEvent("projects:filters", { detail }));
     }
-  }, [load, q, status, dateFrom, dateTo]);
 
-  async function onDelete(id: number) {
-    await fetch(`/api/projects/${id}`, { method: "DELETE" });
-    load();
-  }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("organization:changed", handler);
+        window.removeEventListener("projects:changed", handler);
+      }
+    };
+  }, [load, q, status, dateFrom, dateTo]);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
+  const handleDelete = async () => {
+    if (deleteId) {
+      await fetch(`/api/projects/${deleteId}`, { method: "DELETE" });
+      load();
+      setDeleteId(null);
+    }
+  };
+
+  const confirmDelete = (id: number) => {
+    setDeleteId(id);
+    setIsDeleteOpen(true);
+  };
 
   const clearDateFilters = () => {
     setDateFrom("");
@@ -121,17 +148,21 @@ export function ProjectsTable() {
             onChange={(e) => setQ(e.target.value)}
             className="flex-1"
           />
-          <Select value={status} onValueChange={(v) => setStatus(v)}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="in-progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
+          {mounted ? (
+            <Select value={status} onValueChange={(v) => setStatus(v)}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="w-40 h-10 border rounded-md bg-muted animate-pulse" />
+          )}
           <div className="flex items-center border rounded-md bg-background">
             <Button
               variant={view === "list" ? "secondary" : "ghost"}
@@ -297,7 +328,7 @@ export function ProjectsTable() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => onDelete(p.id)}
+                      onClick={() => confirmDelete(p.id)}
                       aria-label="Delete project"
                       title="Delete"
                     >
@@ -408,7 +439,9 @@ export function ProjectsTable() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => onDelete(p.id)}
+                    onClick={() => confirmDelete(p.id)}
+                    aria-label="Delete project"
+                    title="Delete"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -449,6 +482,16 @@ export function ProjectsTable() {
           </PaginationContent>
         </Pagination>
       ) : null}
+
+      <ConfirmationDialog
+        isOpen={isDeleteOpen}
+        onCloseAction={() => setIsDeleteOpen(false)}
+        onConfirmAction={handleDelete}
+        title="Delete Project?"
+        description="Are you sure you want to delete this project? This action cannot be undone."
+        confirmText="Delete"
+        confirmVariant="destructive"
+      />
     </div>
   );
 }

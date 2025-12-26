@@ -2,6 +2,9 @@ import { db } from "@/db";
 import { expenses, projects } from "@/db/schema";
 import { and, eq, ilike, or, inArray } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { organization as organizationSchema } from "@/db/schema/auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,27 +12,60 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get("q") || "";
     const status = searchParams.get("status") || "";
 
-    let where: ReturnType<typeof or> | ReturnType<typeof eq> | undefined;
+    const h = await headers();
+    let organization = null;
+    try {
+      organization = await auth.api.getFullOrganization({
+        headers: h,
+      });
+    } catch (_e) {}
+
+    if (!organization) {
+      const session = await auth.api.getSession({ headers: h });
+      // @ts-ignore
+      const activeOrgId = session?.session?.activeOrganizationId;
+
+      if (activeOrgId) {
+        const org = await db.query.organization.findFirst({
+          where: eq(organizationSchema.id, activeOrgId),
+        });
+
+        if (org) {
+          organization = org;
+        }
+      }
+    }
+
+    if (!organization) {
+      return NextResponse.json(
+        { total: 0, actual: 0, expenses: 0 },
+        { status: 200 },
+      );
+    }
+
+    let where:
+      | ReturnType<typeof or>
+      | ReturnType<typeof eq>
+      | ReturnType<typeof and>
+      | undefined;
+
+    where = eq(projects.organizationId, organization.id);
+
     if (q) {
-      where = or(
-        ilike(projects.name, `%${q}%`),
-        ilike(projects.code, `%${q}%`),
-        ilike(projects.location, `%${q}%`),
+      where = and(
+        where,
+        or(
+          ilike(projects.name, `%${q}%`),
+          ilike(projects.code, `%${q}%`),
+          ilike(projects.location, `%${q}%`),
+        ),
       );
     }
     if (status && status !== "all") {
-      where = where
-        ? and(
-            where,
-            eq(
-              projects.status,
-              status as "pending" | "in-progress" | "completed",
-            ),
-          )
-        : eq(
-            projects.status,
-            status as "pending" | "in-progress" | "completed",
-          );
+      where = and(
+        where,
+        eq(projects.status, status as "pending" | "in-progress" | "completed"),
+      );
     }
 
     const rows = await db.select().from(projects).where(where);
