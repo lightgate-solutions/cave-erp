@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { AnchorLink } from "@/components/marketing/anchor-link";
 import { HelpSearch } from "@/components/marketing/help-search";
 import { Logo } from "@/components/marketing/logo";
-import { SupportTicketForm } from "@/components/marketing/support-ticket-form";
+import { CollapsibleTicketForm } from "@/components/marketing/collapsible-ticket-form";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   Accordion,
@@ -352,14 +352,23 @@ export default function HelpPage() {
           </div>
         </section>
 
-        {/* Support Ticket Form - Enhanced */}
+        {/* Support Ticket Form - Collapsible */}
         <section
           id="submit-ticket"
           className="border-t border-border bg-gradient-to-b from-muted/30 to-background py-12 md:py-16"
         >
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto max-w-4xl">
-              <SupportTicketForm />
+              <div className="mb-8 text-center">
+                <h2 className="mb-3 text-3xl font-bold text-foreground md:text-4xl">
+                  Still Need Help?
+                </h2>
+                <p className="text-lg text-muted-foreground">
+                  Can't find what you're looking for? Submit a support ticket
+                  and we'll assist you
+                </p>
+              </div>
+              <CollapsibleTicketForm />
             </div>
           </div>
         </section>
