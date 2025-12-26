@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Code, Settings, Zap, FileText } from "lucide-react";
+import {
+  BookOpen,
+  Code,
+  Settings,
+  Zap,
+  FileText,
+  ChevronRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Sidebar,
@@ -13,7 +20,16 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
+import { tutorials } from "@/lib/tutorials-data";
 
 const navigationItems = [
   {
@@ -32,11 +48,6 @@ const navigationItems = [
     icon: Settings,
   },
   {
-    title: "Tutorials",
-    href: "/documentation/tutorials",
-    icon: FileText,
-  },
-  {
     title: "API Reference",
     href: "/documentation/api",
     icon: Code,
@@ -45,6 +56,8 @@ const navigationItems = [
 
 export function DocumentationSidebar() {
   const pathname = usePathname();
+  const isTutorialsActive = pathname?.startsWith("/documentation/tutorials");
+  const tutorialsHref = "/documentation/tutorials";
 
   return (
     <Sidebar collapsible="icon" className="border-r">
@@ -70,6 +83,65 @@ export function DocumentationSidebar() {
                   </SidebarMenuItem>
                 );
               })}
+
+              {/* Tutorials with Sub-items */}
+              <Collapsible
+                asChild
+                defaultOpen={isTutorialsActive}
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      tooltip="Tutorials"
+                      isActive={isTutorialsActive}
+                      className={cn(
+                        "transition-all duration-200",
+                        isTutorialsActive && "font-semibold text-primary",
+                      )}
+                    >
+                      <FileText />
+                      <span>Tutorials</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={pathname === tutorialsHref}
+                        >
+                          <a href={tutorialsHref}>
+                            <span>All Tutorials</span>
+                          </a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      {tutorials.map((tutorial) => {
+                        const tutorialHref = `/documentation/tutorials/${tutorial.id}`;
+                        const isSubActive = pathname === tutorialHref;
+                        return (
+                          <SidebarMenuSubItem key={tutorial.id}>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={isSubActive}
+                              className={cn(
+                                "transition-colors",
+                                isSubActive &&
+                                  "font-medium text-primary bg-primary/10",
+                              )}
+                            >
+                              <a href={tutorialHref}>
+                                <span>{tutorial.title}</span>
+                              </a>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        );
+                      })}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
