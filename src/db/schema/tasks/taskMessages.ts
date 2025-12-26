@@ -1,19 +1,34 @@
-import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  serial,
+  integer,
+  text,
+  timestamp,
+  index,
+} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { tasks } from "./tasks";
 import { employees } from "../hr";
+import { organization } from "../auth";
 
-export const taskMessages = pgTable("task_messages", {
-  id: serial("id").primaryKey(),
-  taskId: integer("task_id")
-    .notNull()
-    .references(() => tasks.id, { onDelete: "cascade" }),
-  senderId: integer("sender_id")
-    .notNull()
-    .references(() => employees.id, { onDelete: "cascade" }),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const taskMessages = pgTable(
+  "task_messages",
+  {
+    id: serial("id").primaryKey(),
+    taskId: integer("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    senderId: integer("sender_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("task_messages_organization_idx").on(table.organizationId)],
+);
 
 export const taskMessagesRelations = relations(taskMessages, ({ one }) => ({
   task: one(tasks, {

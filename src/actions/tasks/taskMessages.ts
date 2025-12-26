@@ -5,16 +5,30 @@ import { taskMessages, tasks, taskAssignees, employees } from "@/db/schema";
 import { DrizzleQueryError, and, eq, gt, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createNotification } from "../notification/notification";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 type NewMessage = typeof taskMessages.$inferInsert;
 
 export const createTaskMessage = async (msg: NewMessage) => {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return { success: null, error: { reason: "Organization not found" } };
+    }
+
     // Ensure the task exists and the sender is either assignedBy or assignedTo
     const t = await db
       .select()
       .from(tasks)
-      .where(eq(tasks.id, msg.taskId))
+      .where(
+        and(
+          eq(tasks.id, msg.taskId),
+          eq(tasks.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((r) => r[0]);
 
@@ -27,7 +41,12 @@ export const createTaskMessage = async (msg: NewMessage) => {
       const extra = await db
         .select({ employeeId: taskAssignees.employeeId })
         .from(taskAssignees)
-        .where(eq(taskAssignees.taskId, msg.taskId));
+        .where(
+          and(
+            eq(taskAssignees.taskId, msg.taskId),
+            eq(taskAssignees.organizationId, organization.id),
+          ),
+        );
       const extraIds = new Set(extra.map((r) => r.employeeId));
       if (!extraIds.has(msg.senderId)) {
         return {
@@ -41,7 +60,7 @@ export const createTaskMessage = async (msg: NewMessage) => {
 
     const inserted = await db
       .insert(taskMessages)
-      .values({ ...msg })
+      .values({ ...msg, organizationId: organization.id })
       .returning({
         id: taskMessages.id,
         taskId: taskMessages.taskId,
@@ -79,7 +98,12 @@ export const createTaskMessage = async (msg: NewMessage) => {
     const extraAssignees = await db
       .select({ employeeId: taskAssignees.employeeId })
       .from(taskAssignees)
-      .where(eq(taskAssignees.taskId, msg.taskId));
+      .where(
+        and(
+          eq(taskAssignees.taskId, msg.taskId),
+          eq(taskAssignees.organizationId, organization.id),
+        ),
+      );
 
     for (const { employeeId } of extraAssignees) {
       if (employeeId && employeeId !== msg.senderId) {
@@ -122,7 +146,17 @@ export const getMessagesForTask = async (
   taskId: number,
   opts?: { afterId?: number; limit?: number },
 ) => {
-  const whereBase = eq(taskMessages.taskId, taskId);
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
+  const whereBase = and(
+    eq(taskMessages.taskId, taskId),
+    eq(taskMessages.organizationId, organization.id),
+  );
   const where = opts?.afterId
     ? and(whereBase, gt(taskMessages.id, opts.afterId))
     : whereBase;

@@ -2,11 +2,13 @@
 
 import { db } from "@/db";
 import { employmentHistory } from "@/db/schema/hr";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireHROrAdmin } from "@/actions/auth/dal";
 import { toast } from "sonner";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 const employmentHistorySchema = z.object({
   employeeId: z.number(),
@@ -24,9 +26,20 @@ export type EmploymentHistoryFormValues = z.infer<
 
 export async function getEmployeeHistory(employeeId: number) {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
   try {
     const history = await db.query.employmentHistory.findMany({
-      where: eq(employmentHistory.employeeId, employeeId),
+      where: and(
+        eq(employmentHistory.employeeId, employeeId),
+        eq(employmentHistory.organizationId, organization.id),
+      ),
       orderBy: (history) => [history.startDate],
     });
 
@@ -38,6 +51,14 @@ export async function getEmployeeHistory(employeeId: number) {
 
 export async function addEmploymentHistory(data: EmploymentHistoryFormValues) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return { success: false, error: "Organization not found" };
+  }
+
   try {
     await db.insert(employmentHistory).values({
       employeeId: data.employeeId,
@@ -47,6 +68,7 @@ export async function addEmploymentHistory(data: EmploymentHistoryFormValues) {
       endDate: data.endDate ? new Date(data.endDate).toDateString() : null,
       department: data.department || null,
       employmentType: data.employmentType || null,
+      organizationId: organization.id,
     });
 
     revalidatePath(`/hr/employees`);
@@ -61,6 +83,14 @@ export async function updateEmploymentHistory(
   data: EmploymentHistoryFormValues,
 ) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return { success: false, error: "Organization not found" };
+  }
+
   try {
     await db
       .update(employmentHistory)
@@ -73,7 +103,12 @@ export async function updateEmploymentHistory(
         employmentType: data.employmentType || null,
         updatedAt: new Date(),
       })
-      .where(eq(employmentHistory.id, id));
+      .where(
+        and(
+          eq(employmentHistory.id, id),
+          eq(employmentHistory.organizationId, organization.id),
+        ),
+      );
 
     revalidatePath(`/hr/employees`);
     return { success: true };
@@ -85,8 +120,23 @@ export async function updateEmploymentHistory(
 // Delete an employment history record
 export async function deleteEmploymentHistory(id: number) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return { success: false, error: "Organization not found" };
+  }
+
   try {
-    await db.delete(employmentHistory).where(eq(employmentHistory.id, id));
+    await db
+      .delete(employmentHistory)
+      .where(
+        and(
+          eq(employmentHistory.id, id),
+          eq(employmentHistory.organizationId, organization.id),
+        ),
+      );
 
     revalidatePath(`/hr/employees`);
     return { success: true };

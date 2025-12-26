@@ -16,6 +16,10 @@ export default async function Page() {
     return redirect("/auth/login");
   }
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+
   // Get employee info to check department
   const [employee] = await db
     .select({

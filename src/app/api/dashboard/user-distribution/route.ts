@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { employees } from "@/db/schema/hr";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -14,6 +14,17 @@ export async function GET() {
 
     if (!authUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get organization context
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 403 },
+      );
     }
 
     // Normalize role check
@@ -28,14 +39,15 @@ export async function GET() {
       );
     }
 
-    // Get user distribution by role
-    // Group by role and count users
+    // Get user distribution by role (filtered by organization)
+    // Group by role and count users in this organization
     const roleDistribution = await db
       .select({
         role: employees.role,
         count: sql<number>`count(*)::int`,
       })
       .from(employees)
+      .where(eq(employees.organizationId, organization.id))
       .groupBy(employees.role);
 
     // Map roles to display names and colors

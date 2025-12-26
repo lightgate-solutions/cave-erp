@@ -2,10 +2,12 @@
 
 import { db } from "@/db";
 import { employeesBank } from "@/db/schema/hr";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { requireAuth, requireHROrAdmin } from "@/actions/auth/dal";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 const bankDetailsSchema = z.object({
   employeeId: z.number(),
@@ -18,9 +20,20 @@ export type BankDetailsFormValues = z.infer<typeof bankDetailsSchema>;
 
 export async function getEmployeeBankDetails(employeeId: number) {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   try {
     const bankDetails = await db.query.employeesBank.findFirst({
-      where: eq(employeesBank.employeeId, employeeId),
+      where: and(
+        eq(employeesBank.employeeId, employeeId),
+        eq(employeesBank.organizationId, organization.id),
+      ),
     });
 
     return bankDetails ?? null;
@@ -31,13 +44,27 @@ export async function getEmployeeBankDetails(employeeId: number) {
 
 export async function saveBankDetails(data: BankDetailsFormValues) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: false,
+      message: "Organization not found",
+    };
+  }
+
   try {
     const { employeeId, bankName, accountName, accountNumber } =
       bankDetailsSchema.parse(data);
 
     // Check if bank details already exist for this employee
     const existingDetails = await db.query.employeesBank.findFirst({
-      where: eq(employeesBank.employeeId, employeeId),
+      where: and(
+        eq(employeesBank.employeeId, employeeId),
+        eq(employeesBank.organizationId, organization.id),
+      ),
     });
 
     if (existingDetails) {
@@ -50,7 +77,12 @@ export async function saveBankDetails(data: BankDetailsFormValues) {
           accountNumber,
           updatedAt: new Date(),
         })
-        .where(eq(employeesBank.id, existingDetails.id));
+        .where(
+          and(
+            eq(employeesBank.id, existingDetails.id),
+            eq(employeesBank.organizationId, organization.id),
+          ),
+        );
     } else {
       // Create new record
       await db.insert(employeesBank).values({
@@ -58,6 +90,7 @@ export async function saveBankDetails(data: BankDetailsFormValues) {
         bankName,
         accountName,
         accountNumber,
+        organizationId: organization.id,
       });
     }
 
@@ -77,10 +110,26 @@ export async function saveBankDetails(data: BankDetailsFormValues) {
 
 export async function deleteBankDetails(employeeId: number) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: false,
+      message: "Organization not found",
+    };
+  }
+
   try {
     await db
       .delete(employeesBank)
-      .where(eq(employeesBank.employeeId, employeeId));
+      .where(
+        and(
+          eq(employeesBank.employeeId, employeeId),
+          eq(employeesBank.organizationId, organization.id),
+        ),
+      );
 
     revalidateTag(`employee-bank-${employeeId}`);
     return { success: true, message: "Bank details deleted successfully" };

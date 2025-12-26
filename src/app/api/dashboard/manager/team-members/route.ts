@@ -16,6 +16,17 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Get organization context
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 403 },
+      );
+    }
+
     // Get manager employee info
     const employeeResult = await db
       .select({
@@ -23,7 +34,12 @@ export async function GET() {
         isManager: employees.isManager,
       })
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     const employee = employeeResult[0];
@@ -34,7 +50,7 @@ export async function GET() {
       );
     }
 
-    // Get subordinates (team members)
+    // Get subordinates (team members) in the same organization
     const subordinates = await db
       .select({
         id: employees.id,
@@ -48,6 +64,7 @@ export async function GET() {
         and(
           eq(employees.managerId, employee.id),
           eq(employees.isManager, false),
+          eq(employees.organizationId, organization.id),
         ),
       );
 
@@ -63,7 +80,7 @@ export async function GET() {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-    // Get task stats for each team member
+    // Get task stats for each team member (filtered by organization)
     const taskStats = await db
       .select({
         employeeId: tasks.assignedTo,
@@ -75,6 +92,7 @@ export async function GET() {
         and(
           inArray(tasks.assignedTo, teamMemberIds),
           eq(tasks.assignedBy, employee.id),
+          eq(tasks.organizationId, organization.id),
         ),
       )
       .groupBy(tasks.assignedTo);
@@ -92,7 +110,7 @@ export async function GET() {
       });
     }
 
-    // Get total tasks assigned to each member to calculate performance
+    // Get total tasks assigned to each member to calculate performance (filtered by organization)
     const totalTasksByMember = await db
       .select({
         employeeId: tasks.assignedTo,
@@ -103,6 +121,7 @@ export async function GET() {
         and(
           inArray(tasks.assignedTo, teamMemberIds),
           eq(tasks.assignedBy, employee.id),
+          eq(tasks.organizationId, organization.id),
         ),
       )
       .groupBy(tasks.assignedTo);

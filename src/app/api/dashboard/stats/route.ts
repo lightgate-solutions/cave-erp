@@ -22,6 +22,17 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Get organization context
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 403 },
+      );
+    }
+
     // Get employee info
     const employeeResult = await db
       .select({
@@ -30,7 +41,12 @@ export async function GET() {
         department: employees.department,
       })
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     const employee = employeeResult[0];
@@ -50,53 +66,44 @@ export async function GET() {
     let taskStats = { active: 0, pending: 0, inProgress: 0, total: 0 };
     try {
       const taskScopeWhere = isAdmin
-        ? undefined
+        ? eq(tasks.organizationId, organization.id)
         : isManager
-          ? eq(tasks.assignedBy, employee.id)
-          : eq(tasks.assignedTo, employee.id);
+          ? and(
+              eq(tasks.assignedBy, employee.id),
+              eq(tasks.organizationId, organization.id),
+            )
+          : and(
+              eq(tasks.assignedTo, employee.id),
+              eq(tasks.organizationId, organization.id),
+            );
 
       // Get task counts - active tasks are all tasks that are not Completed
-      const activeTaskWhere = taskScopeWhere
-        ? and(taskScopeWhere, ne(tasks.status, "Completed"))
-        : ne(tasks.status, "Completed");
+      const activeTaskWhere = and(
+        taskScopeWhere,
+        ne(tasks.status, "Completed"),
+      );
 
-      const pendingTaskWhere = taskScopeWhere
-        ? and(taskScopeWhere, eq(tasks.status, "Todo"))
-        : eq(tasks.status, "Todo");
+      const pendingTaskWhere = and(taskScopeWhere, eq(tasks.status, "Todo"));
 
-      const inProgressTaskWhere = taskScopeWhere
-        ? and(taskScopeWhere, eq(tasks.status, "In Progress"))
-        : eq(tasks.status, "In Progress");
+      const inProgressTaskWhere = and(
+        taskScopeWhere,
+        eq(tasks.status, "In Progress"),
+      );
 
       const [activeResult, pendingResult, inProgressResult] = await Promise.all(
         [
-          activeTaskWhere
-            ? db
-                .select({ count: sql<number>`count(*)::int` })
-                .from(tasks)
-                .where(activeTaskWhere)
-            : db
-                .select({ count: sql<number>`count(*)::int` })
-                .from(tasks)
-                .where(ne(tasks.status, "Completed")),
-          pendingTaskWhere
-            ? db
-                .select({ count: sql<number>`count(*)::int` })
-                .from(tasks)
-                .where(pendingTaskWhere)
-            : db
-                .select({ count: sql<number>`count(*)::int` })
-                .from(tasks)
-                .where(eq(tasks.status, "Todo")),
-          inProgressTaskWhere
-            ? db
-                .select({ count: sql<number>`count(*)::int` })
-                .from(tasks)
-                .where(inProgressTaskWhere)
-            : db
-                .select({ count: sql<number>`count(*)::int` })
-                .from(tasks)
-                .where(eq(tasks.status, "In Progress")),
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(tasks)
+            .where(activeTaskWhere),
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(tasks)
+            .where(pendingTaskWhere),
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(tasks)
+            .where(inProgressTaskWhere),
         ],
       );
 

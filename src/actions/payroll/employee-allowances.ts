@@ -116,23 +116,6 @@ export async function getAvailableAllowancesForEmployee(employeeId: number) {
   if (!organization) throw new Error("Organization not found");
 
   try {
-    // First, get all allowances that are currently assigned to the employee
-    const assignedAllowanceIds = await db
-      .select({ allowanceId: employeeAllowances.allowanceId })
-      .from(employeeAllowances)
-      .where(
-        and(
-          eq(employeeAllowances.employeeId, employeeId),
-          isNull(employeeAllowances.effectiveTo),
-          eq(employeeAllowances.organizationId, organization.id),
-        ),
-      );
-
-    // Create a set of already assigned allowance IDs
-    const _assignedIds = new Set(
-      assignedAllowanceIds.map((a) => a.allowanceId),
-    );
-
     // Now get all allowances that are not assigned to this employee
     const availableAllowances = await db
       .select({

@@ -21,6 +21,17 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Get organization context
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 403 },
+      );
+    }
+
     // Get date 30 days ago
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -45,6 +56,7 @@ export async function GET() {
         SELECT DATE(created_at)::text as activity_date, COUNT(*)::int as count
         FROM tasks
         WHERE created_at >= ${thirtyDaysAgo}
+          AND organization_id = ${organization.id}
         GROUP BY DATE(created_at)
       `),
       // Tasks updated (exclude same-day as created)
@@ -53,6 +65,7 @@ export async function GET() {
         FROM tasks
         WHERE updated_at >= ${thirtyDaysAgo}
           AND DATE(updated_at) != DATE(created_at)
+          AND organization_id = ${organization.id}
         GROUP BY DATE(updated_at)
       `),
       // Documents created
@@ -92,6 +105,7 @@ export async function GET() {
         SELECT DATE(created_at)::text as activity_date, COUNT(*)::int as count
         FROM task_messages
         WHERE created_at >= ${thirtyDaysAgo}
+          AND organization_id = ${organization.id}
         GROUP BY DATE(created_at)
       `),
       // Task submissions
@@ -99,6 +113,7 @@ export async function GET() {
         SELECT DATE(submitted_at)::text as activity_date, COUNT(*)::int as count
         FROM task_submissions
         WHERE submitted_at >= ${thirtyDaysAgo}
+          AND organization_id = ${organization.id}
         GROUP BY DATE(submitted_at)
       `),
       // Expenses
@@ -106,6 +121,7 @@ export async function GET() {
         SELECT DATE(created_at)::text as activity_date, COUNT(*)::int as count
         FROM company_expenses
         WHERE created_at >= ${thirtyDaysAgo}
+          AND organization_id = ${organization.id}
         GROUP BY DATE(created_at)
       `),
       // Payments
@@ -113,6 +129,7 @@ export async function GET() {
         SELECT DATE(created_at)::text as activity_date, COUNT(*)::int as count
         FROM payments
         WHERE created_at >= ${thirtyDaysAgo}
+          AND organization_id = ${organization.id}
         GROUP BY DATE(created_at)
       `),
     ]);

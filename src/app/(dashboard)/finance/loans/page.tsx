@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import LoanDisbursementTable from "@/components/loans/loan-disbursement-table";
 
 export default async function FinanceLoansPage() {
@@ -16,6 +16,11 @@ export default async function FinanceLoansPage() {
     return redirect("/auth/login");
   }
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) return;
+
   // Get employee info
   const [employee] = await db
     .select({
@@ -24,7 +29,12 @@ export default async function FinanceLoansPage() {
       department: employees.department,
     })
     .from(employees)
-    .where(eq(employees.authId, session.user.id))
+    .where(
+      and(
+        eq(employees.authId, session.user.id),
+        eq(employees.organizationId, organization.id),
+      ),
+    )
     .limit(1);
 
   if (!employee) {

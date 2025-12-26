@@ -18,13 +18,29 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Get organization context
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 403 },
+      );
+    }
+
     // Get employee info
     const employeeResult = await db
       .select({
         id: employees.id,
       })
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     const employee = employeeResult[0];
@@ -41,7 +57,12 @@ export async function GET() {
       assignedTaskIds = await db
         .select({ taskId: taskAssignees.taskId })
         .from(taskAssignees)
-        .where(eq(taskAssignees.employeeId, employee.id));
+        .where(
+          and(
+            eq(taskAssignees.employeeId, employee.id),
+            eq(taskAssignees.organizationId, organization.id),
+          ),
+        );
     } catch (error) {
       // If taskAssignees table doesn't exist or has issues, continue with direct assignment only
       console.error("Error fetching task assignees:", error);
@@ -77,6 +98,7 @@ export async function GET() {
           ne(tasks.status, "Completed"),
           sql`${tasks.dueDate} IS NOT NULL`,
           sql`${tasks.dueDate} <= ${thirtyDaysFromNow}`,
+          eq(tasks.organizationId, organization.id),
         ),
       )
       .orderBy(asc(tasks.dueDate))

@@ -172,6 +172,17 @@ export async function createUser(data: {
 }) {
   const { autoVerify, ...userData } = data;
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      error: { reason: "Organization not found" },
+      success: null,
+      data: null,
+    };
+  }
+
   try {
     const createData = {
       ...userData,
@@ -212,6 +223,7 @@ export async function createUser(data: {
           status: "active",
           department: userData.data?.department ?? "general",
           managerId: parsedManagerId,
+          organizationId: organization.id,
           dateOfBirth: dobValue,
           documentCount: 0,
           address: userData.data?.address ?? null,

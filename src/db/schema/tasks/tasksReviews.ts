@@ -11,6 +11,7 @@ import { tasks } from "./tasks";
 import { taskSubmissions } from "./taskSubmissions";
 import { employees } from "../hr";
 import { reviewStatusEnum } from "./enums";
+import { organization } from "../auth";
 
 export const taskReviews = pgTable(
   "task_reviews",
@@ -29,6 +30,10 @@ export const taskReviews = pgTable(
       .notNull()
       .references(() => employees.id, { onDelete: "cascade" }),
 
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+
     status: reviewStatusEnum("status").notNull(),
 
     reviewNote: text("review_note"),
@@ -39,6 +44,7 @@ export const taskReviews = pgTable(
     index("task_reviews_task_idx").on(table.taskId),
     index("task_reviews_submission_idx").on(table.submissionId),
     index("task_reviews_reviewer_idx").on(table.reviewedBy),
+    index("task_reviews_organization_idx").on(table.organizationId),
   ],
 );
 

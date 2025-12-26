@@ -15,6 +15,8 @@ import {
 import { revalidatePath } from "next/cache";
 import type { CreateTask } from "@/types";
 import { createNotification } from "../notification/notification";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 type CreateTaskWithAssignees = CreateTask & { assignees?: number[] };
 
@@ -28,6 +30,16 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
       };
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        success: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
     const assignees = (taskData.assignees || []).filter(Boolean);
     const firstAssignee = assignees[0] ?? taskData.assignedTo ?? null;
 
@@ -36,6 +48,7 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
       .values({
         ...taskData,
         assignedTo: firstAssignee ?? undefined,
+        organizationId: organization.id,
       })
       .returning({ id: tasks.id });
 
@@ -43,6 +56,7 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
       const rows = assignees.map((empId) => ({
         taskId: created.id,
         employeeId: empId,
+        organizationId: organization.id,
       }));
       await db.insert(taskAssignees).values(rows);
 
@@ -107,6 +121,16 @@ export async function updateTask(
     return {
       success: null,
       error: { reason: "Employee not found" },
+    };
+  }
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
     };
   }
 
@@ -180,7 +204,9 @@ export async function updateTask(
     const currentTask = await db
       .select()
       .from(tasks)
-      .where(eq(tasks.id, taskId))
+      .where(
+        and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
+      )
       .limit(1)
       .then((r) => r[0]);
 
@@ -189,12 +215,16 @@ export async function updateTask(
       await db
         .update(tasks)
         .set(normalized as unknown as TaskUpdate)
-        .where(eq(tasks.id, taskId));
+        .where(
+          and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
+        );
     } else {
       await db
         .update(tasks)
         .set(normalized as unknown as TaskUpdate)
-        .where(eq(tasks.id, taskId));
+        .where(
+          and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
+        );
     }
 
     // Notify assignees if manager made significant changes
@@ -210,7 +240,12 @@ export async function updateTask(
         const assigneesList = await db
           .select({ employeeId: taskAssignees.employeeId })
           .from(taskAssignees)
-          .where(eq(taskAssignees.taskId, taskId));
+          .where(
+            and(
+              eq(taskAssignees.taskId, taskId),
+              eq(taskAssignees.organizationId, organization.id),
+            ),
+          );
 
         const assigneeIds = assigneesList
           .map((a) => a.employeeId)
@@ -280,11 +315,23 @@ export async function deleteTask(employeeId: number, taskId: number) {
       };
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        success: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
     // Get task details before deletion for notifications
     const task = await db
       .select()
       .from(tasks)
-      .where(eq(tasks.id, taskId))
+      .where(
+        and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
+      )
       .limit(1)
       .then((r) => r[0]);
 
@@ -293,7 +340,12 @@ export async function deleteTask(employeeId: number, taskId: number) {
       const assigneesList = await db
         .select({ employeeId: taskAssignees.employeeId })
         .from(taskAssignees)
-        .where(eq(taskAssignees.taskId, taskId));
+        .where(
+          and(
+            eq(taskAssignees.taskId, taskId),
+            eq(taskAssignees.organizationId, organization.id),
+          ),
+        );
 
       const assigneeIds = assigneesList
         .map((a) => a.employeeId)
@@ -301,7 +353,11 @@ export async function deleteTask(employeeId: number, taskId: number) {
       if (task.assignedTo) assigneeIds.push(task.assignedTo);
 
       // Delete the task
-      await db.delete(tasks).where(eq(tasks.id, taskId));
+      await db
+        .delete(tasks)
+        .where(
+          and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
+        );
 
       // Notify assignees that task was cancelled
       for (const assigneeId of assigneeIds) {
@@ -314,7 +370,11 @@ export async function deleteTask(employeeId: number, taskId: number) {
         });
       }
     } else {
-      await db.delete(tasks).where(eq(tasks.id, taskId));
+      await db
+        .delete(tasks)
+        .where(
+          and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
+        );
     }
 
     revalidatePath("/tasks");
@@ -346,10 +406,21 @@ export async function getTasksForEmployee(
   limit: number = 10,
   offset: number = 0,
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
+  const finalWhere = where
+    ? and(where, eq(tasks.organizationId, organization.id))
+    : eq(tasks.organizationId, organization.id);
+
   const rows = await db
     .select()
     .from(tasks)
-    .where(where)
+    .where(finalWhere)
     .orderBy(order)
     .limit(limit)
     .offset(offset);
@@ -359,10 +430,22 @@ export async function getTasksForEmployee(
 export async function getTaskForEmployee(employeeId: number, taskId: number) {
   // A task is visible to an employee if either it's directly assignedTo them
   // or they appear in task_assignees for that task.
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return undefined;
+  }
+
   const ids = await db
     .select({ id: taskAssignees.taskId })
     .from(taskAssignees)
-    .where(eq(taskAssignees.employeeId, employeeId));
+    .where(
+      and(
+        eq(taskAssignees.employeeId, employeeId),
+        eq(taskAssignees.organizationId, organization.id),
+      ),
+    );
   const taskIds = ids.map((r) => r.id);
 
   return await db
@@ -371,6 +454,7 @@ export async function getTaskForEmployee(employeeId: number, taskId: number) {
     .where(
       and(
         eq(tasks.id, taskId),
+        eq(tasks.organizationId, organization.id),
         or(eq(tasks.assignedTo, employeeId), inArray(tasks.id, taskIds)),
       ),
     )
@@ -379,15 +463,43 @@ export async function getTaskForEmployee(employeeId: number, taskId: number) {
 }
 
 export async function getTaskByManager(managerId: number, taskId: number) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return undefined;
+  }
+
   return await db
     .select()
     .from(tasks)
-    .where(and(eq(tasks.id, taskId), eq(tasks.assignedBy, managerId)))
+    .where(
+      and(
+        eq(tasks.id, taskId),
+        eq(tasks.assignedBy, managerId),
+        eq(tasks.organizationId, organization.id),
+      ),
+    )
     .limit(1)
     .then((res) => res[0]);
 }
 
 // Returns all tasks created by a given manager
 export async function getTasksByManager(managerId: number) {
-  return await db.select().from(tasks).where(eq(tasks.assignedBy, managerId));
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
+  return await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.assignedBy, managerId),
+        eq(tasks.organizationId, organization.id),
+      ),
+    );
 }

@@ -7,11 +7,23 @@ import { DrizzleQueryError, and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createNotification } from "../notification/notification";
 import { requireAuth, requireManager } from "@/actions/auth/dal";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 type NewSubmission = typeof taskSubmissions.$inferInsert;
 
 export async function submitTask(submissionData: NewSubmission) {
   const authData = await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
 
   // Verify user can only submit their own tasks
   if (authData.employee.id !== submissionData.submittedBy) {
@@ -33,13 +45,19 @@ export async function submitTask(submissionData: NewSubmission) {
 
     await db.insert(taskSubmissions).values({
       ...submissionData,
+      organizationId: organization.id,
     });
 
     // Notify the manager that the task has been submitted
     const task = await db
       .select()
       .from(tasks)
-      .where(eq(tasks.id, submissionData.taskId))
+      .where(
+        and(
+          eq(tasks.id, submissionData.taskId),
+          eq(tasks.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((r) => r[0]);
 
@@ -82,32 +100,72 @@ export async function submitTask(submissionData: NewSubmission) {
 
 export async function getTaskSubmissions(taskId: number) {
   await requireAuth();
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
   return await db
     .select()
     .from(taskSubmissions)
-    .where(eq(taskSubmissions.taskId, taskId));
+    .where(
+      and(
+        eq(taskSubmissions.taskId, taskId),
+        eq(taskSubmissions.organizationId, organization.id),
+      ),
+    );
 }
 
 export async function getEmployeeSubmissions(employeeId: number) {
   await requireAuth();
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
   return await db
     .select()
     .from(taskSubmissions)
-    .where(eq(taskSubmissions.submittedBy, employeeId));
+    .where(
+      and(
+        eq(taskSubmissions.submittedBy, employeeId),
+        eq(taskSubmissions.organizationId, organization.id),
+      ),
+    );
 }
 
 export async function getSubmissionById(submissionId: number) {
   await requireAuth();
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
   return await db
     .select()
     .from(taskSubmissions)
-    .where(eq(taskSubmissions.id, submissionId))
+    .where(
+      and(
+        eq(taskSubmissions.id, submissionId),
+        eq(taskSubmissions.organizationId, organization.id),
+      ),
+    )
     .limit(1)
     .then((res) => res[0]);
 }
 
 export async function getManagerTeamSubmissions(managerId: number) {
   const authData = await requireManager();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
 
   // Verify the user is requesting their own team's submissions
   if (authData.employee.id !== managerId) {
@@ -130,7 +188,12 @@ export async function getManagerTeamSubmissions(managerId: number) {
     .from(taskSubmissions)
     .leftJoin(tasks, eq(tasks.id, taskSubmissions.taskId))
     .leftJoin(employees, eq(employees.id, taskSubmissions.submittedBy))
-    .where(eq(tasks.assignedBy, managerId))
+    .where(
+      and(
+        eq(tasks.assignedBy, managerId),
+        eq(taskSubmissions.organizationId, organization.id),
+      ),
+    )
     .orderBy(desc(taskSubmissions.submittedAt));
   return rows;
 }
@@ -149,6 +212,16 @@ export async function createSubmissionReview(args: {
     return {
       success: null,
       error: { reason: "You can only review as yourself" },
+    };
+  }
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "No organization found" },
     };
   }
 
@@ -173,6 +246,7 @@ export async function createSubmissionReview(args: {
       taskId: args.taskId,
       submissionId: args.submissionId,
       reviewedBy: args.reviewedBy,
+      organizationId: organization.id,
       status: args.status,
       reviewNote: args.reviewNote,
     });

@@ -28,6 +28,8 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireHROrAdmin } from "@/actions/auth/dal";
 import { createNotification } from "../notification/notification";
 import { getEmployee } from "./employees";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 // Calculate total days between two dates (excluding weekends)
 function calculateWorkingDays(startDate: Date, endDate: Date): number {
@@ -58,9 +60,25 @@ export async function getAllLeaveApplications(filters?: {
   limit?: number;
 }) {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      leaves: [],
+      total: 0,
+      page: 1,
+      limit: 10,
+      totalPages: 0,
+    };
+  }
+
   const approver = alias(employees, "approver");
 
-  const conditions: any[] = [];
+  const conditions: any[] = [
+    eq(leaveApplications.organizationId, organization.id),
+  ];
 
   if (filters?.employeeId) {
     conditions.push(eq(leaveApplications.employeeId, filters.employeeId));
@@ -143,6 +161,14 @@ export async function getAllLeaveApplications(filters?: {
 // Get leave application by ID
 export async function getLeaveApplication(leaveId: number) {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   const approver = alias(employees, "approver");
 
   const result = await db
@@ -168,7 +194,12 @@ export async function getLeaveApplication(leaveId: number) {
     .from(leaveApplications)
     .leftJoin(employees, eq(leaveApplications.employeeId, employees.id))
     .leftJoin(approver, eq(leaveApplications.approvedBy, approver.id))
-    .where(eq(leaveApplications.id, leaveId))
+    .where(
+      and(
+        eq(leaveApplications.id, leaveId),
+        eq(leaveApplications.organizationId, organization.id),
+      ),
+    )
     .limit(1);
 
   return result[0];
@@ -183,6 +214,16 @@ export async function applyForLeave(data: {
   reason: string;
 }) {
   const authData = await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
 
   // Verify user can only apply for their own leave
   if (
@@ -223,6 +264,7 @@ export async function applyForLeave(data: {
       .where(
         and(
           eq(leaveApplications.employeeId, data.employeeId),
+          eq(leaveApplications.organizationId, organization.id),
           or(
             eq(leaveApplications.status, "Pending"),
             eq(leaveApplications.status, "Approved"),
@@ -291,6 +333,7 @@ export async function applyForLeave(data: {
         totalDays,
         reason: data.reason,
         status: "Pending",
+        organizationId: organization.id,
       })
       .returning();
 
@@ -355,6 +398,17 @@ export async function updateLeaveApplication(
   approverId?: number,
 ) {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
     const processedUpdates: any = { ...updates, updatedAt: new Date() };
 
@@ -383,7 +437,12 @@ export async function updateLeaveApplication(
     await db
       .update(leaveApplications)
       .set(processedUpdates)
-      .where(eq(leaveApplications.id, leaveId));
+      .where(
+        and(
+          eq(leaveApplications.id, leaveId),
+          eq(leaveApplications.organizationId, organization.id),
+        ),
+      );
 
     // Get leave details for notifications
     const leave = await getLeaveApplication(leaveId);
@@ -462,11 +521,29 @@ export async function updateLeaveApplication(
 // Delete leave application
 export async function deleteLeaveApplication(leaveId: number) {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
     // Get leave details before deletion for notifications
     const leave = await getLeaveApplication(leaveId);
 
-    await db.delete(leaveApplications).where(eq(leaveApplications.id, leaveId));
+    await db
+      .delete(leaveApplications)
+      .where(
+        and(
+          eq(leaveApplications.id, leaveId),
+          eq(leaveApplications.organizationId, organization.id),
+        ),
+      );
 
     // Notify approver if leave was pending and had an approver
     if (leave && leave.status === "Pending" && leave.approvedBy) {
@@ -519,6 +596,14 @@ export async function deleteLeaveApplication(leaveId: number) {
 // Get leave balance for an employee
 export async function getLeaveBalance(employeeId: number, year?: number) {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
   const currentYear = year || new Date().getFullYear();
   return await db
     .select()
@@ -527,6 +612,7 @@ export async function getLeaveBalance(employeeId: number, year?: number) {
       and(
         eq(leaveBalances.employeeId, employeeId),
         eq(leaveBalances.year, currentYear),
+        eq(leaveBalances.organizationId, organization.id),
       ),
     );
 }
@@ -537,7 +623,20 @@ export async function updateLeaveBalance(
   leaveType: string,
   usedDays: number,
   year: number,
+  organizationId?: string,
 ) {
+  const organization =
+    organizationId ||
+    (await auth.api
+      .getFullOrganization({
+        headers: await headers(),
+      })
+      .then((org) => org?.id));
+
+  if (!organization) {
+    return;
+  }
+
   const balance = await db
     .select()
     .from(leaveBalances)
@@ -546,6 +645,7 @@ export async function updateLeaveBalance(
         eq(leaveBalances.employeeId, employeeId),
         eq(leaveBalances.leaveType, leaveType as any),
         eq(leaveBalances.year, year),
+        eq(leaveBalances.organizationId, organization),
       ),
     )
     .limit(1);
@@ -570,10 +670,23 @@ export async function updateLeaveBalance(
 // Get annual leave allocation for a year
 export async function getAnnualLeaveAllocation(year: number) {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return 30; // Default to 30 if not set
+  }
+
   const setting = await db
     .select()
     .from(annualLeaveSettings)
-    .where(eq(annualLeaveSettings.year, year))
+    .where(
+      and(
+        eq(annualLeaveSettings.year, year),
+        eq(annualLeaveSettings.organizationId, organization.id),
+      ),
+    )
     .limit(1);
 
   return setting[0]?.allocatedDays || 30; // Default to 30 if not set
@@ -586,11 +699,27 @@ export async function setAnnualLeaveAllocation(data: {
   description?: string;
 }) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
     const existing = await db
       .select()
       .from(annualLeaveSettings)
-      .where(eq(annualLeaveSettings.year, data.year))
+      .where(
+        and(
+          eq(annualLeaveSettings.year, data.year),
+          eq(annualLeaveSettings.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (existing.length > 0) {
@@ -601,17 +730,23 @@ export async function setAnnualLeaveAllocation(data: {
           description: data.description || null,
           updatedAt: new Date(),
         })
-        .where(eq(annualLeaveSettings.id, existing[0].id));
+        .where(
+          and(
+            eq(annualLeaveSettings.id, existing[0].id),
+            eq(annualLeaveSettings.organizationId, organization.id),
+          ),
+        );
     } else {
       await db.insert(annualLeaveSettings).values({
         allocatedDays: data.allocatedDays,
         year: data.year,
         description: data.description || null,
+        organizationId: organization.id,
       });
     }
 
     // Recalculate all employee balances for this year
-    await recalculateAllEmployeeBalances(data.year);
+    await recalculateAllEmployeeBalances(data.year, organization.id);
 
     revalidatePath("/hr/leaves/annual-balances");
     return {
@@ -638,19 +773,44 @@ export async function setAnnualLeaveAllocation(data: {
 // Get all annual leave settings
 export async function getAllAnnualLeaveSettings() {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
   return await db
     .select()
     .from(annualLeaveSettings)
+    .where(eq(annualLeaveSettings.organizationId, organization.id))
     .orderBy(desc(annualLeaveSettings.year));
 }
 
 // Delete annual leave setting
 export async function deleteAnnualLeaveSetting(settingId: number) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
     await db
       .delete(annualLeaveSettings)
-      .where(eq(annualLeaveSettings.id, settingId));
+      .where(
+        and(
+          eq(annualLeaveSettings.id, settingId),
+          eq(annualLeaveSettings.organizationId, organization.id),
+        ),
+      );
 
     revalidatePath("/hr/leaves/annual-balances");
     return {
@@ -675,7 +835,23 @@ export async function deleteAnnualLeaveSetting(settingId: number) {
 }
 
 // Recalculate used days from approved leaves
-async function recalculateUsedDays(employeeId: number, year: number) {
+async function recalculateUsedDays(
+  employeeId: number,
+  year: number,
+  organizationId?: string,
+) {
+  const organization =
+    organizationId ||
+    (await auth.api
+      .getFullOrganization({
+        headers: await headers(),
+      })
+      .then((org) => org?.id));
+
+  if (!organization) {
+    return 0;
+  }
+
   // Get all approved annual leaves for this employee in this year
   const approvedLeaves = await db
     .select({
@@ -687,6 +863,7 @@ async function recalculateUsedDays(employeeId: number, year: number) {
         eq(leaveApplications.employeeId, employeeId),
         eq(leaveApplications.leaveType, "Annual"),
         eq(leaveApplications.status, "Approved"),
+        eq(leaveApplications.organizationId, organization),
         gte(leaveApplications.startDate, `${year}-01-01`),
         lte(leaveApplications.startDate, `${year}-12-31`),
       ),
@@ -702,12 +879,30 @@ async function recalculateUsedDays(employeeId: number, year: number) {
 }
 
 // Recalculate balances for all employees for a year
-async function recalculateAllEmployeeBalances(year: number) {
+async function recalculateAllEmployeeBalances(
+  year: number,
+  organizationId?: string,
+) {
+  const organization =
+    organizationId ||
+    (await auth.api
+      .getFullOrganization({
+        headers: await headers(),
+      })
+      .then((org) => org?.id));
+
+  if (!organization) {
+    return;
+  }
+
   const allocatedDays = await getAnnualLeaveAllocation(year);
-  const allEmployees = await db.select({ id: employees.id }).from(employees);
+  const allEmployees = await db
+    .select({ id: employees.id })
+    .from(employees)
+    .where(eq(employees.organizationId, organization));
 
   for (const employee of allEmployees) {
-    const usedDays = await recalculateUsedDays(employee.id, year);
+    const usedDays = await recalculateUsedDays(employee.id, year, organization);
     const remainingDays = allocatedDays - usedDays;
 
     const balance = await db
@@ -718,6 +913,7 @@ async function recalculateAllEmployeeBalances(year: number) {
           eq(leaveBalances.employeeId, employee.id),
           eq(leaveBalances.leaveType, "Annual"),
           eq(leaveBalances.year, year),
+          eq(leaveBalances.organizationId, organization),
         ),
       )
       .limit(1);
@@ -740,6 +936,7 @@ async function recalculateAllEmployeeBalances(year: number) {
         usedDays,
         remainingDays,
         year,
+        organizationId: organization,
       });
     }
   }
@@ -749,9 +946,22 @@ async function recalculateAllEmployeeBalances(year: number) {
 export async function initializeEmployeeBalance(
   employeeId: number,
   year: number,
+  organizationId?: string,
 ) {
+  const organization =
+    organizationId ||
+    (await auth.api
+      .getFullOrganization({
+        headers: await headers(),
+      })
+      .then((org) => org?.id));
+
+  if (!organization) {
+    return;
+  }
+
   const allocatedDays = await getAnnualLeaveAllocation(year);
-  const usedDays = await recalculateUsedDays(employeeId, year);
+  const usedDays = await recalculateUsedDays(employeeId, year, organization);
   const remainingDays = allocatedDays - usedDays;
 
   const balance = await db
@@ -762,6 +972,7 @@ export async function initializeEmployeeBalance(
         eq(leaveBalances.employeeId, employeeId),
         eq(leaveBalances.leaveType, "Annual"),
         eq(leaveBalances.year, year),
+        eq(leaveBalances.organizationId, organization),
       ),
     )
     .limit(1);
@@ -784,6 +995,7 @@ export async function initializeEmployeeBalance(
       usedDays,
       remainingDays,
       year,
+      organizationId: organization,
     });
   }
 }
@@ -791,10 +1003,23 @@ export async function initializeEmployeeBalance(
 // Get leave types
 export async function getLeaveTypes() {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
   return await db
     .select()
     .from(leaveTypes)
-    .where(eq(leaveTypes.isActive, true))
+    .where(
+      and(
+        eq(leaveTypes.isActive, true),
+        eq(leaveTypes.organizationId, organization.id),
+      ),
+    )
     .orderBy(asc(leaveTypes.name));
 }
 
@@ -806,6 +1031,17 @@ export async function createLeaveType(data: {
   requiresApproval?: boolean;
 }) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
     await db.insert(leaveTypes).values({
       name: data.name,
@@ -813,6 +1049,7 @@ export async function createLeaveType(data: {
       maxDays: data.maxDays || null,
       requiresApproval: data.requiresApproval ?? true,
       isActive: true,
+      organizationId: organization.id,
     });
 
     revalidatePath("/hr/leaves");
@@ -849,13 +1086,29 @@ export async function updateLeaveType(
   }>,
 ) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
     const processedUpdates: any = { ...updates, updatedAt: new Date() };
 
     await db
       .update(leaveTypes)
       .set(processedUpdates)
-      .where(eq(leaveTypes.id, leaveTypeId));
+      .where(
+        and(
+          eq(leaveTypes.id, leaveTypeId),
+          eq(leaveTypes.organizationId, organization.id),
+        ),
+      );
 
     revalidatePath("/hr/leaves");
     return {
@@ -882,8 +1135,26 @@ export async function updateLeaveType(
 // Delete leave type
 export async function deleteLeaveType(leaveTypeId: number) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
-    await db.delete(leaveTypes).where(eq(leaveTypes.id, leaveTypeId));
+    await db
+      .delete(leaveTypes)
+      .where(
+        and(
+          eq(leaveTypes.id, leaveTypeId),
+          eq(leaveTypes.organizationId, organization.id),
+        ),
+      );
 
     revalidatePath("/hr/leaves");
     return {

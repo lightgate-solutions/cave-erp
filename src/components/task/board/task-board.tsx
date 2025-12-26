@@ -167,7 +167,7 @@ export function TaskBoard({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            taskId: Number.parseInt(draggableId),
+            taskId: Number.parseInt(draggableId, 10),
             status: destStatus,
           }),
         });

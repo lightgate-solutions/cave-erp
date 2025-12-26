@@ -8,6 +8,8 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireHROrAdmin } from "@/actions/auth/dal";
 import { createNotification } from "../notification/notification";
 import { getEmployee } from "./employees";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 // Helper to check time range
 function isWithinTimeRange(
@@ -35,6 +37,16 @@ export async function signIn(employeeId: number) {
     };
   }
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   const now = new Date();
   // Check time: 06:00 to 09:00
   if (!isWithinTimeRange(now, 6, 9)) {
@@ -52,7 +64,11 @@ export async function signIn(employeeId: number) {
       .select()
       .from(attendance)
       .where(
-        and(eq(attendance.employeeId, employeeId), eq(attendance.date, today)),
+        and(
+          eq(attendance.employeeId, employeeId),
+          eq(attendance.date, today),
+          eq(attendance.organizationId, organization.id),
+        ),
       )
       .limit(1);
 
@@ -68,6 +84,7 @@ export async function signIn(employeeId: number) {
       date: today,
       signInTime: now,
       status: "Approved",
+      organizationId: organization.id,
     });
 
     revalidatePath("/hr/attendance");
@@ -104,6 +121,16 @@ export async function signOut(employeeId: number) {
     };
   }
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   const now = new Date();
   // Check time: 14:00 (2 PM) to 20:00 (8 PM)
   if (!isWithinTimeRange(now, 14, 20)) {
@@ -121,7 +148,11 @@ export async function signOut(employeeId: number) {
       .select()
       .from(attendance)
       .where(
-        and(eq(attendance.employeeId, employeeId), eq(attendance.date, today)),
+        and(
+          eq(attendance.employeeId, employeeId),
+          eq(attendance.date, today),
+          eq(attendance.organizationId, organization.id),
+        ),
       )
       .limit(1);
 
@@ -170,6 +201,16 @@ export async function signOut(employeeId: number) {
 export async function rejectAttendance(attendanceId: number, reason: string) {
   const authData = await requireHROrAdmin(); // Only HR/Admin (or Manager check below)
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   // If not HR/Admin, check if Manager
   // Actually requireHROrAdmin throws if not HR or Admin.
   // The requirement says "hr department employees and managers of the employee".
@@ -183,7 +224,10 @@ export async function rejectAttendance(attendanceId: number, reason: string) {
 
   try {
     const record = await db.query.attendance.findFirst({
-      where: eq(attendance.id, attendanceId),
+      where: and(
+        eq(attendance.id, attendanceId),
+        eq(attendance.organizationId, organization.id),
+      ),
       with: {
         employee: true, // Assuming relation exists, but I defined it as 'attendance' in employees, not 'employee' in attendance in schema... wait.
         // In schema `attendance` table has `employeeId`.
@@ -226,7 +270,12 @@ export async function rejectAttendance(attendanceId: number, reason: string) {
         rejectedBy: authData.employee.id,
         updatedAt: new Date(),
       })
-      .where(eq(attendance.id, attendanceId));
+      .where(
+        and(
+          eq(attendance.id, attendanceId),
+          eq(attendance.organizationId, organization.id),
+        ),
+      );
 
     // Notify employee
     await createNotification({
@@ -269,7 +318,20 @@ export async function getAttendanceRecords(filters?: {
 }) {
   await requireAuth();
 
-  const conditions: any[] = [];
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      attendance: [],
+      total: 0,
+      page: 1,
+      limit: 10,
+      totalPages: 0,
+    };
+  }
+
+  const conditions: any[] = [eq(attendance.organizationId, organization.id)];
 
   if (filters?.employeeId) {
     conditions.push(eq(attendance.employeeId, filters.employeeId));
@@ -338,6 +400,14 @@ export async function getAttendanceRecords(filters?: {
 // Get today's attendance for current user
 export async function getMyTodayAttendance() {
   const authData = await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   const today = new Date().toISOString().split("T")[0];
 
   const result = await db
@@ -347,6 +417,7 @@ export async function getMyTodayAttendance() {
       and(
         eq(attendance.employeeId, authData.employee.id),
         eq(attendance.date, today),
+        eq(attendance.organizationId, organization.id),
       ),
     )
     .limit(1);

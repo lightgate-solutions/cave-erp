@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { taskStatusEnum, taskPriorityEnum } from "./enums";
 import { employees } from "../hr";
+import { organization } from "../auth";
 
 export const tasks = pgTable(
   "tasks",
@@ -26,6 +27,10 @@ export const tasks = pgTable(
     assignedBy: integer("assigned_by")
       .notNull()
       .references(() => employees.id, { onDelete: "cascade" }),
+
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
 
     status: taskStatusEnum("status").notNull().default("Todo"),
     priority: taskPriorityEnum("priority").notNull().default("Medium"),
@@ -47,6 +52,7 @@ export const tasks = pgTable(
     index("tasks_assigned_to_idx").on(table.assignedTo),
     index("tasks_assigned_by_idx").on(table.assignedBy),
     index("tasks_status_idx").on(table.status),
+    index("tasks_organization_idx").on(table.organizationId),
   ],
 );
 

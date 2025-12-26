@@ -12,6 +12,8 @@ import {
 import { eq, desc, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getUser, requireHROrAdmin } from "@/actions/auth/dal";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { createNotification } from "@/actions/notification/notification";
 
 export type NewsArticle = {
@@ -72,10 +74,21 @@ export type UpdateNewsInput = {
 export async function createNewsArticle(data: CreateNewsInput) {
   const { employee } = await requireHROrAdmin();
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
     const [article] = await db
       .insert(newsArticles)
       .values({
+        organizationId: organization.id,
         title: data.title,
         content: data.content,
         excerpt: data.excerpt || null,
@@ -90,6 +103,7 @@ export async function createNewsArticle(data: CreateNewsInput) {
     if (data.attachments.length > 0) {
       await db.insert(newsAttachments).values(
         data.attachments.map((att) => ({
+          organizationId: organization.id,
           articleId: article.id,
           fileName: att.fileName,
           fileUrl: att.fileUrl,
@@ -103,7 +117,12 @@ export async function createNewsArticle(data: CreateNewsInput) {
       const allEmployees = await db
         .select({ id: employees.id })
         .from(employees)
-        .where(sql`${employees.id} != ${employee.id}`);
+        .where(
+          and(
+            eq(employees.organizationId, organization.id),
+            sql`${employees.id} != ${employee.id}`,
+          ),
+        );
 
       for (const emp of allEmployees) {
         await createNotification({
@@ -133,11 +152,26 @@ export async function createNewsArticle(data: CreateNewsInput) {
 export async function updateNewsArticle(data: UpdateNewsInput) {
   const { employee } = await requireHROrAdmin();
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
     const [existing] = await db
       .select()
       .from(newsArticles)
-      .where(eq(newsArticles.id, data.id))
+      .where(
+        and(
+          eq(newsArticles.id, data.id),
+          eq(newsArticles.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (!existing) {
@@ -160,15 +194,26 @@ export async function updateNewsArticle(data: UpdateNewsInput) {
           !wasPublished && isNowPublished ? new Date() : existing.publishedAt,
         updatedAt: new Date(),
       })
-      .where(eq(newsArticles.id, data.id));
+      .where(
+        and(
+          eq(newsArticles.id, data.id),
+          eq(newsArticles.organizationId, organization.id),
+        ),
+      );
 
     await db
       .delete(newsAttachments)
-      .where(eq(newsAttachments.articleId, data.id));
+      .where(
+        and(
+          eq(newsAttachments.articleId, data.id),
+          eq(newsAttachments.organizationId, organization.id),
+        ),
+      );
 
     if (data.attachments.length > 0) {
       await db.insert(newsAttachments).values(
         data.attachments.map((att) => ({
+          organizationId: organization.id,
           articleId: data.id,
           fileName: att.fileName,
           fileUrl: att.fileUrl,
@@ -182,7 +227,12 @@ export async function updateNewsArticle(data: UpdateNewsInput) {
       const allEmployees = await db
         .select({ id: employees.id })
         .from(employees)
-        .where(sql`${employees.id} != ${employee.id}`);
+        .where(
+          and(
+            eq(employees.organizationId, organization.id),
+            sql`${employees.id} != ${employee.id}`,
+          ),
+        );
 
       for (const emp of allEmployees) {
         await createNotification({
@@ -213,8 +263,25 @@ export async function updateNewsArticle(data: UpdateNewsInput) {
 export async function deleteNewsArticle(id: string) {
   await requireHROrAdmin();
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
-    await db.delete(newsArticles).where(eq(newsArticles.id, id));
+    await db
+      .delete(newsArticles)
+      .where(
+        and(
+          eq(newsArticles.id, id),
+          eq(newsArticles.organizationId, organization.id),
+        ),
+      );
 
     revalidatePath("/news");
 
@@ -234,6 +301,13 @@ export async function getPublishedNews() {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
   const articles = await db
     .select({
       id: newsArticles.id,
@@ -252,7 +326,12 @@ export async function getPublishedNews() {
     })
     .from(newsArticles)
     .innerJoin(employees, eq(newsArticles.authorId, employees.id))
-    .where(eq(newsArticles.status, "published"))
+    .where(
+      and(
+        eq(newsArticles.status, "published"),
+        eq(newsArticles.organizationId, organization.id),
+      ),
+    )
     .orderBy(desc(newsArticles.isPinned), desc(newsArticles.publishedAt));
 
   const articleIds = articles.map((a) => a.id);
@@ -265,14 +344,24 @@ export async function getPublishedNews() {
             count: sql<number>`count(*)::int`,
           })
           .from(newsComments)
-          .where(sql`${newsComments.articleId} IN ${articleIds}`)
+          .where(
+            and(
+              sql`${newsComments.articleId} IN ${articleIds}`,
+              eq(newsComments.organizationId, organization.id),
+            ),
+          )
           .groupBy(newsComments.articleId)
       : [],
     articleIds.length > 0
       ? db
           .select()
           .from(newsAttachments)
-          .where(sql`${newsAttachments.articleId} IN ${articleIds}`)
+          .where(
+            and(
+              sql`${newsAttachments.articleId} IN ${articleIds}`,
+              eq(newsAttachments.organizationId, organization.id),
+            ),
+          )
       : [],
   ]);
 
@@ -301,6 +390,13 @@ export async function getPublishedNews() {
 export async function getAllNews() {
   await requireHROrAdmin();
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
   const articles = await db
     .select({
       id: newsArticles.id,
@@ -319,6 +415,7 @@ export async function getAllNews() {
     })
     .from(newsArticles)
     .innerJoin(employees, eq(newsArticles.authorId, employees.id))
+    .where(eq(newsArticles.organizationId, organization.id))
     .orderBy(desc(newsArticles.createdAt));
 
   const articleIds = articles.map((a) => a.id);
@@ -331,14 +428,24 @@ export async function getAllNews() {
             count: sql<number>`count(*)::int`,
           })
           .from(newsComments)
-          .where(sql`${newsComments.articleId} IN ${articleIds}`)
+          .where(
+            and(
+              sql`${newsComments.articleId} IN ${articleIds}`,
+              eq(newsComments.organizationId, organization.id),
+            ),
+          )
           .groupBy(newsComments.articleId)
       : [],
     articleIds.length > 0
       ? db
           .select()
           .from(newsAttachments)
-          .where(sql`${newsAttachments.articleId} IN ${articleIds}`)
+          .where(
+            and(
+              sql`${newsAttachments.articleId} IN ${articleIds}`,
+              eq(newsAttachments.organizationId, organization.id),
+            ),
+          )
       : [],
   ]);
 
@@ -368,6 +475,13 @@ export async function getNewsArticle(id: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   const [article] = await db
     .select({
       id: newsArticles.id,
@@ -386,7 +500,12 @@ export async function getNewsArticle(id: string) {
     })
     .from(newsArticles)
     .innerJoin(employees, eq(newsArticles.authorId, employees.id))
-    .where(eq(newsArticles.id, id))
+    .where(
+      and(
+        eq(newsArticles.id, id),
+        eq(newsArticles.organizationId, organization.id),
+      ),
+    )
     .limit(1);
 
   if (!article) return null;
@@ -399,7 +518,12 @@ export async function getNewsArticle(id: string) {
   await db
     .update(newsArticles)
     .set({ viewCount: sql`${newsArticles.viewCount} + 1` })
-    .where(eq(newsArticles.id, id));
+    .where(
+      and(
+        eq(newsArticles.id, id),
+        eq(newsArticles.organizationId, organization.id),
+      ),
+    );
 
   const [comments, attachments] = await Promise.all([
     db
@@ -408,9 +532,22 @@ export async function getNewsArticle(id: string) {
         count: sql<number>`count(*)::int`,
       })
       .from(newsComments)
-      .where(eq(newsComments.articleId, id))
+      .where(
+        and(
+          eq(newsComments.articleId, id),
+          eq(newsComments.organizationId, organization.id),
+        ),
+      )
       .groupBy(newsComments.articleId),
-    db.select().from(newsAttachments).where(eq(newsAttachments.articleId, id)),
+    db
+      .select()
+      .from(newsAttachments)
+      .where(
+        and(
+          eq(newsAttachments.articleId, id),
+          eq(newsAttachments.organizationId, organization.id),
+        ),
+      ),
   ]);
 
   return {
@@ -430,6 +567,13 @@ export async function getNewsComments(articleId: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
   const comments = await db
     .select({
       id: newsComments.id,
@@ -440,7 +584,12 @@ export async function getNewsComments(articleId: string) {
     })
     .from(newsComments)
     .innerJoin(employees, eq(newsComments.userId, employees.id))
-    .where(eq(newsComments.articleId, articleId))
+    .where(
+      and(
+        eq(newsComments.articleId, articleId),
+        eq(newsComments.organizationId, organization.id),
+      ),
+    )
     .orderBy(desc(newsComments.createdAt));
 
   return comments;
@@ -450,12 +599,23 @@ export async function addNewsComment(articleId: string, content: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   const [article] = await db
     .select()
     .from(newsArticles)
     .where(
       and(
         eq(newsArticles.id, articleId),
+        eq(newsArticles.organizationId, organization.id),
         eq(newsArticles.commentsEnabled, true),
         eq(newsArticles.status, "published"),
       ),
@@ -471,6 +631,7 @@ export async function addNewsComment(articleId: string, content: string) {
 
   try {
     await db.insert(newsComments).values({
+      organizationId: organization.id,
       articleId,
       userId: user.id,
       content,
@@ -488,10 +649,25 @@ export async function deleteNewsComment(commentId: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   const [comment] = await db
     .select()
     .from(newsComments)
-    .where(eq(newsComments.id, commentId))
+    .where(
+      and(
+        eq(newsComments.id, commentId),
+        eq(newsComments.organizationId, organization.id),
+      ),
+    )
     .limit(1);
 
   if (!comment) {
@@ -507,7 +683,14 @@ export async function deleteNewsComment(commentId: string) {
   }
 
   try {
-    await db.delete(newsComments).where(eq(newsComments.id, commentId));
+    await db
+      .delete(newsComments)
+      .where(
+        and(
+          eq(newsComments.id, commentId),
+          eq(newsComments.organizationId, organization.id),
+        ),
+      );
 
     revalidatePath(`/news/${comment.articleId}`);
 
