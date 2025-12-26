@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Settings, Code } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

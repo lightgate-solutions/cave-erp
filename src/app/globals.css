@@ -119,4 +119,15 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Fix for nextjs-portal elements - used by Next.js for rendering portals (modals, dialogs, etc.) */
+  /* Hide empty portals to prevent layout issues and console errors */
+  nextjs-portal:empty {
+    display: none !important;
+  }
+
+  /* Ensure portals are properly positioned when they have content */
+  nextjs-portal:not(:empty) {
+    display: contents;
+  }
 }
