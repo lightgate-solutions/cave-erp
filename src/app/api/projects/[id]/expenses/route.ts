@@ -4,18 +4,32 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { createNotification } from "@/actions/notification/notification";
 import { getUser } from "@/actions/auth/dal";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   try {
     const { id } = await params;
     const projectId = Number(id);
     const rows = await db
       .select()
       .from(expenses)
-      .where(eq(expenses.projectId, projectId));
+      .where(
+        and(
+          eq(expenses.projectId, projectId),
+          eq(expenses.organizationId, organization.id),
+        ),
+      );
     return NextResponse.json({ expenses: rows });
   } catch (error) {
     console.error("Error fetching expenses:", error);
@@ -30,6 +44,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   try {
     const { id } = await params;
     const projectId = Number(id);
@@ -51,6 +72,7 @@ export async function POST(
         amount: Number(amount) || 0,
         spentAt: spentAt ? new Date(spentAt) : null,
         notes,
+        organizationId: organization.id,
       })
       .returning();
 
@@ -62,7 +84,12 @@ export async function POST(
         code: projects.code,
       })
       .from(projects)
-      .where(eq(projects.id, projectId))
+      .where(
+        and(
+          eq(projects.id, projectId),
+          eq(projects.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (project?.supervisorId) {
@@ -89,6 +116,13 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   try {
     const { id } = await params;
     const projectId = Number(id);
@@ -110,6 +144,7 @@ export async function PUT(
         and(
           eq(expenses.projectId, projectId),
           eq(expenses.id, Number(expenseId)),
+          eq(expenses.organizationId, organization.id),
         ),
       )
       .limit(1);
@@ -125,6 +160,7 @@ export async function PUT(
       .where(
         and(
           eq(expenses.projectId, projectId),
+          eq(expenses.organizationId, organization.id),
           eq(expenses.id, Number(expenseId)),
         ),
       )
@@ -138,7 +174,12 @@ export async function PUT(
         code: projects.code,
       })
       .from(projects)
-      .where(eq(projects.id, projectId))
+      .where(
+        and(
+          eq(projects.id, projectId),
+          eq(projects.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (project?.supervisorId && existingExpense) {
@@ -165,6 +206,13 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   try {
     const { id } = await params;
     const projectId = Number(id);
@@ -185,6 +233,7 @@ export async function DELETE(
       .where(
         and(
           eq(expenses.projectId, projectId),
+          eq(expenses.organizationId, organization.id),
           eq(expenses.id, Number(expenseId)),
         ),
       )
@@ -195,6 +244,7 @@ export async function DELETE(
       .where(
         and(
           eq(expenses.projectId, projectId),
+          eq(expenses.organizationId, organization.id),
           eq(expenses.id, Number(expenseId)),
         ),
       );
@@ -207,7 +257,12 @@ export async function DELETE(
         code: projects.code,
       })
       .from(projects)
-      .where(eq(projects.id, projectId))
+      .where(
+        and(
+          eq(projects.id, projectId),
+          eq(projects.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (project?.supervisorId && expenseToDelete) {

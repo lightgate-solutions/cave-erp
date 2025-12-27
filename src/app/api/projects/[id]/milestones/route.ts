@@ -1,19 +1,33 @@
 import { db } from "@/db";
 import { milestones } from "@/db/schema";
+import { auth } from "@/lib/auth";
 import { and, eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   try {
     const { id } = await params;
     const projectId = Number(id);
     const rows = await db
       .select()
       .from(milestones)
-      .where(eq(milestones.projectId, projectId));
+      .where(
+        and(
+          eq(milestones.projectId, projectId),
+          eq(milestones.organizationId, organization.id),
+        ),
+      );
     return NextResponse.json({ milestones: rows });
   } catch (error) {
     console.error("Error fetching milestones:", error);
@@ -28,6 +42,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   try {
     const { id } = await params;
     const projectId = Number(id);
@@ -43,6 +64,7 @@ export async function POST(
         description,
         dueDate: dueDate ? new Date(dueDate) : null,
         completed: 0,
+        organizationId: organization.id,
       })
       .returning();
     return NextResponse.json({ milestone: created }, { status: 201 });
@@ -59,6 +81,12 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
   try {
     const { id } = await params;
     const projectId = Number(id);
@@ -83,6 +111,7 @@ export async function PUT(
       .where(
         and(
           eq(milestones.projectId, projectId),
+          eq(milestones.organizationId, organization.id),
           eq(milestones.id, Number(milestoneId)),
         ),
       )
@@ -101,6 +130,12 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
   try {
     const { id } = await params;
     const projectId = Number(id);
@@ -114,6 +149,7 @@ export async function DELETE(
         and(
           eq(milestones.projectId, projectId),
           eq(milestones.id, Number(milestoneId)),
+          eq(milestones.organizationId, organization.id),
         ),
       );
     return NextResponse.json({ success: true });

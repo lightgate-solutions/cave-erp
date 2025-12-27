@@ -1,12 +1,20 @@
 import { db } from "@/db";
 import { employees, projects } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { and, eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
   try {
     const { id: projectId } = await params;
     const id = Number(projectId);
@@ -27,7 +35,9 @@ export async function GET(
       })
       .from(projects)
       .leftJoin(employees, eq(employees.id, projects.supervisorId))
-      .where(eq(projects.id, id))
+      .where(
+        and(eq(projects.id, id), eq(projects.organizationId, organization.id)),
+      )
       .limit(1);
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ project: row });
@@ -44,6 +54,12 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
   try {
     const { id: projectId } = await params;
     const id = Number(projectId);
@@ -74,7 +90,9 @@ export async function PUT(
         status,
         updatedAt: new Date(),
       })
-      .where(eq(projects.id, id))
+      .where(
+        and(eq(projects.id, id), eq(projects.organizationId, organization.id)),
+      )
       .returning();
     if (!updated)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -92,12 +110,20 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
   try {
     const { id: projectId } = await params;
     const id = Number(projectId);
     const [deleted] = await db
       .delete(projects)
-      .where(eq(projects.id, id))
+      .where(
+        and(eq(projects.id, id), eq(projects.organizationId, organization.id)),
+      )
       .returning();
     if (!deleted)
       return NextResponse.json({ error: "Not found" }, { status: 404 });

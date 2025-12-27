@@ -38,7 +38,6 @@ export async function GET(request: NextRequest) {
     if (!organization) {
       const session = await auth.api.getSession({ headers: h });
 
-      // @ts-ignore
       const activeOrgId = session?.session?.activeOrganizationId;
 
       if (activeOrgId) {
@@ -185,7 +184,6 @@ export async function POST(request: NextRequest) {
 
     if (!organization) {
       const session = await auth.api.getSession({ headers: h });
-      // @ts-ignore
       const activeOrgId = session?.session?.activeOrganizationId;
 
       if (activeOrgId) {
