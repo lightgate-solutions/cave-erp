@@ -9,6 +9,7 @@ import {
   Zap,
   FileText,
   ChevronRight,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -62,8 +63,21 @@ export function DocumentationSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r">
       <SidebarContent>
+        {/* Home Button */}
+        <div className="p-2 border-b border-border/50">
+          <Link
+            href="/"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 text-primary font-medium transition-all duration-200 hover:shadow-md group"
+          >
+            <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1" />
+            <span className="text-sm font-semibold">Back to Home</span>
+          </Link>
+        </div>
+
         <SidebarGroup>
-          <SidebarGroupLabel>Documentation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-foreground font-semibold text-sm uppercase tracking-wider px-3 py-2 mb-2">
+            Documentation
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigationItems.map((item) => {

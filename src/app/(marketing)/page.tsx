@@ -71,9 +71,11 @@ export default function HomePage() {
               The Complete Operating System for Your Organization
             </h1>
             <p className="mb-8 text-pretty text-lg text-foreground/80 md:text-xl leading-relaxed">
-              Transform your entire organization with AI-powered automation,
-              seamless integration, and enterprise-grade security. From startups
-              to global conglomerates.
+              Transform your entire organization with CAVE's AI-powered
+              automation, seamless integration, and enterprise-grade security.
+              From startups to global conglomerates—empower your team,
+              streamline operations, and unlock your organization's full
+              potential.
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Button size="lg" asChild>
@@ -110,11 +112,11 @@ export default function HomePage() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto max-w-5xl text-center">
               <h2 className="mb-4 text-3xl font-bold">
-                Trusted by Organisations worldwide
+                Trusted by Organisations Worldwide
               </h2>
               <p className="mb-12 text-lg text-muted-foreground">
-                Used by organisations across 20+ countries — from small
-                Organisation to big enterprise organisation
+                Used by organisations across 20+ countries — from small startups
+                to large enterprises
               </p>
               {/* Logo Grid */}
               <div className="mb-16 grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-6">
@@ -131,11 +133,11 @@ export default function HomePage() {
               </div>
               <div className="mb-8">
                 <h3 className="mb-6 text-2xl font-bold">
-                  Loved by Organisations worldwide
+                  Loved by Organisations Worldwide
                 </h3>
                 <p className="text-muted-foreground">
                   See what our customers are saying about CAVE and how it's
-                  transforming their organisations
+                  transforming their operations
                 </p>
               </div>
               {/* Testimonials */}
@@ -143,7 +145,7 @@ export default function HomePage() {
                 {[
                   {
                     quote:
-                      "CAVE ERP transformed our operations completely. We've seen a 40% increase in efficiency.",
+                      "CAVE transformed our operations completely. We've seen a 40% increase in efficiency.",
                     author: "Sarah Johnson",
                     role: "COO, Global Tech Solutions",
                   },
@@ -182,8 +184,9 @@ export default function HomePage() {
                   Real results from real Organisations
                 </h3>
                 <p className="mb-8 text-muted-foreground">
-                  Organisation using CAVE save an average of 40+ hours weekly
-                  and increase efficiency by 30–40% through AI-powered decisions
+                  Organisations using CAVE save an average of 40+ hours weekly
+                  and increase efficiency by 30–40% through intelligent
+                  automation
                 </p>
                 <div className="grid gap-6 md:grid-cols-3">
                   <div>
@@ -227,6 +230,7 @@ export default function HomePage() {
               </h2>
               <p className="text-lg text-muted-foreground">
                 Everything you need to transform your organization's operations
+                with CAVE
               </p>
             </div>
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
@@ -449,8 +453,9 @@ export default function HomePage() {
               Ready to Transform Your Organization?
             </h2>
             <p className="mb-8 text-lg text-muted-foreground">
-              Start your journey to operational excellence today. Experience the
-              power of AI-driven ERP that scales with your vision
+              Start your journey to operational excellence today with CAVE.
+              Experience the power of intelligent automation that scales with
+              your vision
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Button size="lg" asChild>

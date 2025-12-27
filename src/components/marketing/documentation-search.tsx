@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
-import { Search, Settings } from "lucide-react";
+import { Search, Settings, BookOpen } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 interface SearchableItem {
