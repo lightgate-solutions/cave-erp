@@ -10,6 +10,7 @@ import {
 import { relations } from "drizzle-orm";
 import { employees } from "./hr";
 import { document } from "./documents";
+import { organization } from "./auth";
 
 export const email = pgTable(
   "email",
@@ -28,11 +29,15 @@ export const email = pgTable(
     parentEmailId: integer("parent_email_id"),
     type: text("type").notNull().default("sent"),
     hasBeenOpened: boolean("has_been_opened").default(false).notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
   },
   (table) => [
     index("email_sender_id_idx").on(table.senderId),
     index("email_created_at_idx").on(table.createdAt),
     index("email_parent_email_id_idx").on(table.parentEmailId),
+    index("email_organization_id_idx").on(table.organizationId),
   ],
 );
 
@@ -53,6 +58,9 @@ export const emailRecipient = pgTable(
     archivedAt: timestamp("archived_at"),
     deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
   },
   (table) => [
     index("email_recipient_email_id_idx").on(table.emailId),
@@ -88,6 +96,9 @@ export const emailAttachment = pgTable(
       .notNull()
       .references(() => document.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
   },
   (table) => [
     index("email_attachment_email_id_idx").on(table.emailId),
