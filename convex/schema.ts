@@ -4,6 +4,7 @@ import { v } from "convex/values";
 export default defineSchema({
   notifications: defineTable({
     userId: v.number(),
+    organizationId: v.string(),
     title: v.string(),
     message: v.string(),
     notificationType: v.union(
@@ -14,5 +15,8 @@ export default defineSchema({
     createdBy: v.number(),
     referenceId: v.optional(v.number()),
     isRead: v.boolean(),
-  }),
+  })
+    .index("by_user_and_org", ["userId", "organizationId"])
+    .index("by_organization", ["organizationId"])
+    .index("by_user_unread", ["userId", "isRead", "organizationId"]),
 });

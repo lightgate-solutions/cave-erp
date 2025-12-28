@@ -160,13 +160,19 @@ const data = {
 export function AppSidebar({
   user,
   employeeId,
+  organizationId,
   ...props
-}: React.ComponentProps<typeof Sidebar> & { user: User; employeeId: number }) {
+}: React.ComponentProps<typeof Sidebar> & {
+  user: User;
+  employeeId: number;
+  organizationId: string;
+}) {
   const [isManager, setIsManager] = useState<boolean | null>(null);
   const [isHrOrAdmin, setIsHrOrAdmin] = useState<boolean>(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const notifications = useQuery(api.notifications.getUserNotifications, {
     userId: employeeId,
+    organizationId,
   });
   const unreadCount = notifications?.filter((n) => !n.isRead).length;
 

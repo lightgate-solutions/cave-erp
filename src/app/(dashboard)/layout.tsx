@@ -39,18 +39,32 @@ export default async function RootLayout({
   const hasSignedInToday =
     myAttendance !== null && myAttendance.signInTime !== null;
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    redirect("/organizations/create");
+  }
+
   return (
     <section className="p-1">
       <ConvexClientProvider>
         <SidebarProvider>
-          <AppSidebar user={session.user} employeeId={authData.employee.id} />
+          <AppSidebar
+            user={session.user}
+            employeeId={authData.employee.id}
+            organizationId={organization.id}
+          />
           <SidebarInset>
             <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
               <div className="flex w-full items-center justify-between gap-2 px-4">
                 <SidebarTrigger className="-ml-1" />
                 <div className=" flex gap-4 justify-center items-center">
                   <ThemeToggle />
-                  <NotificationBell employeeId={authData.employee.id} />
+                  <NotificationBell
+                    employeeId={authData.employee.id}
+                    organizationId={organization.id}
+                  />
                 </div>
               </div>
             </header>
