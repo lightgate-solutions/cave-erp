@@ -74,6 +74,7 @@ export async function GET() {
         FROM document
         WHERE created_at >= ${thirtyDaysAgo}
           AND status = 'active'
+          AND organization_id = ${organization.id}
         GROUP BY DATE(created_at)
       `),
       // Documents updated (exclude same-day as created)
@@ -83,6 +84,7 @@ export async function GET() {
         WHERE updated_at >= ${thirtyDaysAgo}
           AND DATE(updated_at) != DATE(created_at)
           AND status = 'active'
+          AND organization_id = ${organization.id}
         GROUP BY DATE(updated_at)
       `),
       // Projects created
@@ -90,6 +92,7 @@ export async function GET() {
         SELECT DATE(created_at)::text as activity_date, COUNT(*)::int as count
         FROM projects
         WHERE created_at >= ${thirtyDaysAgo}
+          AND organization_id = ${organization.id}
         GROUP BY DATE(created_at)
       `),
       // Projects updated (exclude same-day as created)
@@ -98,6 +101,7 @@ export async function GET() {
         FROM projects
         WHERE updated_at >= ${thirtyDaysAgo}
           AND DATE(updated_at) != DATE(created_at)
+          AND organization_id = ${organization.id}
         GROUP BY DATE(updated_at)
       `),
       // Task messages

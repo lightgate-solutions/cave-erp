@@ -17,6 +17,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     // Get manager employee info
     const employeeResult = await db
       .select({
@@ -25,7 +33,12 @@ export async function GET() {
         department: employees.department,
       })
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     const employee = employeeResult[0];
@@ -44,6 +57,7 @@ export async function GET() {
         and(
           eq(employees.managerId, employee.id),
           eq(employees.isManager, false),
+          eq(employees.organizationId, organization.id),
         ),
       );
 
@@ -89,7 +103,13 @@ export async function GET() {
         documentVersions,
         eq(documentVersions.id, document.currentVersionId),
       )
-      .where(and(eq(document.status, "active"), whereClause))
+      .where(
+        and(
+          eq(document.status, "active"),
+          whereClause,
+          eq(document.organizationId, organization.id),
+        ),
+      )
       .orderBy(desc(document.createdAt)) // Order by createdAt to show newest uploads first
       .limit(5); // Get top 5 most recent
 
@@ -120,7 +140,13 @@ export async function GET() {
           documentVersions,
           eq(documentVersions.id, document.currentVersionId),
         )
-        .where(and(eq(document.status, "active"), whereClause))
+        .where(
+          and(
+            eq(document.status, "active"),
+            whereClause,
+            eq(document.organizationId, organization.id),
+          ),
+        )
         .orderBy(desc(document.createdAt))
         .limit(5);
 

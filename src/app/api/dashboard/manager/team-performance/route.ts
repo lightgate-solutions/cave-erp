@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { employees } from "@/db/schema/hr";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -15,6 +15,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     // Get manager employee info
     const employeeResult = await db
       .select({
@@ -22,7 +30,12 @@ export async function GET() {
         isManager: employees.isManager,
       })
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     const employee = employeeResult[0];
@@ -41,7 +54,7 @@ export async function GET() {
     // Get tasks assigned by this manager, grouped by week
     // Use raw SQL since DATE_TRUNC is PostgreSQL specific
     const taskData = await db.execute(sql`
-      SELECT 
+      SELECT
         DATE_TRUNC('week', created_at)::date as week_start,
         COUNT(*) FILTER (WHERE status = 'Completed') as completed,
         COUNT(*) FILTER (WHERE status = 'In Progress') as in_progress,
@@ -49,6 +62,7 @@ export async function GET() {
       FROM tasks
       WHERE assigned_by = ${employee.id}
         AND created_at >= ${fourWeeksAgo}
+        AND organization_id = ${organization.id}
       GROUP BY DATE_TRUNC('week', created_at)
       ORDER BY week_start
     `);

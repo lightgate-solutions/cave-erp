@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -14,6 +14,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const [employee] = await db
       .select({
         id: employees.id,
@@ -23,7 +31,12 @@ export async function GET() {
         role: employees.role,
       })
       .from(employees)
-      .where(eq(employees.authId, session.user.id))
+      .where(
+        and(
+          eq(employees.authId, session.user.id),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (!employee) {

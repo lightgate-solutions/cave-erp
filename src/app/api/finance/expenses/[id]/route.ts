@@ -13,7 +13,9 @@ export async function GET(
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
-    if (!organization) return null;
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { id } = await params;
     const expenseId = Number(id);
@@ -47,7 +49,9 @@ export async function PUT(
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
-    if (!organization) return null;
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { id } = await params;
     const expenseId = Number(id);
@@ -137,7 +141,9 @@ export async function DELETE(
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
-    if (!organization) return null;
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { id } = await params;
     const expenseId = Number(id);

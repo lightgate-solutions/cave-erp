@@ -15,7 +15,7 @@ export async function GET(
     headers: await headers(),
   });
   if (!organization) {
-    return null;
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -48,7 +48,7 @@ export async function POST(
     headers: await headers(),
   });
   if (!organization) {
-    return null;
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -120,7 +120,7 @@ export async function PUT(
     headers: await headers(),
   });
   if (!organization) {
-    return null;
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -210,7 +210,7 @@ export async function DELETE(
     headers: await headers(),
   });
   if (!organization) {
-    return null;
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {

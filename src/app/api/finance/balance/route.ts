@@ -11,7 +11,9 @@ export async function GET() {
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
-    if (!organization) return null;
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const [balance] = await db
       .select()
@@ -51,7 +53,9 @@ export async function PUT(request: NextRequest) {
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
-    if (!organization) return null;
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     if (!authUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

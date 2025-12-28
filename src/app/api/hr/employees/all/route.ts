@@ -1,15 +1,31 @@
 import { db } from "@/db";
 import { employees } from "@/db/schema";
-import { ilike } from "drizzle-orm";
+import { and, ilike, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function GET(request: NextRequest) {
   try {
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = request.nextUrl;
     const q = searchParams.get("q") || "";
     const limit = Number(searchParams.get("limit") || "50");
 
-    const where = q ? ilike(employees.name, `%${q}%`) : undefined;
+    const where = q
+      ? and(
+          ilike(employees.name, `%${q}%`),
+          eq(employees.organizationId, organization.id),
+        )
+      : eq(employees.organizationId, organization.id);
 
     const rows = await db
       .select({

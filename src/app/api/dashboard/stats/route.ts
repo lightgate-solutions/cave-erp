@@ -127,7 +127,12 @@ export async function GET() {
         const docResult = await db
           .select({ count: sql<number>`count(*)::int` })
           .from(document)
-          .where(eq(document.status, "active"));
+          .where(
+            and(
+              eq(document.status, "active"),
+              eq(document.organizationId, organization.id),
+            ),
+          );
         documentCount = Number(docResult[0]?.count ?? 0);
       } else {
         // Build visibility condition for non-admin users
@@ -161,7 +166,8 @@ export async function GET() {
     try {
       const projectResult = await db
         .select({ count: sql<number>`count(*)::int` })
-        .from(projects);
+        .from(projects)
+        .where(eq(projects.organizationId, organization.id));
       projectCount = Number(projectResult[0]?.count ?? 0);
     } catch {
       projectCount = 0;

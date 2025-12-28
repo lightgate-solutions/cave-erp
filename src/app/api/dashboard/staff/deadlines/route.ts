@@ -119,6 +119,7 @@ export async function GET() {
         and(
           ne(projects.status, "completed"),
           sql`${projects.createdAt} IS NOT NULL`,
+          eq(projects.organizationId, organization.id),
         ),
       )
       .orderBy(asc(projects.createdAt))

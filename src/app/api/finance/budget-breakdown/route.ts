@@ -14,7 +14,9 @@ export async function GET() {
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
-    if (!organization) return null;
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     if (!authUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

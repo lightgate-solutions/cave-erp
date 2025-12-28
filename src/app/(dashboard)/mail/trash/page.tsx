@@ -27,7 +27,7 @@ export default async function TrashPage({ searchParams }: PageProps) {
 
   // Fetch all data in parallel
   const [emailsResult, statsResult, usersResult] = await Promise.all([
-    getTrashEmails(1, 20),
+    getTrashEmails(1, 2),
     getEmailStats(),
     getAllEmployees(),
   ]);

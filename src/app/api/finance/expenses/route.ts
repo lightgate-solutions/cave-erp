@@ -17,7 +17,9 @@ export async function GET(request: NextRequest) {
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
-    if (!organization) return null;
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const searchParams = request.nextUrl.searchParams;
     const page = Number(searchParams.get("page") || "1");
@@ -94,7 +96,9 @@ export async function POST(request: NextRequest) {
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
-    if (!organization) return null;
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const h = Object.fromEntries(request.headers);
     const session = await auth.api.getSession({ headers: h });

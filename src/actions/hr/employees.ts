@@ -242,6 +242,7 @@ export async function createEmployee(data: {
         email_on_task_notification: false,
         email_on_general_notification: false,
         notify_on_message: true,
+        organizationId: organization.id,
       });
     });
 

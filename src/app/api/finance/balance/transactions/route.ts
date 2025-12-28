@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
-    if (!organization) return null;
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     let where: ReturnType<typeof eq> | undefined;
     if (transactionType) {

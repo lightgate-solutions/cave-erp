@@ -33,6 +33,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
     const taskId = Number(id);
@@ -71,12 +78,14 @@ export async function POST(
       taskId: number;
       submittedBy: number;
       submissionNote?: string;
+      organizationId: string;
       submittedFiles?: { fileUrl: string; fileName: string }[];
     } = {
       taskId,
       submittedBy: emp.id,
       submissionNote,
       submittedFiles,
+      organizationId: organization.id,
     };
 
     const res = await submitTask(payload);

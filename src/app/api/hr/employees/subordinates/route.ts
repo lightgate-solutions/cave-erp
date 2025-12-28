@@ -2,9 +2,20 @@ import { db } from "@/db";
 import { employees } from "@/db/schema";
 import { and, eq, ilike, or } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function GET(request: NextRequest) {
   try {
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = request.nextUrl;
     const id = searchParams.get("employeeId");
     const q = searchParams.get("q") || "";
@@ -17,7 +28,12 @@ export async function GET(request: NextRequest) {
     const [res] = await db
       .select()
       .from(employees)
-      .where(eq(employees.id, Number(id)))
+      .where(
+        and(
+          eq(employees.id, Number(id)),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
     const employeeId = res.id;
     console.log(employeeId);
@@ -27,20 +43,15 @@ export async function GET(request: NextRequest) {
         { status: 400 },
       );
     }
-    let where: ReturnType<typeof and> | undefined = eq(
-      employees.managerId,
-      employeeId,
+    let where: ReturnType<typeof and> | undefined = and(
+      eq(employees.managerId, employeeId),
+      eq(employees.organizationId, organization.id),
     );
     if (q) {
-      where = where
-        ? and(
-            where,
-            or(
-              ilike(employees.name, `%${q}%`),
-              ilike(employees.email, `%${q}%`),
-            ),
-          )
-        : or(ilike(employees.name, `%${q}%`), ilike(employees.email, `%${q}%`));
+      where = and(
+        where,
+        or(ilike(employees.name, `%${q}%`), ilike(employees.email, `%${q}%`)),
+      );
     }
     const rows = await db
       .select({

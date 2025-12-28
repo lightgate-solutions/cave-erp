@@ -19,6 +19,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     // Normalize role like dashboard does
     const normalizedRole = role?.toLowerCase().trim() || "";
 
@@ -30,7 +38,12 @@ export async function GET() {
         department: employees.department,
       })
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     const employee = employeeResult[0];
@@ -56,6 +69,7 @@ export async function GET() {
           and(
             eq(employees.managerId, employee.id),
             eq(employees.isManager, false),
+            eq(employees.organizationId, organization.id),
           ),
         );
 
@@ -126,7 +140,7 @@ export async function GET() {
         documentVersions,
         eq(documentVersions.id, document.currentVersionId),
       )
-      .where(whereClause)
+      .where(and(whereClause, eq(document.organizationId, organization.id)))
       .orderBy(desc(document.createdAt))
       .limit(5);
 
