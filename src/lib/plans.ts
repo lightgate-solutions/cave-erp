@@ -157,7 +157,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     description: "For growing teams that need more power and support.",
     pricing: {
       perMemberMonthly: 18_000,
-      perMemberMonthlyKobo: 1_800_000, // 2,500 * 100
+      perMemberMonthlyKobo: 1_800_000, // 18,000 * 100
       displayPrice: "₦18,000",
     },
     limits: {
@@ -211,7 +211,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     description: "For large organizations with custom needs.",
     pricing: {
       perMemberMonthly: 45_000,
-      perMemberMonthlyKobo: 4_500_000, // 5,000 * 100
+      perMemberMonthlyKobo: 4_500_000, // 45,000 * 100
       displayPrice: "₦45,000",
     },
     limits: {
@@ -265,7 +265,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     description: "For large organizations with custom needs.",
     pricing: {
       perMemberMonthly: 60_000,
-      perMemberMonthlyKobo: 6_000_000, // 5,000 * 100
+      perMemberMonthlyKobo: 6_000_000, // 6,000 * 100
       displayPrice: "₦60,000",
     },
     limits: {
