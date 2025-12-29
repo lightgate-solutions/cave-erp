@@ -30,7 +30,7 @@ export default async function RootLayout({
   });
 
   if (!data || data.length === 0) {
-    redirect("/organizations/create");
+    redirect("/organizations");
   }
 
   // Get employee data and today's attendance for the pop-up
@@ -43,7 +43,7 @@ export default async function RootLayout({
     headers: await headers(),
   });
   if (!organization) {
-    redirect("/organizations/create");
+    redirect("/organizations");
   }
 
   return (
