@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export const verifySession = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -22,6 +22,13 @@ export const getUser = cache(async () => {
   const session = await verifySession();
   if (!session.userId) return null;
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   const [user] = await db
     .select({
       id: employees.id,
@@ -36,7 +43,12 @@ export const getUser = cache(async () => {
       authId: employees.authId,
     })
     .from(employees)
-    .where(eq(employees.authId, session.userId))
+    .where(
+      and(
+        eq(employees.authId, session.userId),
+        eq(employees.organizationId, organization.id),
+      ),
+    )
     .limit(1);
 
   return user;
@@ -55,6 +67,13 @@ export const requireAuth = cache(async () => {
     throw new Error("Unauthorized: Authentication required");
   }
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    throw new Error("Unauthorized: Organization not found");
+  }
+
   const [user] = await db
     .select({
       id: employees.id,
@@ -68,7 +87,12 @@ export const requireAuth = cache(async () => {
       isManager: employees.isManager,
     })
     .from(employees)
-    .where(eq(employees.authId, session.user.id))
+    .where(
+      and(
+        eq(employees.authId, session.user.id),
+        eq(employees.organizationId, organization.id),
+      ),
+    )
     .limit(1);
 
   if (!user) {

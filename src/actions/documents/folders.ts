@@ -14,6 +14,8 @@ import {
 import { and, DrizzleQueryError, eq, inArray, isNull, or } from "drizzle-orm";
 import { getUser } from "../auth/dal";
 import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 interface CreateFoldersProps {
   name: string;
@@ -26,6 +28,11 @@ interface CreateFoldersProps {
 export async function createFolder(data: CreateFoldersProps, pathname: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   if (data.name.trim().toLowerCase() === "public") {
     return {
@@ -58,6 +65,7 @@ export async function createFolder(data: CreateFoldersProps, pathname: string) {
             and(
               eq(documentFolders.name, data.parent),
               eq(documentFolders.createdBy, user.id),
+              eq(documentFolders.organizationId, organization.id),
             ),
           )
           .limit(1);
@@ -76,6 +84,7 @@ export async function createFolder(data: CreateFoldersProps, pathname: string) {
           and(
             eq(documentFolders.name, data.name),
             eq(documentFolders.createdBy, user.id),
+            eq(documentFolders.organizationId, organization.id),
             parentIdToUse !== null
               ? eq(documentFolders.parentId, parentIdToUse)
               : isNull(documentFolders.parentId),
@@ -100,6 +109,7 @@ export async function createFolder(data: CreateFoldersProps, pathname: string) {
         departmental: data.departmental,
         department: user.department,
         createdBy: user.id,
+        organizationId: organization.id,
       });
 
       revalidatePath(pathname);
@@ -130,6 +140,11 @@ export async function createFolder(data: CreateFoldersProps, pathname: string) {
 export async function getFoldersNames(ids: string[]) {
   if (!ids || ids.length === 0) return [];
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   const numericIds = ids
     .map((id) => Number(id))
     .filter((id) => !Number.isNaN(id));
@@ -140,7 +155,12 @@ export async function getFoldersNames(ids: string[]) {
       name: documentFolders.name,
     })
     .from(documentFolders)
-    .where(inArray(documentFolders.id, numericIds));
+    .where(
+      and(
+        inArray(documentFolders.id, numericIds),
+        eq(documentFolders.organizationId, organization.id),
+      ),
+    );
 
   return numericIds.map((id) => folders.find((f) => f.id === id)?.name || null);
 }
@@ -148,6 +168,11 @@ export async function getFoldersNames(ids: string[]) {
 export async function getSubFolders(id: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   const folders = await db
     .select({
@@ -160,6 +185,7 @@ export async function getSubFolders(id: number) {
       and(
         eq(documentFolders.parentId, id),
         eq(documentFolders.status, "active"),
+        eq(documentFolders.organizationId, organization.id),
         or(
           eq(documentFolders.createdBy, user.id),
           eq(documentFolders.public, true),
@@ -178,6 +204,13 @@ export async function deleteFolder(folderId: number, pathname: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
+  const organizationId = organization.id;
+
   try {
     return await db.transaction(async (tx) => {
       if (user.role !== "admin") {
@@ -188,6 +221,7 @@ export async function deleteFolder(folderId: number, pathname: string) {
             and(
               eq(documentFolders.id, folderId),
               eq(documentFolders.createdBy, user.id),
+              eq(documentFolders.organizationId, organizationId),
             ),
           )
           .limit(1);
@@ -206,7 +240,12 @@ export async function deleteFolder(folderId: number, pathname: string) {
         const subFolders = await tx
           .select({ id: documentFolders.id })
           .from(documentFolders)
-          .where(eq(documentFolders.parentId, currentFolderId));
+          .where(
+            and(
+              eq(documentFolders.parentId, currentFolderId),
+              eq(documentFolders.organizationId, organizationId),
+            ),
+          );
 
         const subIds = subFolders.map((f) => f.id);
         for (const subId of subIds) {
@@ -221,36 +260,83 @@ export async function deleteFolder(folderId: number, pathname: string) {
       const docs = await tx
         .select({ id: document.id })
         .from(document)
-        .where(inArray(document.folderId, allFolderIds));
+        .where(
+          and(
+            inArray(document.folderId, allFolderIds),
+            eq(document.organizationId, organizationId),
+          ),
+        );
 
       const docIds = docs.map((d) => d.id);
 
       if (docIds.length > 0) {
         await tx
           .delete(documentVersions)
-          .where(inArray(documentVersions.documentId, docIds));
+          .where(
+            and(
+              inArray(documentVersions.documentId, docIds),
+              eq(documentVersions.organizationId, organizationId),
+            ),
+          );
         await tx
           .delete(documentTags)
-          .where(inArray(documentTags.documentId, docIds));
+          .where(
+            and(
+              inArray(documentTags.documentId, docIds),
+              eq(documentTags.organizationId, organizationId),
+            ),
+          );
         await tx
           .delete(documentAccess)
-          .where(inArray(documentAccess.documentId, docIds));
+          .where(
+            and(
+              inArray(documentAccess.documentId, docIds),
+              eq(documentAccess.organizationId, organizationId),
+            ),
+          );
         await tx
           .delete(documentLogs)
-          .where(inArray(documentLogs.documentId, docIds));
+          .where(
+            and(
+              inArray(documentLogs.documentId, docIds),
+              eq(documentLogs.organizationId, organizationId),
+            ),
+          );
         await tx
           .delete(documentSharedLinks)
-          .where(inArray(documentSharedLinks.documentId, docIds));
+          .where(
+            and(
+              inArray(documentSharedLinks.documentId, docIds),
+              eq(documentSharedLinks.organizationId, organizationId),
+            ),
+          );
         await tx
           .delete(documentComments)
-          .where(inArray(documentComments.documentId, docIds));
+          .where(
+            and(
+              inArray(documentComments.documentId, docIds),
+              eq(documentComments.organizationId, organizationId),
+            ),
+          );
 
-        await tx.delete(document).where(inArray(document.id, docIds));
+        await tx
+          .delete(document)
+          .where(
+            and(
+              inArray(document.id, docIds),
+              eq(document.organizationId, organizationId),
+            ),
+          );
       }
 
       await tx
         .delete(documentFolders)
-        .where(inArray(documentFolders.id, allFolderIds));
+        .where(
+          and(
+            inArray(documentFolders.id, allFolderIds),
+            eq(documentFolders.organizationId, organizationId),
+          ),
+        );
 
       revalidatePath(pathname);
       return {
@@ -277,6 +363,13 @@ export async function archiveFolder(folderId: number, pathname: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
+  const organizationId = organization.id;
+
   try {
     return await db.transaction(async (tx) => {
       if (user.role !== "admin") {
@@ -287,6 +380,7 @@ export async function archiveFolder(folderId: number, pathname: string) {
             and(
               eq(documentFolders.id, folderId),
               eq(documentFolders.createdBy, user.id),
+              eq(documentFolders.organizationId, organizationId),
             ),
           )
           .limit(1);
@@ -305,7 +399,12 @@ export async function archiveFolder(folderId: number, pathname: string) {
         const subFolders = await tx
           .select({ id: documentFolders.id })
           .from(documentFolders)
-          .where(eq(documentFolders.parentId, currentFolderId));
+          .where(
+            and(
+              eq(documentFolders.parentId, currentFolderId),
+              eq(documentFolders.organizationId, organizationId),
+            ),
+          );
 
         const subIds = subFolders.map((f) => f.id);
         for (const subId of subIds) {
@@ -320,7 +419,12 @@ export async function archiveFolder(folderId: number, pathname: string) {
       const docs = await tx
         .select({ id: document.id })
         .from(document)
-        .where(inArray(document.folderId, allFolderIds));
+        .where(
+          and(
+            inArray(document.folderId, allFolderIds),
+            eq(document.organizationId, organizationId),
+          ),
+        );
 
       const docIds = docs.map((d) => d.id);
 
@@ -328,13 +432,23 @@ export async function archiveFolder(folderId: number, pathname: string) {
         await tx
           .update(document)
           .set({ status: "archived", updatedAt: new Date() })
-          .where(inArray(document.id, docIds));
+          .where(
+            and(
+              inArray(document.id, docIds),
+              eq(document.organizationId, organizationId),
+            ),
+          );
       }
 
       await tx
         .update(documentFolders)
         .set({ status: "archived", updatedAt: new Date() })
-        .where(inArray(documentFolders.id, allFolderIds));
+        .where(
+          and(
+            inArray(documentFolders.id, allFolderIds),
+            eq(documentFolders.organizationId, organizationId),
+          ),
+        );
 
       revalidatePath(pathname);
       return {

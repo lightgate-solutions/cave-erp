@@ -11,6 +11,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string; submissionId: string }> },
 ) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const { id, submissionId: submissionIdParam } = await params;
     const taskId = Number(id);
     const submissionId = Number(submissionIdParam);
@@ -24,6 +34,7 @@ export async function GET(
         and(
           eq(taskReviews.taskId, taskId),
           eq(taskReviews.submissionId, submissionId),
+          eq(taskReviews.organizationId, organization.id),
         ),
       )
       .orderBy(desc(taskReviews.reviewedAt));
@@ -73,10 +84,23 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const emp = await db
       .select()
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((r) => r[0]);
     if (!emp?.isManager) {

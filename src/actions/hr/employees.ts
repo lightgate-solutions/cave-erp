@@ -227,6 +227,7 @@ export async function createEmployee(data: {
         status: "active",
         public: false,
         departmental: false,
+        organizationId: organization.id,
       });
 
       await db

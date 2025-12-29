@@ -15,11 +15,21 @@ export async function GET() {
       return Response.json({ success: false, count: 0 });
     }
 
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return Response.json({ success: false, count: 0 });
+    }
+
     // Get employee info to get the employee ID (notifications.user_id references employees.id)
     const employeeResult = await db
       .select({ id: employees.id })
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     const employee = employeeResult[0];
@@ -35,6 +45,7 @@ export async function GET() {
         and(
           eq(notifications.user_id, employee.id),
           eq(notifications.is_read, false),
+          eq(notifications.organizationId, organization.id),
         ),
       );
 

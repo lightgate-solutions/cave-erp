@@ -1,4 +1,5 @@
 import { getLeaveBalance } from "@/actions/hr/leaves";
+import { getEmployee } from "@/actions/hr/employees";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -10,6 +11,15 @@ export async function GET(request: NextRequest) {
     const session = await auth.api.getSession({ headers: h });
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get organization for multi-tenant isolation
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 },
+      );
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -24,6 +34,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Verify employee belongs to the user's organization
+    const employee = await getEmployee(Number(employeeId));
+    if (!employee) {
+      return NextResponse.json(
+        { error: "Employee not found or access denied" },
+        { status: 404 },
+      );
+    }
+
+    // getEmployee already filters by organizationId, but we double-check
+    // to ensure the employee belongs to the authenticated user's organization
+    if (employee.organizationId !== organization.id) {
+      return NextResponse.json(
+        { error: "Access denied: Employee not in your organization" },
+        { status: 403 },
+      );
+    }
+
+    // Get leave balance - this function also has organizationId filtering
     const balances = await getLeaveBalance(Number(employeeId), year);
 
     return NextResponse.json({ balances });

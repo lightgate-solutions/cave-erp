@@ -11,6 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { employees } from "./hr";
+import { organization } from "./auth";
 
 export const documentFolders = pgTable(
   "document_folders",
@@ -26,6 +27,9 @@ export const documentFolders = pgTable(
     createdBy: integer("created_by")
       .references(() => employees.id)
       .notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -33,6 +37,9 @@ export const documentFolders = pgTable(
     foldersNameIdx: index("folders_name_idx").on(table.name),
     foldersDepartmentIdx: index("folders_department_idx").on(table.department),
     foldersParentIdx: index("folders_parent_idx").on(table.parentId),
+    foldersOrganizationIdx: index("folders_organization_idx").on(
+      table.organizationId,
+    ),
     documentFoldersParentFk: foreignKey({
       columns: [table.parentId],
       foreignColumns: [table.id],
@@ -56,6 +63,9 @@ export const document = pgTable(
     currentVersionId: integer("current_version_id").notNull().default(0),
     public: boolean("public").default(false),
     uploadedBy: integer("uploaded_by").references(() => employees.id),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     status: text("status").default("active").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -63,6 +73,7 @@ export const document = pgTable(
   (table) => [
     index("documents_name_idx").on(table.title),
     index("documents_version_id_idx").on(table.currentVersionId),
+    index("documents_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -79,6 +90,9 @@ export const documentVersions = pgTable(
     mimeType: text("mime_type"),
     scannedOcr: text("scanned_ocr"),
     uploadedBy: integer("uploaded_by").references(() => employees.id),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -86,6 +100,7 @@ export const documentVersions = pgTable(
     index("documents_version_number_idx").on(table.versionNumber),
     index("documents_version_uploaded_by_idx").on(table.uploadedBy),
     index("documents_version_ocr_idx").on(table.scannedOcr),
+    index("documents_version_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -95,12 +110,16 @@ export const documentTags = pgTable(
     id: serial("id").primaryKey(),
     documentId: integer("document_id").references(() => document.id),
     tag: text("tag").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
     index("documents_tag_idx").on(table.tag),
     index("documents_tag_id_idx").on(table.documentId),
+    index("documents_tag_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -115,6 +134,9 @@ export const documentAccess = pgTable(
     userId: integer("user_id").references(() => employees.id),
     department: text("department"),
     grantedBy: integer("granted_by").references(() => employees.id),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -124,6 +146,7 @@ export const documentAccess = pgTable(
     index("documents_access_granted_idx").on(table.grantedBy),
     index("documents_access_department_idx").on(table.department),
     index("documents_access_user_idx").on(table.userId),
+    index("documents_access_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -141,11 +164,15 @@ export const documentLogs = pgTable(
     ),
     action: text("action").notNull(),
     details: text("details"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
     index("documents_logs_action_idx").on(table.action),
     index("documents_logs_document_idx").on(table.documentId),
+    index("documents_logs_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -158,9 +185,15 @@ export const documentSharedLinks = pgTable(
     expiresAt: timestamp("expires_at"),
     accessLevel: text("access_level").default("View"),
     createdBy: integer("created_by").references(() => employees.id),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [index("documents_shared_token").on(table.token)],
+  (table) => [
+    index("documents_shared_token").on(table.token),
+    index("documents_shared_organization_idx").on(table.organizationId),
+  ],
 );
 
 export const documentComments = pgTable(
@@ -170,7 +203,13 @@ export const documentComments = pgTable(
     documentId: integer("document_id").references(() => document.id),
     userId: integer("user_id").references(() => employees.id),
     comment: text("comment").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [index("document_comment_idx").on(table.comment)],
+  (table) => [
+    index("document_comment_idx").on(table.comment),
+    index("document_comment_organization_idx").on(table.organizationId),
+  ],
 );

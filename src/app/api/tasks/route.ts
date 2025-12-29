@@ -4,6 +4,8 @@ import type { CreateTask, Task } from "@/types";
 import { and, asc, desc, eq, ilike, or, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { tasks, taskAssignees, employees } from "@/db/schema";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +35,16 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     type StatusType =
       | "Backlog"
       | "Todo"
@@ -82,13 +94,27 @@ export async function GET(request: NextRequest) {
       const rows = await db
         .select({ id: taskAssignees.taskId })
         .from(taskAssignees)
-        .where(eq(taskAssignees.employeeId, eid));
+        .where(
+          and(
+            eq(taskAssignees.employeeId, eid),
+            eq(taskAssignees.organizationId, organization.id),
+          ),
+        );
       const ids = rows.map((r) => r.id);
       where = ids.length
-        ? or(eq(tasks.assignedTo, eid), inArray(tasks.id, ids))
-        : eq(tasks.assignedTo, eid);
+        ? and(
+            eq(tasks.organizationId, organization.id),
+            or(eq(tasks.assignedTo, eid), inArray(tasks.id, ids)),
+          )
+        : and(
+            eq(tasks.organizationId, organization.id),
+            eq(tasks.assignedTo, eid),
+          );
     } else if (role === "manager") {
-      where = eq(tasks.assignedBy, Number(employeeId || "0"));
+      where = and(
+        eq(tasks.organizationId, organization.id),
+        eq(tasks.assignedBy, Number(employeeId || "0")),
+      );
     }
 
     if (q) {
@@ -136,7 +162,12 @@ export async function GET(request: NextRequest) {
           name: employees.name,
         })
         .from(employees)
-        .where(inArray(employees.id, ids));
+        .where(
+          and(
+            inArray(employees.id, ids),
+            eq(employees.organizationId, organization.id),
+          ),
+        );
       map = new Map(rows.map((r) => [r.id, { email: r.email, name: r.name }]));
     }
 
@@ -156,7 +187,12 @@ export async function GET(request: NextRequest) {
         })
         .from(taskAssignees)
         .leftJoin(employees, eq(employees.id, taskAssignees.employeeId))
-        .where(inArray(taskAssignees.taskId, taskIds));
+        .where(
+          and(
+            inArray(taskAssignees.taskId, taskIds),
+            eq(taskAssignees.organizationId, organization.id),
+          ),
+        );
       for (const r of assigneesRows) {
         const list = assigneesMap.get(r.taskId) ?? [];
         list.push({ id: r.id, email: r.email, name: r.name });

@@ -18,6 +18,8 @@ import { employees } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { upstashIndex } from "@/lib/upstash-client";
 import { createNotification } from "../notification/notification";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 interface UploadActionProps {
   title: string;
@@ -39,7 +41,7 @@ interface UploadActionProps {
 
 // NOTE: create personal folders on create user action
 
-async function getUsersFolderId(folder: string) {
+async function getUsersFolderId(folder: string, organizationId: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
@@ -54,6 +56,7 @@ async function getUsersFolderId(folder: string) {
           eq(documentFolders.name, folder),
           eq(documentFolders.department, user.department),
           eq(documentFolders.departmental, true),
+          eq(documentFolders.organizationId, organizationId),
         ),
       )
       .limit(1);
@@ -65,7 +68,12 @@ async function getUsersFolderId(folder: string) {
     folderQuery = await db
       .select({ id: documentFolders.id })
       .from(documentFolders)
-      .where(eq(documentFolders.name, "public"))
+      .where(
+        and(
+          eq(documentFolders.name, "public"),
+          eq(documentFolders.organizationId, organizationId),
+        ),
+      )
       .limit(1);
 
     if (folderQuery.length > 0) return folderQuery;
@@ -78,6 +86,7 @@ async function getUsersFolderId(folder: string) {
       and(
         eq(documentFolders.name, folder),
         eq(documentFolders.createdBy, user.id),
+        eq(documentFolders.organizationId, organizationId),
       ),
     )
     .limit(1);
@@ -91,6 +100,7 @@ async function getUsersFolderId(folder: string) {
       createdBy: user.id,
       department: user.department,
       departmental: user.department === folder,
+      organizationId,
     })
     .returning({ id: documentFolders.id });
 
@@ -101,7 +111,12 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
-  const folderResult = await getUsersFolderId(data.folder);
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
+  const folderResult = await getUsersFolderId(data.folder, organization.id);
   if (!folderResult.length) {
     throw new Error(`Folder '${data.folder}' not found for user`);
   }
@@ -116,14 +131,24 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
       const [currentCount] = await tx
         .select({ count: employees.documentCount })
         .from(employees)
-        .where(eq(employees.id, user.id));
+        .where(
+          and(
+            eq(employees.id, user.id),
+            eq(employees.organizationId, organization.id),
+          ),
+        );
 
       const updatedCount = currentCount.count + data.Files.length;
 
       await tx
         .update(employees)
         .set({ documentCount: updatedCount })
-        .where(eq(employees.id, user.id));
+        .where(
+          and(
+            eq(employees.id, user.id),
+            eq(employees.organizationId, organization.id),
+          ),
+        );
 
       const insertedDocuments = await tx
         .insert(document)
@@ -138,6 +163,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
             public: effectivePublic,
             uploadedBy: user.id,
             status: data.status,
+            organizationId: organization.id,
           })),
         )
         .returning();
@@ -168,6 +194,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
           fileSize: file.fileSize,
           mimeType: file.mimeType,
           uploadedBy: user.id,
+          organizationId: organization.id,
         };
       });
       const insertedVersions = await tx
@@ -183,13 +210,19 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
             currentVersion: version.versionNumber,
             updatedAt: new Date(), // Explicitly update updatedAt to ensure it's refreshed
           })
-          .where(eq(document.id, version.documentId));
+          .where(
+            and(
+              eq(document.id, version.documentId),
+              eq(document.organizationId, organization.id),
+            ),
+          );
       }
 
       const tagsToInsert = insertedDocuments.flatMap((doc) =>
         data.tags.map((tag) => ({
           documentId: doc.id,
           tag: tag.name,
+          organizationId: organization.id,
         })),
       );
       if (tagsToInsert.length > 0) {
@@ -205,6 +238,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
           userId: user.id,
           department: null,
           grantedBy: user.id,
+          organizationId: organization.id,
         });
         // If departmental is enabled, add a department-level rule derived from provided permissions
         if (effectiveDepartmental) {
@@ -226,6 +260,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
               userId: null,
               department: user.department,
               grantedBy: user.id,
+              organizationId: organization.id,
             });
           }
         }
@@ -254,7 +289,12 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
           const shareUsers = await tx
             .select({ id: employees.id, email: employees.email })
             .from(employees)
-            .where(inArray(employees.email, uniqueEmails));
+            .where(
+              and(
+                inArray(employees.email, uniqueEmails),
+                eq(employees.organizationId, organization.id),
+              ),
+            );
 
           const shareAccessRows = insertedDocuments.flatMap((doc) =>
             shareUsers.map((u) => {
@@ -268,6 +308,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
                 userId: u.id,
                 department: null,
                 grantedBy: user.id,
+                organizationId: organization.id,
               };
             }),
           );
@@ -299,6 +340,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
         action: "upload",
         details: `uploaded ${data.Files[i].originalFileName}`,
         documentVersionId: insertedVersions[i].id,
+        organizationId: organization.id,
       }));
       await tx.insert(documentLogs).values(logsToInsert);
 
@@ -351,6 +393,12 @@ interface UploadNewVersionProps {
 export async function uploadNewDocumentVersion(data: UploadNewVersionProps) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     await db.transaction(async (tx) => {
       const [version] = await tx
@@ -362,6 +410,7 @@ export async function uploadNewDocumentVersion(data: UploadNewVersionProps) {
           fileSize: data.fileSize,
           uploadedBy: user.id,
           documentId: data.id,
+          organizationId: organization.id,
         })
         .returning();
 
@@ -373,7 +422,12 @@ export async function uploadNewDocumentVersion(data: UploadNewVersionProps) {
           updatedAt: new Date(),
           uploadedBy: user.id,
         })
-        .where(eq(document.id, data.id));
+        .where(
+          and(
+            eq(document.id, data.id),
+            eq(document.organizationId, organization.id),
+          ),
+        );
 
       await tx.insert(documentLogs).values({
         userId: user.id,
@@ -381,6 +435,7 @@ export async function uploadNewDocumentVersion(data: UploadNewVersionProps) {
         action: "upload",
         details: `uploaded new version v${data.newVersionNumber}`,
         documentVersionId: version.id,
+        organizationId: organization.id,
       });
     });
 

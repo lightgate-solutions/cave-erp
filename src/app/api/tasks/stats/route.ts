@@ -15,32 +15,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     // Resolve employee to determine scope (employee vs manager)
     const me = await db
       .select({ id: employees.id, isManager: employees.isManager })
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((r) => r[0]);
 
     // Build where clause based on role
     const scopeWhere =
       role === "admin"
-        ? undefined
+        ? eq(tasks.organizationId, organization.id)
         : me?.isManager
-          ? eq(tasks.assignedBy, me.id)
-          : eq(tasks.assignedTo, me?.id ?? -1);
+          ? and(
+              eq(tasks.organizationId, organization.id),
+              eq(tasks.assignedBy, me.id),
+            )
+          : and(
+              eq(tasks.organizationId, organization.id),
+              eq(tasks.assignedTo, me?.id ?? -1),
+            );
 
     // active: not Completed
-    const activeWhere = scopeWhere
-      ? and(scopeWhere, ne(tasks.status, "Completed"))
-      : ne(tasks.status, "Completed");
-    const pendingWhere = scopeWhere
-      ? and(scopeWhere, eq(tasks.status, "Todo"))
-      : eq(tasks.status, "Todo");
-    const inProgressWhere = scopeWhere
-      ? and(scopeWhere, eq(tasks.status, "In Progress"))
-      : eq(tasks.status, "In Progress");
+    const activeWhere = and(scopeWhere, ne(tasks.status, "Completed"));
+    const pendingWhere = and(scopeWhere, eq(tasks.status, "Todo"));
+    const inProgressWhere = and(scopeWhere, eq(tasks.status, "In Progress"));
 
     const activeRow = await db
       .select({ c: sql<number>`count(*)` })

@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { employees } from "@/db/schema/hr";
 import { auth } from "@/lib/auth";
-import { DrizzleQueryError, eq } from "drizzle-orm";
+import { and, DrizzleQueryError, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 
 export interface UserWithDetails {
@@ -152,11 +152,26 @@ export async function getUsers(
 }
 
 export async function getManagers() {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   try {
     const data = await db
       .select({ id: employees.id, name: employees.name })
       .from(employees)
-      .where(eq(employees.isManager, true));
+      .where(
+        and(
+          eq(employees.isManager, true),
+          eq(employees.organizationId, organization.id),
+        ),
+      );
     return {
       success: { reason: "Success" },
       error: null,

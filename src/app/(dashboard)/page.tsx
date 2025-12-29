@@ -75,12 +75,12 @@ export default async function DashboardPage() {
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
-  if (!organization) {
-    redirect("/organizations/create");
-  }
 
   // Admin always gets admin dashboard
   if (normalizedRole === "admin") {
+    if (!organization) {
+      redirect("/organizations/create");
+    }
     return (
       <AdminDashboard employeeId={user.id} organizationId={organization.id} />
     );

@@ -8,13 +8,25 @@ import {
 import type { CreateTask } from "@/types";
 import { db } from "@/db";
 import { employees, taskAssignees } from "@/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const { id: idParam } = await params;
     const id = Number(idParam);
     const { searchParams } = _request.nextUrl;
@@ -46,7 +58,12 @@ export async function GET(
       })
       .from(taskAssignees)
       .leftJoin(employees, eq(employees.id, taskAssignees.employeeId))
-      .where(eq(taskAssignees.taskId, id));
+      .where(
+        and(
+          eq(taskAssignees.taskId, id),
+          eq(taskAssignees.organizationId, organization.id),
+        ),
+      );
     if (ids.length) {
       const rows = await db
         .select({
@@ -55,7 +72,12 @@ export async function GET(
           name: employees.name,
         })
         .from(employees)
-        .where(inArray(employees.id, ids));
+        .where(
+          and(
+            inArray(employees.id, ids),
+            eq(employees.organizationId, organization.id),
+          ),
+        );
       const map = new Map(
         rows.map((r) => [r.id, { email: r.email, name: r.name }]),
       );
@@ -98,6 +120,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const { id: idParam } = await params;
     const id = Number(idParam);
     const { searchParams } = _request.nextUrl;
@@ -132,6 +164,16 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const { id: idParam } = await params;
     const id = Number(idParam);
     const body = await request.json();
@@ -184,7 +226,12 @@ export async function PUT(
         })
         .from(taskAssignees)
         .leftJoin(employees, eq(employees.id, taskAssignees.employeeId))
-        .where(eq(taskAssignees.taskId, id));
+        .where(
+          and(
+            eq(taskAssignees.taskId, id),
+            eq(taskAssignees.organizationId, organization.id),
+          ),
+        );
       if (ids.length) {
         const rows = await db
           .select({
@@ -193,7 +240,12 @@ export async function PUT(
             name: employees.name,
           })
           .from(employees)
-          .where(inArray(employees.id, ids));
+          .where(
+            and(
+              inArray(employees.id, ids),
+              eq(employees.organizationId, organization.id),
+            ),
+          );
         const map = new Map(
           rows.map((r) => [r.id, { email: r.email, name: r.name }]),
         );
@@ -233,6 +285,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const { id: idParam } = await params;
     const id = Number(idParam);
     const body = await request.json();
