@@ -6,11 +6,18 @@ import { getUser } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import { employees } from "@/db/schema/hr";
 import { employeeSalary, salaryStructure } from "@/db/schema/payroll";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function getEmployeesBySalaryStructure(structureId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     // Get employees currently assigned to this structure
@@ -30,6 +37,7 @@ export async function getEmployeesBySalaryStructure(structureId: number) {
         and(
           eq(employeeSalary.salaryStructureId, structureId),
           isNull(employeeSalary.effectiveTo),
+          eq(employeeSalary.organizationId, organization.id),
         ),
       )
       .orderBy(desc(employeeSalary.effectiveFrom));
@@ -44,6 +52,11 @@ export async function getEmployeeSalaryHistory(employeeId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     const history = await db
@@ -60,7 +73,12 @@ export async function getEmployeeSalaryHistory(employeeId: number) {
         salaryStructure,
         eq(employeeSalary.salaryStructureId, salaryStructure.id),
       )
-      .where(eq(employeeSalary.employeeId, employeeId))
+      .where(
+        and(
+          eq(employeeSalary.employeeId, employeeId),
+          eq(employeeSalary.organizationId, organization.id),
+        ),
+      )
       .orderBy(desc(employeeSalary.effectiveFrom));
 
     return history;
@@ -73,6 +91,11 @@ export async function getEmployeesNotInStructure(structureId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     // Step 1: Get all employees
@@ -99,6 +122,7 @@ export async function getEmployeesNotInStructure(structureId: number) {
         and(
           eq(employeeSalary.salaryStructureId, structureId),
           isNull(employeeSalary.effectiveTo),
+          eq(employeeSalary.organizationId, organization.id),
         ),
       );
 
@@ -116,7 +140,12 @@ export async function getEmployeesNotInStructure(structureId: number) {
         salaryStructure,
         eq(employeeSalary.salaryStructureId, salaryStructure.id),
       )
-      .where(isNull(employeeSalary.effectiveTo));
+      .where(
+        and(
+          isNull(employeeSalary.effectiveTo),
+          eq(employeeSalary.organizationId, organization.id),
+        ),
+      );
 
     // Create lookup map for current structures
     const structureMap = new Map();
@@ -159,6 +188,11 @@ export async function assignEmployeeToStructure(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       // Check if structure exists
@@ -169,7 +203,12 @@ export async function assignEmployeeToStructure(
           employeeCount: salaryStructure.employeeCount,
         })
         .from(salaryStructure)
-        .where(eq(salaryStructure.id, data.salaryStructureId))
+        .where(
+          and(
+            eq(salaryStructure.id, data.salaryStructureId),
+            eq(salaryStructure.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (structure.length === 0) {
@@ -213,6 +252,7 @@ export async function assignEmployeeToStructure(
           and(
             eq(employeeSalary.employeeId, data.employeeId),
             isNull(employeeSalary.effectiveTo),
+            eq(employeeSalary.organizationId, organization.id),
           ),
         )
         .limit(1);
@@ -251,6 +291,7 @@ export async function assignEmployeeToStructure(
       await tx.insert(employeeSalary).values({
         employeeId: data.employeeId,
         salaryStructureId: data.salaryStructureId,
+        organizationId: organization.id,
         effectiveFrom: data.effectiveFrom,
         effectiveTo: null, // Still active
       });

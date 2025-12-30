@@ -11,6 +11,7 @@ import { relations } from "drizzle-orm";
 import { tasks } from "./tasks";
 import { employees } from "../hr";
 import { taskReviews } from "./tasksReviews";
+import { organization } from "../auth";
 
 export const taskSubmissions = pgTable(
   "task_submissions",
@@ -25,6 +26,10 @@ export const taskSubmissions = pgTable(
       .notNull()
       .references(() => employees.id, { onDelete: "cascade" }),
 
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+
     submissionNote: text("submission_note"),
     submittedFiles:
       jsonb("submitted_files").$type<{ fileUrl: string; fileName: string }[]>(),
@@ -33,6 +38,7 @@ export const taskSubmissions = pgTable(
   (table) => [
     index("task_submissions_task_idx").on(table.taskId),
     index("task_submissions_employee_idx").on(table.submittedBy),
+    index("task_submissions_organization_idx").on(table.organizationId),
   ],
 );
 

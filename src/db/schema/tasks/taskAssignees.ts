@@ -4,10 +4,12 @@ import {
   integer,
   timestamp,
   index,
+  text,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { tasks } from "./tasks";
 import { employees } from "../hr";
+import { organization } from "../auth";
 
 export const taskAssignees = pgTable(
   "task_assignees",
@@ -19,11 +21,15 @@ export const taskAssignees = pgTable(
     employeeId: integer("employee_id")
       .notNull()
       .references(() => employees.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [
     index("task_assignees_task_idx").on(t.taskId),
     index("task_assignees_employee_idx").on(t.employeeId),
+    index("task_assignees_organization_idx").on(t.organizationId),
   ],
 );
 

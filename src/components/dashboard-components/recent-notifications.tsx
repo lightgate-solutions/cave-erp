@@ -29,6 +29,7 @@ interface _Notification {
   isRead: boolean;
   createdBy: number;
   userId: number;
+  organizationId: string;
 }
 
 const getNotificationIcon = (type: string) => {
@@ -70,11 +71,14 @@ const getNotificationColor = (type: string) => {
 
 export default function RecentNotifications({
   employeeId,
+  organizationId,
 }: {
   employeeId: number;
+  organizationId: string;
 }) {
   const allNotifications = useQuery(api.notifications.getUserNotifications, {
     userId: employeeId,
+    organizationId,
   });
 
   // Get first 3 notifications

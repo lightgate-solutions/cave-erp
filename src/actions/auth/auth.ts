@@ -5,7 +5,7 @@ import { employees } from "@/db/schema/hr";
 import { notification_preferences } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { APIError } from "better-auth/api";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { createNotification } from "../notification/notification";
 
@@ -45,6 +45,16 @@ export async function banUser(
 
 export async function unbanUser(userId: string) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        success: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
     const res = await auth.api.unbanUser({
       body: { userId },
       headers: await headers(),
@@ -54,7 +64,12 @@ export async function unbanUser(userId: string) {
     const employee = await db
       .select()
       .from(employees)
-      .where(eq(employees.authId, userId))
+      .where(
+        and(
+          eq(employees.authId, userId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((r) => r[0]);
 
@@ -93,6 +108,16 @@ export async function unbanUser(userId: string) {
 
 export async function deleteUser(userId: string) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        success: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
     await auth.api.removeUser({
       body: { userId },
       headers: await headers(),
@@ -172,6 +197,17 @@ export async function createUser(data: {
 }) {
   const { autoVerify, ...userData } = data;
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      error: { reason: "Organization not found" },
+      success: null,
+      data: null,
+    };
+  }
+
   try {
     const createData = {
       ...userData,
@@ -212,6 +248,7 @@ export async function createUser(data: {
           status: "active",
           department: userData.data?.department ?? "general",
           managerId: parsedManagerId,
+          organizationId: organization.id,
           dateOfBirth: dobValue,
           documentCount: 0,
           address: userData.data?.address ?? null,
@@ -229,6 +266,7 @@ export async function createUser(data: {
         root: true,
         public: false,
         departmental: false,
+        organizationId: organization.id,
       });
 
       // Initialize notification preferences with defaults
@@ -240,6 +278,7 @@ export async function createUser(data: {
         email_on_task_notification: false,
         email_on_general_notification: false,
         notify_on_message: true,
+        organizationId: organization.id,
       });
     });
     return {
@@ -266,6 +305,16 @@ export async function createUser(data: {
 
 export async function updateUserRole(userId: string, role: string) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        success: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
     await auth.api.setRole({
       body: {
         userId,
@@ -278,7 +327,12 @@ export async function updateUserRole(userId: string, role: string) {
     const employee = await db
       .select()
       .from(employees)
-      .where(eq(employees.authId, userId))
+      .where(
+        and(
+          eq(employees.authId, userId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((r) => r[0]);
 

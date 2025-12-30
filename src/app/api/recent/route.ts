@@ -4,6 +4,8 @@ import { document, employees } from "@/db/schema";
 import { documentVersions } from "@/db/schema/documents";
 import { desc, eq, and } from "drizzle-orm";
 import { getUser } from "@/actions/auth/dal";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function GET(_request: NextRequest) {
   try {
@@ -11,6 +13,15 @@ export async function GET(_request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
     }
 
     // Fetch recent documents with uploader info and file size from documentVersions
@@ -33,6 +44,7 @@ export async function GET(_request: NextRequest) {
       .where(
         and(
           eq(document.status, "active"),
+          eq(document.organizationId, organization.id),
           // Include documents even if currentVersionId is 0 (might be in transition)
           // The join will just return null for size, which we'll handle
         ),

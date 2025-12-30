@@ -3,14 +3,26 @@
 import { db } from "@/db";
 import { taskReviews, tasks } from "@/db/schema";
 import { getEmployee } from "../hr/employees";
-import { DrizzleQueryError, eq } from "drizzle-orm";
+import { DrizzleQueryError, eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireManager } from "@/actions/auth/dal";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 type NewReview = typeof taskReviews.$inferInsert;
 
 export const reviewTask = async (reviewData: NewReview) => {
   const authData = await requireManager();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
 
   // Verify the user is the one doing the review
   if (authData.employee.id !== reviewData.reviewedBy) {
@@ -32,6 +44,7 @@ export const reviewTask = async (reviewData: NewReview) => {
 
     await db.insert(taskReviews).values({
       ...reviewData,
+      organizationId: organization.id,
     });
 
     // Status side-effects based on review decision
@@ -40,13 +53,23 @@ export const reviewTask = async (reviewData: NewReview) => {
       await db
         .update(tasks)
         .set({ status: "Completed", updatedAt: new Date() })
-        .where(eq(tasks.id, reviewData.taskId));
+        .where(
+          and(
+            eq(tasks.id, reviewData.taskId),
+            eq(tasks.organizationId, organization.id),
+          ),
+        );
     } else if (reviewData.status === "Rejected") {
-      // Rejected -> keep task In Progress (don’t downgrade a Completed task)
+      // Rejected -> keep task In Progress (don't downgrade a Completed task)
       const current = await db
         .select({ status: tasks.status })
         .from(tasks)
-        .where(eq(tasks.id, reviewData.taskId))
+        .where(
+          and(
+            eq(tasks.id, reviewData.taskId),
+            eq(tasks.organizationId, organization.id),
+          ),
+        )
         .limit(1)
         .then((r) => r[0]);
 
@@ -54,7 +77,12 @@ export const reviewTask = async (reviewData: NewReview) => {
         await db
           .update(tasks)
           .set({ status: "In Progress", updatedAt: new Date() })
-          .where(eq(tasks.id, reviewData.taskId));
+          .where(
+            and(
+              eq(tasks.id, reviewData.taskId),
+              eq(tasks.organizationId, organization.id),
+            ),
+          );
       }
     }
 
@@ -79,8 +107,19 @@ export const reviewTask = async (reviewData: NewReview) => {
 
 export const getSubmissionReviews = async (submissionId: number) => {
   await requireAuth();
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
   return await db
     .select()
     .from(taskReviews)
-    .where(eq(taskReviews.submissionId, submissionId));
+    .where(
+      and(
+        eq(taskReviews.submissionId, submissionId),
+        eq(taskReviews.organizationId, organization.id),
+      ),
+    );
 };

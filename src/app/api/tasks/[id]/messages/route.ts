@@ -42,6 +42,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id: idParam } = await params;
     const id = Number(idParam);
     if (!id)
@@ -80,6 +87,7 @@ export async function POST(
       taskId: id,
       senderId: emp.id,
       content,
+      organizationId: organization.id,
     });
     if (res.error) {
       return NextResponse.json({ error: res.error.reason }, { status: 400 });

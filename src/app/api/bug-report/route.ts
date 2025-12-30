@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { db } from "@/db";
 import { bugReports, bugReportAttachments } from "@/db/schema/bug-reports";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -9,6 +11,13 @@ const sendEmail = process.env.RESEND_SENDER_EMAIL;
 
 export async function POST(request: Request) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       name,
@@ -37,6 +46,7 @@ export async function POST(request: Request) {
         severity,
         description,
         stepsToReproduce: stepsToReproduce || null,
+        organizationId: organization.id,
       })
       .returning();
 
@@ -73,6 +83,8 @@ export async function POST(request: Request) {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #1f2937;">Bug Report</h2>
+
+          <h3 style="color: #1f2937;">Sent by Org: ${organization.id}</h3>
 
           <div style="background-color: #f3f4f6; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
             <h3 style="margin: 0 0 8px 0; color: #374151;">Reporter Information</h3>

@@ -19,17 +19,21 @@ interface Notification {
   isRead: boolean;
   createdBy: number;
   userId: number;
+  organizationId: string;
 }
 
 interface NotificationsClientProps {
   employeeId: number;
+  organizationId: string;
 }
 
 export default function NotificationsClient({
   employeeId,
+  organizationId,
 }: NotificationsClientProps) {
   const notifications = useQuery(api.notifications.getUserNotifications, {
     userId: employeeId,
+    organizationId,
   });
 
   const markAsReadMutation = useMutation(api.notifications.markAsRead);
@@ -43,7 +47,11 @@ export default function NotificationsClient({
 
   const handleMarkAsRead = async (id: Id<"notifications">) => {
     try {
-      await markAsReadMutation({ id });
+      await markAsReadMutation({
+        id,
+        userId: employeeId,
+        organizationId,
+      });
     } catch (err) {
       console.error("Error marking notification as read:", err);
     }
@@ -51,7 +59,10 @@ export default function NotificationsClient({
 
   const markAllAsRead = async () => {
     try {
-      await markAllAsReadMutation({ userId: employeeId });
+      await markAllAsReadMutation({
+        userId: employeeId,
+        organizationId,
+      });
     } catch (error) {
       console.error("Error marking as read:", error);
     }
@@ -59,7 +70,10 @@ export default function NotificationsClient({
 
   const clearAllNotifications = async () => {
     try {
-      await clearAllNotificationsMutation({ userId: employeeId });
+      await clearAllNotificationsMutation({
+        userId: employeeId,
+        organizationId,
+      });
     } catch (err) {
       console.error("Error clearing all notifications:", err);
     }
@@ -67,7 +81,11 @@ export default function NotificationsClient({
 
   const clearNotification = async (id: Id<"notifications">) => {
     try {
-      await deleteNotificationMutation({ id });
+      await deleteNotificationMutation({
+        id,
+        userId: employeeId,
+        organizationId,
+      });
     } catch (err) {
       console.error("Error clearing notification:", err);
     }

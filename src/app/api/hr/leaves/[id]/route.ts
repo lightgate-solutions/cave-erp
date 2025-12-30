@@ -9,7 +9,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { db } from "@/db";
 import { employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export async function GET(
   _request: NextRequest,
@@ -127,10 +127,23 @@ export async function PATCH(
     let approverId: number | undefined;
     if (updates.status === "Approved" || updates.status === "Rejected") {
       const authUserId = session.user.id;
+      const organization = await auth.api.getFullOrganization({ headers: h });
+      if (!organization) {
+        return NextResponse.json(
+          { error: "Organization not found" },
+          { status: 404 },
+        );
+      }
+
       const [approver] = await db
         .select({ id: employees.id })
         .from(employees)
-        .where(eq(employees.authId, authUserId))
+        .where(
+          and(
+            eq(employees.authId, authUserId),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
         .limit(1);
       approverId = approver?.id;
     }

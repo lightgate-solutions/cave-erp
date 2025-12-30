@@ -6,6 +6,8 @@ import { getUser } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import { employees } from "@/db/schema/hr";
 import { salaryStructure } from "@/db/schema/payroll";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 interface CreateSalaryStructureProps {
   name: string;
@@ -22,12 +24,22 @@ export async function createSalaryStructure(
 
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       const existing = await tx
         .select({ id: salaryStructure.id })
         .from(salaryStructure)
-        .where(eq(salaryStructure.name, data.name.trim().toLowerCase()))
+        .where(
+          and(
+            eq(salaryStructure.name, data.name.trim().toLowerCase()),
+            eq(salaryStructure.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (existing.length > 0) {
@@ -44,6 +56,7 @@ export async function createSalaryStructure(
         baseSalary: data.baseSalary.toString(),
         description: data.description.trim(),
         active: true,
+        organizationId: organization.id,
         employeeCount: 0,
         createdBy: user.id,
         updatedBy: user.id,
@@ -80,6 +93,11 @@ export async function getAllSalaryStructures() {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const structures = await db
       .select({
@@ -93,6 +111,7 @@ export async function getAllSalaryStructures() {
         updatedAt: salaryStructure.updatedAt,
       })
       .from(salaryStructure)
+      .where(eq(salaryStructure.organizationId, organization.id))
       .orderBy(desc(salaryStructure.updatedAt));
 
     const creatorIds = [...new Set(structures.map((s) => s.createdById))];
@@ -130,6 +149,11 @@ export async function getSalaryStructure(id: number) {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const structure = await db
       .select({
@@ -143,7 +167,12 @@ export async function getSalaryStructure(id: number) {
         updatedAt: salaryStructure.updatedAt,
       })
       .from(salaryStructure)
-      .where(eq(salaryStructure.id, id))
+      .where(
+        and(
+          eq(salaryStructure.id, id),
+          eq(salaryStructure.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (structure.length === 0) {
@@ -174,12 +203,22 @@ export async function updateSalaryStructure(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       const existing = await tx
         .select({ id: salaryStructure.id })
         .from(salaryStructure)
-        .where(eq(salaryStructure.id, id))
+        .where(
+          and(
+            eq(salaryStructure.id, id),
+            eq(salaryStructure.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (existing.length === 0) {
@@ -199,6 +238,7 @@ export async function updateSalaryStructure(
             and(
               eq(salaryStructure.name, data.name.trim().toLowerCase()),
               sql`${salaryStructure.id} != ${id}`,
+              eq(salaryStructure.organizationId, organization.id),
             ),
           )
           .limit(1);
@@ -259,6 +299,11 @@ export async function toggleSalaryStructureStatus(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       const existing = await tx
@@ -267,7 +312,12 @@ export async function toggleSalaryStructureStatus(
           employeeCount: salaryStructure.employeeCount,
         })
         .from(salaryStructure)
-        .where(eq(salaryStructure.id, id))
+        .where(
+          and(
+            eq(salaryStructure.id, id),
+            eq(salaryStructure.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (existing.length === 0) {

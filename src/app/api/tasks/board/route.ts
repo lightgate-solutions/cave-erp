@@ -9,6 +9,8 @@ import {
   taskLabelAssignments,
   taskMessages,
 } from "@/db/schema";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,6 +21,17 @@ export async function GET(request: NextRequest) {
       | "Review"
       | "Completed";
     type PriorityType = "Low" | "Medium" | "High" | "Urgent";
+
+    // Get organization context
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 403 },
+      );
+    }
 
     const { searchParams } = request.nextUrl;
 
@@ -42,7 +55,12 @@ export async function GET(request: NextRequest) {
       const rows = await db
         .select({ id: taskAssignees.taskId })
         .from(taskAssignees)
-        .where(eq(taskAssignees.employeeId, eid));
+        .where(
+          and(
+            eq(taskAssignees.employeeId, eid),
+            eq(taskAssignees.organizationId, organization.id),
+          ),
+        );
       const ids = rows.map((r) => r.id);
       where = ids.length
         ? or(eq(tasks.assignedTo, eid), inArray(tasks.id, ids))
@@ -75,6 +93,11 @@ export async function GET(request: NextRequest) {
         ? and(where, eq(tasks.assignedTo, eid))
         : eq(tasks.assignedTo, eid);
     }
+
+    // Add organization filter to all task queries
+    where = where
+      ? and(where, eq(tasks.organizationId, organization.id))
+      : eq(tasks.organizationId, organization.id);
 
     // Fetch all tasks
     const allTasks = await db
@@ -278,6 +301,17 @@ export async function GET(request: NextRequest) {
 // Update task status (for drag and drop)
 export async function PATCH(request: NextRequest) {
   try {
+    // Get organization context
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 403 },
+      );
+    }
+
     const { taskId, status } = await request.json();
 
     if (!taskId || !status) {
@@ -287,7 +321,28 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    await db.update(tasks).set({ status }).where(eq(tasks.id, taskId));
+    // Verify task belongs to current organization before updating
+    const [task] = await db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(
+        and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
+      )
+      .limit(1);
+
+    if (!task) {
+      return NextResponse.json(
+        { error: "Task not found in your organization" },
+        { status: 404 },
+      );
+    }
+
+    await db
+      .update(tasks)
+      .set({ status })
+      .where(
+        and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
+      );
 
     return NextResponse.json({ success: true });
   } catch (error) {

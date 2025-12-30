@@ -3,7 +3,9 @@ import "server-only";
 import { db } from "@/db";
 import { userPreferences } from "@/db/schema/user-preferences";
 import { getUser } from "@/actions/auth/dal";
-import { eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { eq, and } from "drizzle-orm";
 
 type Timezone =
   | "UTC"
@@ -37,10 +39,22 @@ export async function getUserPreferences() {
       return null;
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return null;
+    }
+
     const preferences = await db
       .select()
       .from(userPreferences)
-      .where(eq(userPreferences.userId, user.id))
+      .where(
+        and(
+          eq(userPreferences.userId, user.id),
+          eq(userPreferences.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     return preferences[0] || null;
@@ -62,11 +76,26 @@ export async function updateUserPreferences(
     };
   }
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: false,
+      error: "Organization not found",
+    };
+  }
+
   try {
     const existingPrefs = await db
       .select()
       .from(userPreferences)
-      .where(eq(userPreferences.userId, user.id))
+      .where(
+        and(
+          eq(userPreferences.userId, user.id),
+          eq(userPreferences.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     // Validate and filter data to match schema types
@@ -122,10 +151,16 @@ export async function updateUserPreferences(
           ...validatedData,
           updatedAt: new Date(),
         })
-        .where(eq(userPreferences.userId, user.id));
+        .where(
+          and(
+            eq(userPreferences.userId, user.id),
+            eq(userPreferences.organizationId, organization.id),
+          ),
+        );
     } else {
       await db.insert(userPreferences).values({
         userId: user.id,
+        organizationId: organization.id,
         ...validatedData,
       });
     }

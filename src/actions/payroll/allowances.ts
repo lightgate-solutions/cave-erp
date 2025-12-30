@@ -6,6 +6,8 @@ import { getUser } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import { employees } from "@/db/schema/hr";
 import { allowances, type allowanceTypeEnum } from "@/db/schema/payroll";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 interface CreateAllowanceProps {
   name: string;
@@ -26,12 +28,22 @@ export async function createAllowance(
 
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       const existing = await tx
         .select({ id: allowances.id })
         .from(allowances)
-        .where(eq(allowances.name, data.name.trim().toLowerCase()))
+        .where(
+          and(
+            eq(allowances.name, data.name.trim().toLowerCase()),
+            eq(allowances.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (existing.length > 0) {
@@ -70,6 +82,7 @@ export async function createAllowance(
       await tx.insert(allowances).values({
         name: data.name.trim(),
         type: data.type,
+        organizationId: organization.id,
         percentage: data.percentage?.toString(),
         amount: data.amount?.toString(),
         taxable: data.taxable,
@@ -109,6 +122,11 @@ export async function getAllAllowances() {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const allAllowances = await db
       .select({
@@ -124,7 +142,8 @@ export async function getAllAllowances() {
         updatedAt: allowances.updatedAt,
       })
       .from(allowances)
-      .orderBy(desc(allowances.updatedAt));
+      .orderBy(desc(allowances.updatedAt))
+      .where(eq(allowances.organizationId, organization.id));
 
     const creatorIds = [...new Set(allAllowances.map((a) => a.createdById))];
 
@@ -162,6 +181,11 @@ export async function getAllAllowancesMonthly() {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const allAllowances = await db
       .select({
@@ -177,7 +201,12 @@ export async function getAllAllowancesMonthly() {
         updatedAt: allowances.updatedAt,
       })
       .from(allowances)
-      .where(eq(allowances.type, "monthly"))
+      .where(
+        and(
+          eq(allowances.type, "monthly"),
+          eq(allowances.organizationId, organization.id),
+        ),
+      )
       .orderBy(desc(allowances.updatedAt));
 
     const creatorIds = [...new Set(allAllowances.map((a) => a.createdById))];
@@ -216,6 +245,11 @@ export async function getAllowance(id: number) {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const allowance = await db
       .select({
@@ -231,7 +265,12 @@ export async function getAllowance(id: number) {
         updatedAt: allowances.updatedAt,
       })
       .from(allowances)
-      .where(eq(allowances.id, id))
+      .where(
+        and(
+          eq(allowances.id, id),
+          eq(allowances.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (allowance.length === 0) {
@@ -262,12 +301,22 @@ export async function updateAllowance(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       const existing = await tx
         .select({ id: allowances.id })
         .from(allowances)
-        .where(eq(allowances.id, id))
+        .where(
+          and(
+            eq(allowances.id, id),
+            eq(allowances.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (existing.length === 0) {
@@ -287,6 +336,7 @@ export async function updateAllowance(
             and(
               eq(allowances.name, data.name.trim().toLowerCase()),
               sql`${allowances.id} != ${id}`,
+              eq(allowances.organizationId, organization.id),
             ),
           )
           .limit(1);
@@ -306,7 +356,12 @@ export async function updateAllowance(
         const currentAllowance = await tx
           .select({ taxPercentage: allowances.taxPercentage })
           .from(allowances)
-          .where(eq(allowances.id, id))
+          .where(
+            and(
+              eq(allowances.id, id),
+              eq(allowances.organizationId, organization.id),
+            ),
+          )
           .limit(1);
 
         if (!currentAllowance[0].taxPercentage) {
@@ -368,12 +423,22 @@ export async function deleteAllowance(id: number, pathname: string) {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       const existing = await tx
         .select({ id: allowances.id })
         .from(allowances)
-        .where(eq(allowances.id, id))
+        .where(
+          and(
+            eq(allowances.id, id),
+            eq(allowances.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (existing.length === 0) {
@@ -388,7 +453,14 @@ export async function deleteAllowance(id: number, pathname: string) {
       // Here you might want to check if this allowance is used in any salary structure
       // or assigned to any employee before allowing deletion
 
-      await tx.delete(allowances).where(eq(allowances.id, id));
+      await tx
+        .delete(allowances)
+        .where(
+          and(
+            eq(allowances.id, id),
+            eq(allowances.organizationId, organization.id),
+          ),
+        );
 
       revalidatePath(pathname);
       return {

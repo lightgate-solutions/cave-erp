@@ -19,6 +19,8 @@ import { DrizzleQueryError, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { upstashIndex } from "@/lib/upstash-client";
 import { createNotification } from "../notification/notification";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function getActiveFolderDocuments(
   folderId: number,
@@ -28,6 +30,11 @@ export async function getActiveFolderDocuments(
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   const orgId = user.activeOrgId || user.organizationId;
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     const { docs, total } = await db.transaction(async (tx) => {
@@ -44,7 +51,7 @@ export async function getActiveFolderDocuments(
         .where(
           and(
             eq(documentFolders.id, folderId),
-            orgId ? eq(documentFolders.organizationId, orgId) : undefined,
+            eq(documentFolders.organizationId, organization.id),
           ),
         )
         .limit(1);
@@ -72,6 +79,7 @@ export async function getActiveFolderDocuments(
             OR EXISTS (
               SELECT 1 FROM ${documentAccess}
               WHERE ${documentAccess.documentId} = ${document.id}
+                AND ${documentAccess.organizationId} = ${organization.id}
                 AND (
                   ${documentAccess.userId} = ${user.id}
                   OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${user.department})
@@ -88,7 +96,7 @@ export async function getActiveFolderDocuments(
           and(
             eq(document.folderId, folderId),
             eq(document.status, "active"),
-            orgId ? eq(document.organizationId, orgId) : undefined,
+            eq(document.organizationId, organization.id),
             visibilityCondition,
           ),
         );
@@ -125,7 +133,7 @@ export async function getActiveFolderDocuments(
           and(
             eq(document.folderId, folderId),
             eq(document.status, "active"),
-            orgId ? eq(document.organizationId, orgId) : undefined,
+            eq(document.organizationId, organization.id),
             visibilityCondition,
           ),
         )
@@ -146,7 +154,12 @@ export async function getActiveFolderDocuments(
             tag: documentTags.tag,
           })
           .from(documentTags)
-          .where(inArray(documentTags.documentId, docIds)),
+          .where(
+            and(
+              inArray(documentTags.documentId, docIds),
+              eq(documentTags.organizationId, organization.id),
+            ),
+          ),
 
         tx
           .select({
@@ -158,7 +171,12 @@ export async function getActiveFolderDocuments(
             department: documentAccess.department,
           })
           .from(documentAccess)
-          .where(inArray(documentAccess.documentId, docIds))
+          .where(
+            and(
+              inArray(documentAccess.documentId, docIds),
+              eq(documentAccess.organizationId, organization.id),
+            ),
+          )
           .leftJoin(employees, eq(documentAccess.userId, employees.id)),
       ]);
 
@@ -216,10 +234,19 @@ export async function deleteDocumentAction(
 ) {
   const user = await getUser();
   if (!user) throw new Error("Unauthorized");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const result = await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
 
       if (!doc) throw new Error("Document not found");
@@ -230,20 +257,65 @@ export async function deleteDocumentAction(
       const accessUsers = await tx
         .select({ userId: documentAccess.userId })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       await Promise.all([
         tx
           .delete(documentAccess)
-          .where(eq(documentAccess.documentId, documentId)),
-        tx.delete(documentTags).where(eq(documentTags.documentId, documentId)),
+          .where(
+            and(
+              eq(documentAccess.documentId, documentId),
+              eq(documentAccess.organizationId, organization.id),
+            ),
+          ),
+        tx
+          .delete(documentTags)
+          .where(
+            and(
+              eq(documentTags.documentId, documentId),
+              eq(documentTags.organizationId, organization.id),
+            ),
+          ),
         tx
           .delete(documentVersions)
-          .where(eq(documentVersions.documentId, documentId)),
+          .where(
+            and(
+              eq(documentVersions.documentId, documentId),
+              eq(documentVersions.organizationId, organization.id),
+            ),
+          ),
+        tx
+          .delete(documentComments)
+          .where(
+            and(
+              eq(documentComments.documentId, documentId),
+              eq(documentComments.organizationId, organization.id),
+            ),
+          ),
+        tx
+          .delete(documentLogs)
+          .where(
+            and(
+              eq(documentLogs.documentId, documentId),
+              eq(documentLogs.organizationId, organization.id),
+            ),
+          ),
         upstashIndex.delete(doc.upstashId),
       ]);
 
-      await tx.delete(document).where(eq(document.id, documentId));
+      await tx
+        .delete(document)
+        .where(
+          and(
+            eq(document.id, documentId),
+            eq(document.organizationId, organization.id),
+          ),
+        );
 
       const recipients = accessUsers
         .map((row) => row.userId)
@@ -307,8 +379,16 @@ export async function archiveDocumentAction(
       };
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) throw new Error("Organization not found");
+
     const doc = await db.query.document.findFirst({
-      where: eq(document.id, documentId),
+      where: and(
+        eq(document.id, documentId),
+        eq(document.organizationId, organization.id),
+      ),
     });
 
     if (!doc) {
@@ -327,12 +407,22 @@ export async function archiveDocumentAction(
     const accessRows = await db
       .select({ userId: documentAccess.userId })
       .from(documentAccess)
-      .where(eq(documentAccess.documentId, documentId));
+      .where(
+        and(
+          eq(documentAccess.documentId, documentId),
+          eq(documentAccess.organizationId, organization.id),
+        ),
+      );
 
     await db
       .update(document)
       .set({ status: "archived", updatedAt: new Date() })
-      .where(eq(document.id, documentId));
+      .where(
+        and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
+      );
 
     const recipients = accessRows
       .map((row) => row.userId)
@@ -378,10 +468,18 @@ export async function getDocumentComments(documentId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const result = await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -392,7 +490,12 @@ export async function getDocumentComments(documentId: number) {
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const hasExplicitAccess = accessRows.some(
         (a) =>
@@ -419,7 +522,12 @@ export async function getDocumentComments(documentId: number) {
         })
         .from(documentComments)
         .leftJoin(employees, eq(documentComments.userId, employees.id))
-        .where(eq(documentComments.documentId, documentId))
+        .where(
+          and(
+            eq(documentComments.documentId, documentId),
+            eq(documentComments.organizationId, organization.id),
+          ),
+        )
         .orderBy(sql`${documentComments.createdAt} DESC`);
 
       return comments;
@@ -451,6 +559,11 @@ export async function addDocumentComment(documentId: number, content: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   if (!content || content.trim().length === 0) {
     return { success: null, error: { reason: "Comment cannot be empty" } };
   }
@@ -458,7 +571,10 @@ export async function addDocumentComment(documentId: number, content: string) {
   try {
     const result = await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -469,7 +585,12 @@ export async function addDocumentComment(documentId: number, content: string) {
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const hasEditOrManage =
         accessRows.some(
@@ -488,6 +609,7 @@ export async function addDocumentComment(documentId: number, content: string) {
           documentId,
           userId: user.id,
           comment: content.trim(),
+          organizationId: organization.id,
         })
         .returning();
 
@@ -497,6 +619,7 @@ export async function addDocumentComment(documentId: number, content: string) {
         documentVersionId: doc.currentVersionId,
         action: "comment",
         details: "added a comment",
+        organizationId: organization.id,
       });
 
       const explicitUsers = accessRows
@@ -558,6 +681,11 @@ export async function deleteDocumentComment(commentId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     await db.transaction(async (tx) => {
       const [commentRow] = await tx
@@ -567,13 +695,21 @@ export async function deleteDocumentComment(commentId: number) {
           userId: documentComments.userId,
         })
         .from(documentComments)
-        .where(eq(documentComments.id, commentId))
+        .where(
+          and(
+            eq(documentComments.id, commentId),
+            eq(documentComments.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (!commentRow) throw new Error("Comment not found");
 
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, commentRow.documentId!),
+        where: and(
+          eq(document.id, commentRow.documentId!),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -584,7 +720,12 @@ export async function deleteDocumentComment(commentId: number) {
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, doc.id));
+        .where(
+          and(
+            eq(documentAccess.documentId, doc.id),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const hasManageAccess = accessRows.some(
         (a) =>
@@ -602,7 +743,12 @@ export async function deleteDocumentComment(commentId: number) {
 
       await tx
         .delete(documentComments)
-        .where(eq(documentComments.id, commentId));
+        .where(
+          and(
+            eq(documentComments.id, commentId),
+            eq(documentComments.organizationId, organization.id),
+          ),
+        );
 
       await tx.insert(documentLogs).values({
         userId: user.id,
@@ -610,6 +756,7 @@ export async function deleteDocumentComment(commentId: number) {
         documentVersionId: doc.currentVersionId,
         action: "delete_comment",
         details: "deleted a comment",
+        organizationId: organization.id,
       });
     });
 
@@ -638,10 +785,18 @@ export async function getDocumentVersions(documentId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const versions = await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -652,7 +807,12 @@ export async function getDocumentVersions(documentId: number) {
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const hasExplicitAccess = accessRows.some(
         (a) =>
@@ -682,7 +842,12 @@ export async function getDocumentVersions(documentId: number) {
         })
         .from(documentVersions)
         .leftJoin(employees, eq(documentVersions.uploadedBy, employees.id))
-        .where(eq(documentVersions.documentId, documentId))
+        .where(
+          and(
+            eq(documentVersions.documentId, documentId),
+            eq(documentVersions.organizationId, organization.id),
+          ),
+        )
         .orderBy(sql`${documentVersions.createdAt} DESC`);
 
       return rows;
@@ -716,6 +881,11 @@ export async function deleteDocumentVersion(
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     await db.transaction(async (tx) => {
       const [version] = await tx
@@ -725,13 +895,21 @@ export async function deleteDocumentVersion(
           versionNumber: documentVersions.versionNumber,
         })
         .from(documentVersions)
-        .where(eq(documentVersions.id, versionId))
+        .where(
+          and(
+            eq(documentVersions.id, versionId),
+            eq(documentVersions.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (!version) throw new Error("Version not found");
 
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, version.documentId),
+        where: and(
+          eq(document.id, version.documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -746,7 +924,12 @@ export async function deleteDocumentVersion(
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, version.documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, version.documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const hasManageAccess = accessRows.some(
         (a) =>
@@ -762,7 +945,12 @@ export async function deleteDocumentVersion(
 
       await tx
         .delete(documentVersions)
-        .where(eq(documentVersions.id, versionId));
+        .where(
+          and(
+            eq(documentVersions.id, versionId),
+            eq(documentVersions.organizationId, organization.id),
+          ),
+        );
 
       await tx.insert(documentLogs).values({
         userId: user.id,
@@ -770,6 +958,7 @@ export async function deleteDocumentVersion(
         documentVersionId: version.id,
         action: "delete_version",
         details: `deleted version v${version.versionNumber}`,
+        organizationId: organization.id,
       });
     });
 
@@ -799,10 +988,18 @@ export async function getDocumentLogs(documentId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const logs = await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -813,7 +1010,12 @@ export async function getDocumentLogs(documentId: number) {
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const isOwner = doc.uploadedBy === user.id;
       const hasManageAccess = accessRows.some(
@@ -840,7 +1042,12 @@ export async function getDocumentLogs(documentId: number) {
         })
         .from(documentLogs)
         .leftJoin(employees, eq(documentLogs.userId, employees.id))
-        .where(eq(documentLogs.documentId, documentId))
+        .where(
+          and(
+            eq(documentLogs.documentId, documentId),
+            eq(documentLogs.organizationId, organization.id),
+          ),
+        )
         .orderBy(sql`${documentLogs.createdAt} DESC`);
 
       return rows;
@@ -875,10 +1082,18 @@ export async function updateDocumentPublic(
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -889,7 +1104,12 @@ export async function updateDocumentPublic(
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const isOwner = doc.uploadedBy === user.id;
       const hasManageAccess =
@@ -907,7 +1127,12 @@ export async function updateDocumentPublic(
       await tx
         .update(document)
         .set({ public: isPublic, updatedAt: new Date() })
-        .where(eq(document.id, documentId));
+        .where(
+          and(
+            eq(document.id, documentId),
+            eq(document.organizationId, organization.id),
+          ),
+        );
 
       await tx.insert(documentLogs).values({
         userId: user.id,
@@ -915,6 +1140,7 @@ export async function updateDocumentPublic(
         documentVersionId: doc.currentVersionId,
         action: "update_public",
         details: `set public=${isPublic ? "true" : "false"}`,
+        organizationId: organization.id,
       });
     });
 
@@ -946,10 +1172,18 @@ export async function updateDepartmentAccess(
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -960,7 +1194,12 @@ export async function updateDepartmentAccess(
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const isOwner = doc.uploadedBy === user.id;
       const hasManageAccess =
@@ -980,7 +1219,12 @@ export async function updateDepartmentAccess(
         await tx
           .update(document)
           .set({ departmental: false, updatedAt: new Date() })
-          .where(eq(document.id, documentId));
+          .where(
+            and(
+              eq(document.id, documentId),
+              eq(document.organizationId, organization.id),
+            ),
+          );
 
         await tx
           .delete(documentAccess)
@@ -988,6 +1232,7 @@ export async function updateDepartmentAccess(
             and(
               eq(documentAccess.documentId, documentId),
               eq(documentAccess.department, doc.department),
+              eq(documentAccess.organizationId, organization.id),
               sql`${documentAccess.userId} IS NULL`,
             ),
           );
@@ -998,6 +1243,7 @@ export async function updateDepartmentAccess(
           documentVersionId: doc.currentVersionId,
           action: "update_departmental_access",
           details: "disabled departmental access",
+          organizationId: organization.id,
         });
         return;
       }
@@ -1007,7 +1253,12 @@ export async function updateDepartmentAccess(
       await tx
         .update(document)
         .set({ departmental: true, updatedAt: new Date() })
-        .where(eq(document.id, documentId));
+        .where(
+          and(
+            eq(document.id, documentId),
+            eq(document.organizationId, organization.id),
+          ),
+        );
 
       const existing = await tx
         .select({ id: documentAccess.id })
@@ -1016,6 +1267,7 @@ export async function updateDepartmentAccess(
           and(
             eq(documentAccess.documentId, documentId),
             eq(documentAccess.department, doc.department),
+            eq(documentAccess.organizationId, organization.id),
             sql`${documentAccess.userId} IS NULL`,
           ),
         )
@@ -1025,7 +1277,12 @@ export async function updateDepartmentAccess(
         await tx
           .update(documentAccess)
           .set({ accessLevel: level, updatedAt: new Date() })
-          .where(eq(documentAccess.id, existing[0].id));
+          .where(
+            and(
+              eq(documentAccess.id, existing[0].id),
+              eq(documentAccess.organizationId, organization.id),
+            ),
+          );
       } else {
         await tx.insert(documentAccess).values({
           accessLevel: level,
@@ -1033,6 +1290,7 @@ export async function updateDepartmentAccess(
           userId: null,
           department: doc.department,
           grantedBy: user.id,
+          organizationId: organization.id,
         });
       }
 
@@ -1042,6 +1300,7 @@ export async function updateDepartmentAccess(
         documentVersionId: doc.currentVersionId,
         action: "update_departmental_access",
         details: `enabled departmental (${doc.department}) level=${level}`,
+        organizationId: organization.id,
       });
     });
 
@@ -1073,6 +1332,11 @@ export async function searchEmployeesForShare(query: string, limit = 8) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const q = query.trim();
     if (!q) return { success: [], error: null };
@@ -1086,7 +1350,7 @@ export async function searchEmployeesForShare(query: string, limit = 8) {
       })
       .from(employees)
       .where(
-        sql`(${employees.name} ILIKE ${`%${q}%`} OR ${employees.email} ILIKE ${`%${q}%`}) AND ${employees.id} <> ${user.id}`,
+        sql`(${employees.name} ILIKE ${`%${q}%`} OR ${employees.email} ILIKE ${`%${q}%`}) AND ${employees.id} <> ${user.id} AND ${employees.organizationId} = ${organization.id}`,
       )
       .limit(limit);
 
@@ -1109,10 +1373,18 @@ export async function getDocumentShares(documentId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const rows = await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -1123,7 +1395,12 @@ export async function getDocumentShares(documentId: number) {
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const isOwner = doc.uploadedBy === user.id;
       const hasManageAccess = accessRows.some(
@@ -1149,6 +1426,7 @@ export async function getDocumentShares(documentId: number) {
         .where(
           and(
             eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
             sql`${documentAccess.userId} IS NOT NULL`,
           ),
         )
@@ -1183,10 +1461,18 @@ export async function addDocumentShare(
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const result = await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -1197,7 +1483,12 @@ export async function addDocumentShare(
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const isOwner = doc.uploadedBy === user.id;
       const hasManageAccess = accessRows.some(
@@ -1213,7 +1504,12 @@ export async function addDocumentShare(
       const [target] = await tx
         .select({ id: employees.id, email: employees.email })
         .from(employees)
-        .where(eq(employees.email, email.toLowerCase()))
+        .where(
+          and(
+            eq(employees.email, email.toLowerCase()),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (!target) {
@@ -1233,6 +1529,7 @@ export async function addDocumentShare(
           and(
             eq(documentAccess.documentId, documentId),
             eq(documentAccess.userId, target.id),
+            eq(documentAccess.organizationId, organization.id),
           ),
         )
         .limit(1);
@@ -1241,7 +1538,12 @@ export async function addDocumentShare(
         await tx
           .update(documentAccess)
           .set({ accessLevel, updatedAt: new Date() })
-          .where(eq(documentAccess.id, existing.id));
+          .where(
+            and(
+              eq(documentAccess.id, existing.id),
+              eq(documentAccess.organizationId, organization.id),
+            ),
+          );
       } else {
         await tx.insert(documentAccess).values({
           accessLevel,
@@ -1249,6 +1551,7 @@ export async function addDocumentShare(
           userId: target.id,
           department: null,
           grantedBy: user.id,
+          organizationId: organization.id,
         });
       }
 
@@ -1258,6 +1561,7 @@ export async function addDocumentShare(
         action: "share",
         details: `granted ${accessLevel} to ${target.email}`,
         documentVersionId: doc.currentVersionId,
+        organizationId: organization.id,
       });
 
       return {
@@ -1319,10 +1623,18 @@ export async function removeDocumentShare(
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const result = await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -1333,7 +1645,12 @@ export async function removeDocumentShare(
           accessLevel: documentAccess.accessLevel,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const isOwner = doc.uploadedBy === user.id;
       const hasManageAccess = accessRows.some(
@@ -1356,6 +1673,7 @@ export async function removeDocumentShare(
           and(
             eq(documentAccess.documentId, documentId),
             eq(documentAccess.userId, targetUserId),
+            eq(documentAccess.organizationId, organization.id),
           ),
         );
 
@@ -1365,6 +1683,7 @@ export async function removeDocumentShare(
         action: "revoke_share",
         details: `revoked access from user ${targetUserId}`,
         documentVersionId: doc.currentVersionId,
+        organizationId: organization.id,
       });
 
       return { documentName: doc.title };
@@ -1409,10 +1728,18 @@ export async function getMyDocumentAccess(documentId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const result = await db.transaction(async (tx) => {
       const doc = await tx.query.document.findFirst({
-        where: eq(document.id, documentId),
+        where: and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
       if (!doc) throw new Error("Document not found");
 
@@ -1431,7 +1758,12 @@ export async function getMyDocumentAccess(documentId: number) {
           department: documentAccess.department,
         })
         .from(documentAccess)
-        .where(eq(documentAccess.documentId, documentId));
+        .where(
+          and(
+            eq(documentAccess.documentId, documentId),
+            eq(documentAccess.organizationId, organization.id),
+          ),
+        );
 
       const rank = (lvl: string) =>
         lvl === "manage" ? 3 : lvl === "edit" ? 2 : lvl === "view" ? 1 : 0;
@@ -1487,6 +1819,11 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const offset = Math.max(0, (page - 1) * pageSize);
 
@@ -1497,6 +1834,7 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
       OR EXISTS (
         SELECT 1 FROM ${documentAccess}
         WHERE ${documentAccess.documentId} = ${document.id}
+          AND ${documentAccess.organizationId} = ${organization.id}
           AND (
             ${documentAccess.userId} = ${user.id}
             OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${user.department})
@@ -1509,7 +1847,13 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
         total: sql<number>`count(distinct ${document.id})`,
       })
       .from(document)
-      .where(and(eq(document.status, "active"), visibilityCondition));
+      .where(
+        and(
+          eq(document.status, "active"),
+          eq(document.organizationId, organization.id),
+          visibilityCondition,
+        ),
+      );
 
     const rows = await db
       .select({
@@ -1539,7 +1883,13 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
         documentVersions,
         eq(documentVersions.id, document.currentVersionId),
       )
-      .where(and(eq(document.status, "active"), visibilityCondition))
+      .where(
+        and(
+          eq(document.status, "active"),
+          eq(document.organizationId, organization.id),
+          visibilityCondition,
+        ),
+      )
       .orderBy(sql`${document.updatedAt} DESC`)
       .limit(pageSize)
       .offset(offset);
@@ -1563,7 +1913,12 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
             tag: documentTags.tag,
           })
           .from(documentTags)
-          .where(inArray(documentTags.documentId, docIds)),
+          .where(
+            and(
+              inArray(documentTags.documentId, docIds),
+              eq(documentTags.organizationId, organization.id),
+            ),
+          ),
         db
           .select({
             documentId: documentAccess.documentId,
@@ -1574,7 +1929,12 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
             department: documentAccess.department,
           })
           .from(documentAccess)
-          .where(inArray(documentAccess.documentId, docIds))
+          .where(
+            and(
+              inArray(documentAccess.documentId, docIds),
+              eq(documentAccess.organizationId, organization.id),
+            ),
+          )
           .leftJoin(employees, eq(documentAccess.userId, employees.id)),
       ]);
     }
@@ -1625,6 +1985,11 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const offset = Math.max(0, (page - 1) * pageSize);
 
@@ -1635,6 +2000,7 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
       OR EXISTS (
         SELECT 1 FROM ${documentAccess}
         WHERE ${documentAccess.documentId} = ${document.id}
+          AND ${documentAccess.organizationId} = ${organization.id}
           AND (
             ${documentAccess.userId} = ${user.id}
             OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${user.department})
@@ -1647,7 +2013,13 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
         total: sql<number>`count(distinct ${document.id})`,
       })
       .from(document)
-      .where(and(eq(document.status, "archived"), visibilityCondition));
+      .where(
+        and(
+          eq(document.status, "archived"),
+          eq(document.organizationId, organization.id),
+          visibilityCondition,
+        ),
+      );
 
     const rows = await db
       .select({
@@ -1677,7 +2049,13 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
         documentVersions,
         eq(documentVersions.id, document.currentVersionId),
       )
-      .where(and(eq(document.status, "archived"), visibilityCondition))
+      .where(
+        and(
+          eq(document.status, "archived"),
+          eq(document.organizationId, organization.id),
+          visibilityCondition,
+        ),
+      )
       .orderBy(sql`${document.updatedAt} DESC`)
       .limit(pageSize)
       .offset(offset);
@@ -1701,7 +2079,12 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
             tag: documentTags.tag,
           })
           .from(documentTags)
-          .where(inArray(documentTags.documentId, docIds)),
+          .where(
+            and(
+              inArray(documentTags.documentId, docIds),
+              eq(documentTags.organizationId, organization.id),
+            ),
+          ),
         db
           .select({
             documentId: documentAccess.documentId,
@@ -1712,7 +2095,12 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
             department: documentAccess.department,
           })
           .from(documentAccess)
-          .where(inArray(documentAccess.documentId, docIds))
+          .where(
+            and(
+              inArray(documentAccess.documentId, docIds),
+              eq(documentAccess.organizationId, organization.id),
+            ),
+          )
           .leftJoin(employees, eq(documentAccess.userId, employees.id)),
       ]);
     }

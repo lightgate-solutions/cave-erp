@@ -1,6 +1,8 @@
 import { db } from "@/db";
 import { balanceTransactions, employees } from "@/db/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { headers } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -10,6 +12,12 @@ export async function GET(request: NextRequest) {
     const limit = Number(searchParams.get("limit") || "20");
     const offset = (page - 1) * limit;
     const transactionType = searchParams.get("type") || "";
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     let where: ReturnType<typeof eq> | undefined;
     if (transactionType) {
@@ -31,7 +39,9 @@ export async function GET(request: NextRequest) {
       })
       .from(balanceTransactions)
       .leftJoin(employees, eq(employees.id, balanceTransactions.userId))
-      .where(where)
+      .where(
+        and(where, eq(balanceTransactions.organizationId, organization.id)),
+      )
       .orderBy(desc(balanceTransactions.createdAt))
       .limit(limit)
       .offset(offset);
@@ -39,7 +49,9 @@ export async function GET(request: NextRequest) {
     const totalResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(balanceTransactions)
-      .where(where);
+      .where(
+        and(where, eq(balanceTransactions.organizationId, organization.id)),
+      );
     const total = totalResult[0].count;
 
     return NextResponse.json({

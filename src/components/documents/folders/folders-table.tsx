@@ -100,7 +100,7 @@ export default function FoldersTable({
               </TableCell>
               <TableCell className="font-medium">
                 {(folder.path ?? folder.name).charAt(0).toUpperCase() +
-                  (folder.path ?? folder.name).slice(1)}
+                  (folder.path ?? folder.name).slice(1).toUpperCase()}
               </TableCell>
               <TableCell className="text-muted-foreground">
                 {folder.updatedAt.toLocaleDateString()}

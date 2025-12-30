@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { employees } from "@/db/schema/hr";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -15,13 +15,29 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Get organization context
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 403 },
+      );
+    }
+
     // Get employee info
     const employeeResult = await db
       .select({
         id: employees.id,
       })
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     const employee = employeeResult[0];
@@ -37,17 +53,18 @@ export async function GET() {
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
     fourWeeksAgo.setHours(0, 0, 0, 0);
 
-    // Get tasks assigned to this employee, grouped by week
+    // Get tasks assigned to this employee, grouped by week (filtered by organization)
     // Use raw SQL since DATE_TRUNC is PostgreSQL specific
     // Only count tasks that were completed (status = 'Completed') and use updated_at to track when they were completed
     const taskData = await db.execute(sql`
-      SELECT 
+      SELECT
         DATE_TRUNC('week', updated_at)::date as week_start,
         COUNT(*)::int as completed
       FROM tasks
       WHERE assigned_to = ${employee.id}
         AND status = 'Completed'
         AND updated_at >= ${fourWeeksAgo}
+        AND organization_id = ${organization.id}
       GROUP BY DATE_TRUNC('week', updated_at)
       ORDER BY week_start
     `);

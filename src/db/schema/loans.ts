@@ -13,25 +13,23 @@ import {
 import { employees } from "./hr";
 import { salaryStructure, employeeDeductions } from "./payroll";
 import { sql } from "drizzle-orm";
+import { organization } from "./auth";
 
-// Loan amount type: fixed amount or percentage of salary
 export const loanAmountTypeEnum = pgEnum("loan_amount_type", [
   "fixed",
   "percentage",
 ]);
 
-// Loan application status
 export const loanApplicationStatusEnum = pgEnum("loan_application_status", [
-  "pending", // Employee submitted
-  "hr_approved", // HR approved, waiting for finance
-  "hr_rejected", // HR rejected
-  "disbursed", // Finance disbursed
-  "active", // Loan is active with deductions
-  "completed", // Loan fully repaid
-  "cancelled", // Cancelled by employee or admin
+  "pending",
+  "hr_approved",
+  "hr_rejected",
+  "disbursed",
+  "active",
+  "completed",
+  "cancelled",
 ]);
 
-// Repayment status
 export const repaymentStatusEnum = pgEnum("repayment_status", [
   "pending",
   "paid",
@@ -40,7 +38,6 @@ export const repaymentStatusEnum = pgEnum("repayment_status", [
   "waived",
 ]);
 
-// Loan Types - configurable by HR/Admin
 export const loanTypes = pgTable(
   "loan_types",
   {
@@ -48,23 +45,19 @@ export const loanTypes = pgTable(
     name: text("name").notNull().unique(),
     description: text("description"),
     amountType: loanAmountTypeEnum("amount_type").notNull().default("fixed"),
-    // For fixed amount type
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     fixedAmount: numeric("fixed_amount", { precision: 15, scale: 2 }),
-    // For percentage type (percentage of base salary)
     maxPercentage: numeric("max_percentage", { precision: 5, scale: 2 }),
-    // Tenure in months
     tenureMonths: integer("tenure_months").notNull(),
-    // Interest rate (annual percentage)
     interestRate: numeric("interest_rate", {
       precision: 5,
       scale: 2,
     }).default("0"),
-    // Eligibility rules
     minServiceMonths: integer("min_service_months").default(0), // Minimum months of service
     maxActiveLoans: integer("max_active_loans").default(1), // Max concurrent loans of this type
-    // Status
     isActive: boolean("is_active").notNull().default(true),
-    // Audit fields
     createdBy: integer("created_by")
       .references(() => employees.id, { onDelete: "no action" })
       .notNull(),
@@ -80,8 +73,6 @@ export const loanTypes = pgTable(
   ],
 );
 
-// Junction table: Loan Types to Salary Structures
-// Defines which salary structures are eligible for which loan types
 export const loanTypeSalaryStructures = pgTable(
   "loan_type_salary_structures",
   {
@@ -89,6 +80,9 @@ export const loanTypeSalaryStructures = pgTable(
     loanTypeId: integer("loan_type_id")
       .references(() => loanTypes.id, { onDelete: "cascade" })
       .notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     salaryStructureId: integer("salary_structure_id")
       .references(() => salaryStructure.id, { onDelete: "cascade" })
       .notNull(),
@@ -104,61 +98,49 @@ export const loanTypeSalaryStructures = pgTable(
   ],
 );
 
-// Loan Applications
 export const loanApplications = pgTable(
   "loan_applications",
   {
     id: serial("id").primaryKey(),
-    // Application reference number
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     referenceNumber: text("reference_number").notNull().unique(),
-    // Employee applying
     employeeId: integer("employee_id")
       .references(() => employees.id, { onDelete: "cascade" })
       .notNull(),
-    // Loan type
     loanTypeId: integer("loan_type_id")
       .references(() => loanTypes.id, { onDelete: "restrict" })
       .notNull(),
-    // Requested amount
     requestedAmount: numeric("requested_amount", {
       precision: 15,
       scale: 2,
     }).notNull(),
-    // Approved amount (can be different from requested)
     approvedAmount: numeric("approved_amount", { precision: 15, scale: 2 }),
-    // Calculated monthly deduction
     monthlyDeduction: numeric("monthly_deduction", { precision: 15, scale: 2 }),
-    // Tenure
     tenureMonths: integer("tenure_months").notNull(),
-    // Reason for loan
     reason: text("reason").notNull(),
-    // Status
     status: loanApplicationStatusEnum("status").notNull().default("pending"),
-    // HR Review
     hrReviewedBy: integer("hr_reviewed_by").references(() => employees.id, {
       onDelete: "set null",
     }),
     hrReviewedAt: timestamp("hr_reviewed_at"),
     hrRemarks: text("hr_remarks"),
-    // Finance Disbursement
     disbursedBy: integer("disbursed_by").references(() => employees.id, {
       onDelete: "set null",
     }),
     disbursedAt: timestamp("disbursed_at"),
     disbursementRemarks: text("disbursement_remarks"),
-    // Link to employee deduction (created after disbursement)
     employeeDeductionId: integer("employee_deduction_id").references(
       () => employeeDeductions.id,
       { onDelete: "set null" },
     ),
-    // Tracking
     totalRepaid: numeric("total_repaid", { precision: 15, scale: 2 })
       .notNull()
       .default("0"),
     remainingBalance: numeric("remaining_balance", { precision: 15, scale: 2 })
       .notNull()
       .default("0"),
-    // Timestamps
     appliedAt: timestamp("applied_at").notNull().defaultNow(),
     completedAt: timestamp("completed_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -177,21 +159,21 @@ export const loanApplications = pgTable(
   ],
 );
 
-// Loan Repayment Schedule
 export const loanRepayments = pgTable(
   "loan_repayments",
   {
     id: serial("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     loanApplicationId: integer("loan_application_id")
       .references(() => loanApplications.id, { onDelete: "cascade" })
       .notNull(),
     employeeId: integer("employee_id")
       .references(() => employees.id, { onDelete: "cascade" })
       .notNull(),
-    // Schedule info
     installmentNumber: integer("installment_number").notNull(),
     dueDate: timestamp("due_date").notNull(),
-    // Amounts
     expectedAmount: numeric("expected_amount", {
       precision: 15,
       scale: 2,
@@ -199,16 +181,11 @@ export const loanRepayments = pgTable(
     paidAmount: numeric("paid_amount", { precision: 15, scale: 2 })
       .notNull()
       .default("0"),
-    // Balance after this payment
     balanceAfter: numeric("balance_after", { precision: 15, scale: 2 }),
-    // Status
     status: repaymentStatusEnum("status").notNull().default("pending"),
-    // Payment tracking
     paidAt: timestamp("paid_at"),
-    // Link to payrun that processed this payment
     payrunId: integer("payrun_id"),
     payrunItemId: integer("payrun_item_id"),
-    // Notes
     notes: text("notes"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -225,11 +202,13 @@ export const loanRepayments = pgTable(
   ],
 );
 
-// Loan History/Audit Log
 export const loanHistory = pgTable(
   "loan_history",
   {
     id: serial("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     loanApplicationId: integer("loan_application_id")
       .references(() => loanApplications.id, { onDelete: "cascade" })
       .notNull(),

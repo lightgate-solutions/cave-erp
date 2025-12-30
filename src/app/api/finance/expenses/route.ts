@@ -10,9 +10,17 @@ import {
 import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function GET(request: NextRequest) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const page = Number(searchParams.get("page") || "1");
     const limit = Number(searchParams.get("limit") || "10");
@@ -40,7 +48,7 @@ export async function GET(request: NextRequest) {
     const totalResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(companyExpenses)
-      .where(where);
+      .where(and(where, eq(companyExpenses.organizationId, organization.id)));
     const total = totalResult[0].count;
 
     // Map sortBy to actual column names
@@ -62,7 +70,7 @@ export async function GET(request: NextRequest) {
     const rows = await db
       .select()
       .from(companyExpenses)
-      .where(where)
+      .where(and(where, eq(companyExpenses.organizationId, organization.id)))
       .orderBy(order)
       .limit(limit)
       .offset(offset);
@@ -85,12 +93,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Get user session for transaction tracking
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const h = Object.fromEntries(request.headers);
     const session = await auth.api.getSession({ headers: h });
     const authUserId = session?.user?.id;
 
-    // Get employee ID if user is authenticated (optional for expenses)
     let employeeId: number | null = null;
     if (authUserId) {
       const [employee] = await db
@@ -123,6 +136,7 @@ export async function POST(request: NextRequest) {
       .values({
         title,
         description,
+        organizationId: organization.id,
         amount: expenseAmount.toString(),
         category: category || null,
         expenseDate: expenseDate ? new Date(expenseDate) : new Date(),
@@ -131,7 +145,11 @@ export async function POST(request: NextRequest) {
 
     // Update company balance (subtract expense)
     // Get current balance or create if doesn't exist
-    const [balanceRecord] = await db.select().from(companyBalance).limit(1);
+    const [balanceRecord] = await db
+      .select()
+      .from(companyBalance)
+      .limit(1)
+      .where(eq(companyBalance.organizationId, organization.id));
 
     const balanceBefore = balanceRecord ? Number(balanceRecord.balance) : 0;
     const newBalance = balanceBefore - expenseAmount;
@@ -143,11 +161,17 @@ export async function POST(request: NextRequest) {
           balance: newBalance.toString(),
           updatedAt: new Date(),
         })
-        .where(eq(companyBalance.id, balanceRecord.id));
+        .where(
+          and(
+            eq(companyBalance.id, balanceRecord.id),
+            eq(companyBalance.organizationId, organization.id),
+          ),
+        );
     } else {
       // Create initial balance record if it doesn't exist (assumes starting from 0)
       await db.insert(companyBalance).values({
         balance: newBalance.toString(),
+        organizationId: organization.id,
         currency: "NGN",
       });
     }
@@ -157,6 +181,7 @@ export async function POST(request: NextRequest) {
       await db.insert(balanceTransactions).values({
         userId: employeeId,
         amount: expenseAmount.toString(),
+        organizationId: organization.id,
         transactionType: "expense",
         description: `Expense: ${title}`,
         balanceBefore: balanceBefore.toString(),

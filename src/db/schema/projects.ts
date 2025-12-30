@@ -9,6 +9,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 import { employees } from "./hr";
+import { organization } from "./auth";
 
 // Define enum ONCE at module scope so Drizzle emits CREATE TYPE before using it
 export const projectStatusEnum = pgEnum("project_status", [
@@ -31,10 +32,16 @@ export const projects = pgTable(
     supervisorId: integer("supervisor_id").references(() => employees.id, {
       onDelete: "set null",
     }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => [index("projects_supervisor_idx").on(table.supervisorId)],
+  (table) => [
+    index("projects_supervisor_idx").on(table.supervisorId),
+    index("projects_organization_idx").on(table.organizationId),
+  ],
 );
 
 export const projectsRelations = relations(projects, ({ one }) => ({
@@ -54,6 +61,9 @@ export const milestones = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     dueDate: timestamp("due_date"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     completed: integer("completed").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -79,6 +89,9 @@ export const expenses = pgTable(
     amount: integer("amount").notNull().default(0),
     spentAt: timestamp("spent_at"),
     notes: text("notes"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

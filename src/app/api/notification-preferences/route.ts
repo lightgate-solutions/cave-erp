@@ -1,8 +1,10 @@
 import { db } from "@/db";
 import { notification_preferences } from "@/db/schema/notification-preferences";
 import { getUser } from "@/actions/auth/dal";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function GET() {
   const user = await getUser();
@@ -12,10 +14,24 @@ export async function GET() {
       { status: 401 },
     );
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization)
+    return NextResponse.json(
+      { success: false, message: "Organization not found" },
+      { status: 401 },
+    );
+
   const prefs = await db
     .select()
     .from(notification_preferences)
-    .where(eq(notification_preferences.user_id, user.id));
+    .where(
+      and(
+        eq(notification_preferences.user_id, user.id),
+        eq(notification_preferences.organizationId, organization.id),
+      ),
+    );
 
   // If no preferences found, return defaults
   if (!prefs[0]) {
@@ -44,6 +60,15 @@ export async function POST(req: Request) {
         { status: 401 },
       );
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization)
+      return NextResponse.json(
+        { success: false, message: "Organization not found" },
+        { status: 401 },
+      );
+
     const body = await req.json();
 
     // Prepare updates with defaults for new fields
@@ -59,18 +84,27 @@ export async function POST(req: Request) {
     console.log("trying to save user preferences", updates, user.id);
 
     const existingPref = await db.query.notification_preferences.findFirst({
-      where: eq(notification_preferences.user_id, user.id),
+      where: and(
+        eq(notification_preferences.user_id, user.id),
+        eq(notification_preferences.organizationId, organization.id),
+      ),
     });
 
     if (existingPref) {
       await db
         .update(notification_preferences)
         .set(updates)
-        .where(eq(notification_preferences.user_id, user.id));
+        .where(
+          and(
+            eq(notification_preferences.user_id, user.id),
+            eq(notification_preferences.organizationId, organization.id),
+          ),
+        );
     } else {
       await db.insert(notification_preferences).values({
         ...updates,
         user_id: user.id,
+        organizationId: organization.id,
       });
     }
 

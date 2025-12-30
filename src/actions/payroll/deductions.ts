@@ -5,7 +5,14 @@ import { eq, DrizzleQueryError, and, desc, sql } from "drizzle-orm";
 import { getUser } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import { employees } from "@/db/schema/hr";
-import { deductions, type deductionTypeEnum } from "@/db/schema/payroll";
+import {
+  deductions,
+  salaryDeductions,
+  payrunItemDetails,
+  type deductionTypeEnum,
+} from "@/db/schema/payroll";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 interface CreateDeductionProps {
   name: string;
@@ -24,12 +31,22 @@ export async function createDeduction(
 
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       const existing = await tx
         .select({ id: deductions.id })
         .from(deductions)
-        .where(eq(deductions.name, data.name.trim().toLowerCase()))
+        .where(
+          and(
+            eq(deductions.name, data.name.trim().toLowerCase()),
+            eq(deductions.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (existing.length > 0) {
@@ -60,6 +77,7 @@ export async function createDeduction(
         type: data.type,
         percentage: data.percentage?.toString(),
         amount: data.amount?.toString(),
+        organizationId: organization.id,
         createdBy: user.id,
         updatedBy: user.id,
       });
@@ -94,6 +112,11 @@ export async function getAllDeductions() {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const allDeductions = await db
       .select({
@@ -106,6 +129,7 @@ export async function getAllDeductions() {
         updatedAt: deductions.updatedAt,
       })
       .from(deductions)
+      .where(eq(deductions.organizationId, organization.id))
       .orderBy(desc(deductions.updatedAt));
 
     const creatorIds = [...new Set(allDeductions.map((d) => d.createdById))];
@@ -144,6 +168,11 @@ export async function getAllRecurringDeductions() {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const allDeductions = await db
       .select({
@@ -156,7 +185,12 @@ export async function getAllRecurringDeductions() {
         updatedAt: deductions.updatedAt,
       })
       .from(deductions)
-      .where(eq(deductions.type, "recurring"))
+      .where(
+        and(
+          eq(deductions.type, "recurring"),
+          eq(deductions.organizationId, organization.id),
+        ),
+      )
       .orderBy(desc(deductions.updatedAt));
 
     const creatorIds = [...new Set(allDeductions.map((d) => d.createdById))];
@@ -195,6 +229,11 @@ export async function getDeduction(id: number) {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const deduction = await db
       .select({
@@ -207,7 +246,12 @@ export async function getDeduction(id: number) {
         updatedAt: deductions.updatedAt,
       })
       .from(deductions)
-      .where(eq(deductions.id, id))
+      .where(
+        and(
+          eq(deductions.id, id),
+          eq(deductions.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (deduction.length === 0) {
@@ -238,12 +282,22 @@ export async function updateDeduction(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       const existing = await tx
         .select({ id: deductions.id })
         .from(deductions)
-        .where(eq(deductions.id, id))
+        .where(
+          and(
+            eq(deductions.id, id),
+            eq(deductions.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (existing.length === 0) {
@@ -263,6 +317,7 @@ export async function updateDeduction(
             and(
               eq(deductions.name, data.name.trim().toLowerCase()),
               sql`${deductions.id} != ${id}`,
+              eq(deductions.organizationId, organization.id),
             ),
           )
           .limit(1);
@@ -321,12 +376,22 @@ export async function deleteDeduction(id: number, pathname: string) {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       const existing = await tx
         .select({ id: deductions.id })
         .from(deductions)
-        .where(eq(deductions.id, id))
+        .where(
+          and(
+            eq(deductions.id, id),
+            eq(deductions.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (existing.length === 0) {
@@ -338,10 +403,48 @@ export async function deleteDeduction(id: number, pathname: string) {
         };
       }
 
-      // Here you might want to check if this deduction is used in any salary structure
-      // or assigned to any employee before allowing deletion
+      // Check if deduction is used in any salary structure
+      const usedInStructure = await tx
+        .select({ id: salaryDeductions.id })
+        .from(salaryDeductions)
+        .where(eq(salaryDeductions.deductionId, id))
+        .limit(1);
 
-      await tx.delete(deductions).where(eq(deductions.id, id));
+      if (usedInStructure.length > 0) {
+        return {
+          error: {
+            reason:
+              "Cannot delete deduction. It is used in one or more salary structures.",
+          },
+          success: null,
+        };
+      }
+
+      // Check if deduction is used in any payrun
+      const usedInPayrun = await tx
+        .select({ id: payrunItemDetails.id })
+        .from(payrunItemDetails)
+        .where(eq(payrunItemDetails.deductionId, id))
+        .limit(1);
+
+      if (usedInPayrun.length > 0) {
+        return {
+          error: {
+            reason:
+              "Cannot delete deduction. It has been used in payroll runs.",
+          },
+          success: null,
+        };
+      }
+
+      await tx
+        .delete(deductions)
+        .where(
+          and(
+            eq(deductions.id, id),
+            eq(deductions.organizationId, organization.id),
+          ),
+        );
 
       revalidatePath(pathname);
       return {

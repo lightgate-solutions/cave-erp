@@ -6,6 +6,12 @@ import { headers } from "next/headers";
 
 export async function GET() {
   try {
+    const h = await headers();
+    const session = await auth.api.getSession({ headers: h });
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const leaveTypes = await getLeaveTypes();
     return NextResponse.json({ leaveTypes });
   } catch (error) {

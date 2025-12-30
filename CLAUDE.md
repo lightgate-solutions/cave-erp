@@ -155,7 +155,7 @@ Cave ERP follows a modular architecture organized by domain/feature:
 - **UI**: React 19.1.0 with TypeScript 5
 - **Styling**: TailwindCSS 4 with Shadcn/ui components
 - **Database**: PostgreSQL 16 with Drizzle ORM
-- **Authentication**: Better Auth 1.3
+- **Authentication**: Better Auth 1.4
 - **Form Handling**: React Hook Form 7.64 with Zod 4.1
 - **Data Fetching**: React Query 5.90 and SWR 2.3
 - **Code Quality**: Biome 2.1.4 (replaces ESLint/Prettier)

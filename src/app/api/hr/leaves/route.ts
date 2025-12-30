@@ -12,6 +12,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Verify organization membership at route level
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const employeeIdParam = searchParams.get("employeeId");
     const employeeId = employeeIdParam ? Number(employeeIdParam) : undefined;
@@ -52,6 +61,15 @@ export async function POST(request: NextRequest) {
     const session = await auth.api.getSession({ headers: h });
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Verify organization membership at route level
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
     }
 
     const body = await request.json();

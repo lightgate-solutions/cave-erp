@@ -134,7 +134,7 @@ export function MailSearch({ onResultClick }: MailSearchProps) {
         </div>
 
         <Select value={folder} onValueChange={(value: any) => setFolder(value)}>
-          <SelectTrigger className="w-[130px]">
+          <SelectTrigger className="w-[130px]" suppressHydrationWarning>
             <SelectValue placeholder="Folder" />
           </SelectTrigger>
           <SelectContent>

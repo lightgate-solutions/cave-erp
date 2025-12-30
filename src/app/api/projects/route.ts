@@ -4,6 +4,12 @@ import { db } from "@/db";
 import { employees, projects } from "@/db/schema";
 import { and, asc, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { subscriptions } from "@/db/schema/subscriptions";
+import { organization as organizationSchema } from "@/db/schema/auth";
+import { getPlanLimits } from "@/lib/plans";
+import { count } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,45 +25,72 @@ export async function GET(request: NextRequest) {
     const sortDirection =
       searchParams.get("sortDirection") === "asc" ? "asc" : "desc";
 
+    const h = await headers();
+    let organization = null;
+    try {
+      organization = await auth.api.getFullOrganization({
+        headers: h,
+      });
+    } catch (_e) {
+      // Ignore
+    }
+
+    if (!organization) {
+      const session = await auth.api.getSession({ headers: h });
+
+      const activeOrgId = session?.session?.activeOrganizationId;
+
+      if (activeOrgId) {
+        const org = await db.query.organization.findFirst({
+          where: eq(organizationSchema.id, activeOrgId),
+        });
+
+        if (org) {
+          organization = org;
+        }
+      }
+    }
+
+    if (!organization) {
+      return NextResponse.json(
+        { projects: [], total: 0, page, limit, totalPages: 0 },
+        { status: 200 },
+      );
+    }
+
     let where:
       | ReturnType<typeof or>
       | ReturnType<typeof eq>
       | ReturnType<typeof and>
       | undefined;
+
+    where = eq(projects.organizationId, organization.id);
+
     if (q) {
-      where = or(
-        ilike(projects.name, `%${q}%`),
-        ilike(projects.code, `%${q}%`),
-        ilike(projects.location, `%${q}%`),
+      where = and(
+        where,
+        or(
+          ilike(projects.name, `%${q}%`),
+          ilike(projects.code, `%${q}%`),
+          ilike(projects.location, `%${q}%`),
+        ),
       );
     }
     if (status) {
-      where = where
-        ? and(
-            where,
-            eq(
-              projects.status,
-              status as "pending" | "in-progress" | "completed",
-            ),
-          )
-        : eq(
-            projects.status,
-            status as "pending" | "in-progress" | "completed",
-          );
+      where = and(
+        where,
+        eq(projects.status, status as "pending" | "in-progress" | "completed"),
+      );
     }
     if (dateFrom) {
       const fromDate = new Date(dateFrom);
       fromDate.setHours(0, 0, 0, 0);
-      where = where
-        ? and(where, gte(projects.createdAt, fromDate))
-        : gte(projects.createdAt, fromDate);
+      where = and(where, gte(projects.createdAt, fromDate));
     }
     if (dateTo) {
       const toDate = new Date(dateTo);
       toDate.setHours(23, 59, 59, 999);
-      where = where
-        ? and(where, lte(projects.createdAt, toDate))
-        : lte(projects.createdAt, toDate);
+      where = and(where, lte(projects.createdAt, toDate));
     }
 
     const totalResult = await db
@@ -66,7 +99,6 @@ export async function GET(request: NextRequest) {
       .where(where);
     const total = totalResult[0].count;
 
-    // Map sortBy to actual column names
     const columnMap: Record<string, any> = {
       id: projects.id,
       name: projects.name,
@@ -140,7 +172,69 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
 
-    // Generate code like 1BM, 2BM, ... based on max existing id
+    const h = await headers();
+    let organization = null;
+    try {
+      organization = await auth.api.getFullOrganization({
+        headers: h,
+      });
+    } catch (_e) {
+      // Ignore error
+    }
+
+    if (!organization) {
+      const session = await auth.api.getSession({ headers: h });
+      const activeOrgId = session?.session?.activeOrganizationId;
+
+      if (activeOrgId) {
+        const org = await db.query.organization.findFirst({
+          where: eq(organizationSchema.id, activeOrgId),
+        });
+
+        if (org) {
+          organization = org;
+        }
+      }
+    }
+
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 },
+      );
+    }
+
+    const ownerId = organization.ownerId;
+    if (!ownerId) {
+      return NextResponse.json(
+        { error: "Organization owner not found" },
+        { status: 400 },
+      );
+    }
+
+    const subscription = await db.query.subscriptions.findFirst({
+      where: eq(subscriptions.userId, ownerId),
+    });
+
+    const planId = subscription?.plan ?? "free";
+    const limits = getPlanLimits(planId);
+
+    if (limits.maxProject !== null) {
+      const [currentCount] = await db
+        .select({ count: count() })
+        .from(projects)
+        .where(eq(projects.organizationId, organization.id));
+
+      if (currentCount.count >= limits.maxProject) {
+        return NextResponse.json(
+          {
+            error: `Project limit reached for ${planId} plan. Please upgrade to create more projects.`,
+          },
+          { status: 403 },
+        );
+      }
+    }
+
     const [agg] = await db
       .select({ maxId: sql<number>`max(${projects.id})` })
       .from(projects);
@@ -158,6 +252,7 @@ export async function POST(request: NextRequest) {
         budgetPlanned: Number(budgetPlanned) || 0,
         budgetActual: Number(budgetActual) || 0,
         status: status || "pending",
+        organizationId: organization.id,
       })
       .returning();
 

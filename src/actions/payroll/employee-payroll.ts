@@ -14,11 +14,18 @@ import {
   salaryAllowances,
   salaryDeductions,
 } from "@/db/schema/payroll";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function getAllEmployeesWithPayroll() {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     // Get all employees
@@ -50,7 +57,12 @@ export async function getAllEmployeesWithPayroll() {
         salaryStructure,
         eq(employeeSalary.salaryStructureId, salaryStructure.id),
       )
-      .where(isNull(employeeSalary.effectiveTo));
+      .where(
+        and(
+          isNull(employeeSalary.effectiveTo),
+          eq(employeeSalary.organizationId, organization.id),
+        ),
+      );
 
     // Create lookup map for employee salaries
     const salaryMap = new Map();
@@ -92,6 +104,11 @@ export async function calculateEmployeeTakeHomePay(employeeId: number) {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const employeeSalaryInfo = await db
       .select({
@@ -109,6 +126,7 @@ export async function calculateEmployeeTakeHomePay(employeeId: number) {
         and(
           eq(employeeSalary.employeeId, employeeId),
           isNull(employeeSalary.effectiveTo),
+          eq(employeeSalary.organizationId, organization.id),
         ),
       )
       .limit(1);

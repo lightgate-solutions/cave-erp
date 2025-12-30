@@ -30,6 +30,7 @@ export function SettingsPageSkeleton() {
           </CardHeader>
           <CardContent className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
               <div key={i} className="space-y-2">
                 <Skeleton className="h-5 w-24" />
                 <Skeleton className="h-10 w-full" />
@@ -54,6 +55,7 @@ export function SettingsPageSkeleton() {
           </CardHeader>
           <CardContent className="space-y-4">
             {Array.from({ length: 3 }).map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
               <div key={i} className="space-y-2">
                 <Skeleton className="h-5 w-32" />
                 <Skeleton className="h-10 w-full" />

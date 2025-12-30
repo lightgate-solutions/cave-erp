@@ -19,6 +19,8 @@ import { revalidatePath } from "next/cache";
 import { alias } from "drizzle-orm/pg-core";
 import { getUser } from "@/actions/auth/dal";
 import { createNotification } from "@/actions/notification/notification";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { z } from "zod";
 
 const questionSchema = z.object({
@@ -63,9 +65,22 @@ export async function getAskHrQuestions(filters?: {
   publicOnly?: boolean;
 }) {
   try {
-    // Get current user
+    // Get current user and organization
     const currentUser = await getUser();
     if (!currentUser) {
+      return {
+        questions: [],
+        total: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 0,
+      };
+    }
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
       return {
         questions: [],
         total: 0,
@@ -79,7 +94,9 @@ export async function getAskHrQuestions(filters?: {
     const redirectEmployee = alias(employees, "redirected_to");
 
     // Build query conditions
-    const conditions: any[] = [];
+    const conditions: any[] = [
+      eq(askHrQuestions.organizationId, organization.id),
+    ];
 
     // Handle filtering based on user role and requested view
     const isHrAdmin =
@@ -224,6 +241,13 @@ export async function getAskHrQuestion(questionId: number) {
       return { error: "Not authenticated" };
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return { error: "Organization not found" };
+    }
+
     const questionAuthor = alias(employees, "author");
     const redirectEmployee = alias(employees, "redirected_to");
 
@@ -260,7 +284,12 @@ export async function getAskHrQuestion(questionId: number) {
         redirectEmployee,
         eq(askHrQuestions.redirectedTo, redirectEmployee.id),
       )
-      .where(eq(askHrQuestions.id, questionId))
+      .where(
+        and(
+          eq(askHrQuestions.id, questionId),
+          eq(askHrQuestions.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((rows) => rows[0]);
 
@@ -329,6 +358,16 @@ export async function submitAskHrQuestion(
       };
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        success: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
     // Validate input
     const validated = questionSchema.safeParse(data);
     if (!validated.success) {
@@ -344,6 +383,7 @@ export async function submitAskHrQuestion(
       .insert(askHrQuestions)
       .values({
         employeeId: currentUser.id,
+        organizationId: organization.id,
         title: validated.data.title,
         question: validated.data.question,
         isAnonymous: validated.data.isAnonymous,
@@ -359,6 +399,7 @@ export async function submitAskHrQuestion(
       "New HR Question",
       `A new question has been submitted: ${validated.data.title}`,
       question.id,
+      organization.id,
     );
 
     revalidatePath("/hr/ask-hr");
@@ -396,6 +437,16 @@ export async function respondToAskHrQuestion(
       };
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        success: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
     // Validate input
     const validated = responseSchema.safeParse(data);
     if (!validated.success) {
@@ -409,7 +460,12 @@ export async function respondToAskHrQuestion(
     const question = await db
       .select()
       .from(askHrQuestions)
-      .where(eq(askHrQuestions.id, questionId))
+      .where(
+        and(
+          eq(askHrQuestions.id, questionId),
+          eq(askHrQuestions.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((rows) => rows[0]);
 
@@ -448,6 +504,7 @@ export async function respondToAskHrQuestion(
       await tx.insert(askHrResponses).values({
         questionId,
         respondentId: currentUser.id,
+        organizationId: organization.id,
         response: validated.data.response,
         isInternal: validated.data.isInternal,
       });
@@ -511,6 +568,16 @@ export async function redirectAskHrQuestion(
       };
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        success: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
     // Validate input
     const validated = redirectSchema.safeParse(data);
     if (!validated.success) {
@@ -532,7 +599,12 @@ export async function redirectAskHrQuestion(
     const question = await db
       .select()
       .from(askHrQuestions)
-      .where(eq(askHrQuestions.id, questionId))
+      .where(
+        and(
+          eq(askHrQuestions.id, questionId),
+          eq(askHrQuestions.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((rows) => rows[0]);
 
@@ -574,6 +646,7 @@ export async function redirectAskHrQuestion(
       await tx.insert(askHrResponses).values({
         questionId,
         respondentId: currentUser.id,
+        organizationId: organization.id,
         response: `This question has been redirected to ${targetEmployee.name} (${targetEmployee.department})`,
         isInternal: false,
       });
@@ -626,6 +699,16 @@ export async function updateAskHrQuestionStatus(
       };
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        success: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
     // Only HR/admin can update status
     if (currentUser.department !== "HR" && currentUser.role !== "admin") {
       return {
@@ -638,7 +721,12 @@ export async function updateAskHrQuestionStatus(
     const question = await db
       .select()
       .from(askHrQuestions)
-      .where(eq(askHrQuestions.id, questionId))
+      .where(
+        and(
+          eq(askHrQuestions.id, questionId),
+          eq(askHrQuestions.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((rows) => rows[0]);
 
@@ -665,6 +753,7 @@ export async function updateAskHrQuestionStatus(
         await tx.insert(askHrResponses).values({
           questionId,
           respondentId: currentUser.id,
+          organizationId: organization.id,
           response: "HR is now working on this question",
           isInternal: false,
         });
@@ -675,6 +764,7 @@ export async function updateAskHrQuestionStatus(
         await tx.insert(askHrResponses).values({
           questionId,
           respondentId: currentUser.id,
+          organizationId: organization.id,
           response: "This question has been marked as closed",
           isInternal: false,
         });
@@ -731,14 +821,20 @@ async function notifyHrDepartment(
   title: string,
   message: string,
   referenceId: number,
+  organizationId: string,
 ) {
-  // Get all HR department members
+  // Get all HR department members in the organization
   const hrEmployees = await db
     .select({
       id: employees.id,
     })
     .from(employees)
-    .where(eq(employees.department, "HR"));
+    .where(
+      and(
+        eq(employees.department, "HR"),
+        eq(employees.organizationId, organizationId),
+      ),
+    );
 
   // Create notifications for each HR employee
   for (const employee of hrEmployees) {
@@ -760,6 +856,13 @@ export async function getEmployeesForRedirection() {
       return [];
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return [];
+    }
+
     // Only HR/admin can access this
     if (currentUser.department !== "HR" && currentUser.role !== "admin") {
       return [];
@@ -773,6 +876,7 @@ export async function getEmployeesForRedirection() {
         role: employees.role,
       })
       .from(employees)
+      .where(eq(employees.organizationId, organization.id))
       .orderBy(employees.name);
   } catch (_error) {
     return [];
@@ -799,6 +903,16 @@ export async function updateQuestionVisibility(
       };
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        success: null,
+        error: { reason: "Organization not found" },
+      };
+    }
+
     // Only HR/admin or the question owner can update visibility
     const isHrAdmin =
       currentUser.department === "HR" || currentUser.role === "admin";
@@ -808,7 +922,12 @@ export async function updateQuestionVisibility(
       const question = await db
         .select({ employeeId: askHrQuestions.employeeId })
         .from(askHrQuestions)
-        .where(eq(askHrQuestions.id, questionId))
+        .where(
+          and(
+            eq(askHrQuestions.id, questionId),
+            eq(askHrQuestions.organizationId, organization.id),
+          ),
+        )
         .limit(1)
         .then((rows) => rows[0]);
 
@@ -841,7 +960,12 @@ export async function updateQuestionVisibility(
           allowPublicResponses: validated.data.allowPublicResponses,
           updatedAt: new Date(),
         })
-        .where(eq(askHrQuestions.id, questionId));
+        .where(
+          and(
+            eq(askHrQuestions.id, questionId),
+            eq(askHrQuestions.organizationId, organization.id),
+          ),
+        );
     });
 
     revalidatePath(`/hr/ask-hr/${questionId}`);

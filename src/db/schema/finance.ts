@@ -9,9 +9,13 @@ import {
   numeric,
 } from "drizzle-orm/pg-core";
 import { employees } from "./hr";
+import { organization } from "./auth";
 
 export const companyBalance = pgTable("company_balance", {
   id: serial("id").primaryKey(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organization.id, { onDelete: "cascade" }),
   balance: numeric("balance", { precision: 15, scale: 2 })
     .default("0")
     .notNull(),
@@ -26,6 +30,9 @@ export const companyExpenses = pgTable(
     id: serial("id").primaryKey(),
     title: text("title").notNull(),
     description: text("description"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     amount: numeric("amount", { precision: 15, scale: 2 }).notNull(),
     category: text("category"),
     expenseDate: timestamp("expense_date").notNull().defaultNow(),
@@ -44,6 +51,9 @@ export const balanceTransactions = pgTable(
     userId: integer("user_id")
       .notNull()
       .references(() => employees.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
     amount: numeric("amount", { precision: 15, scale: 2 }).notNull(),
     transactionType: text("transaction_type").notNull().default("top-up"), // top-up, expense, adjustment
     description: text("description"),

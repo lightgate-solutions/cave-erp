@@ -7,6 +7,8 @@ import StaffDashboard from "@/components/dashboard/StaffDashboard";
 import ManagerDashboard from "@/components/dashboard/ManagerDashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export default async function DashboardPage() {
   const user = await getUser();
@@ -42,6 +44,7 @@ export default async function DashboardPage() {
     switch (defaultView) {
       case "documents":
         redirect("/documents");
+        break;
       case "tasks":
         // Redirect to appropriate tasks page based on role
         if (user.isManager) {
@@ -49,10 +52,13 @@ export default async function DashboardPage() {
         } else {
           redirect("/tasks/employee");
         }
+        break;
       case "projects":
         redirect("/projects");
+        break;
       case "mail":
         redirect("/mail/inbox");
+        break;
       default:
         // If invalid defaultView, continue to show dashboard
         break;
@@ -65,9 +71,19 @@ export default async function DashboardPage() {
 
   // Priority: Admin > Manager (if isManager flag) > Role-based > Default Staff
 
+  // Get organization for admin dashboard
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+
   // Admin always gets admin dashboard
   if (normalizedRole === "admin") {
-    return <AdminDashboard employeeId={user.id} />;
+    if (!organization) {
+      redirect("/organizations/create");
+    }
+    return (
+      <AdminDashboard employeeId={user.id} organizationId={organization.id} />
+    );
   }
 
   // If user has manager flag and is not admin, show manager dashboard

@@ -11,13 +11,23 @@ import {
   notification_preferences,
   user,
 } from "@/db/schema";
-import { DrizzleQueryError, eq } from "drizzle-orm";
+import { DrizzleQueryError, eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireHROrAdmin } from "@/actions/auth/dal";
 import { APIError } from "better-auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function getAllEmployees() {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
   return await db
     .select({
       id: employees.id,
@@ -35,18 +45,29 @@ export async function getAllEmployees() {
       startDate: employmentHistory.startDate,
     })
     .from(employees)
-    .leftJoin(
-      employmentHistory,
-      eq(employees.id, employmentHistory.employeeId),
-    );
+    .leftJoin(employmentHistory, eq(employees.id, employmentHistory.employeeId))
+    .where(eq(employees.organizationId, organization.id));
 }
 
 export async function getEmployee(employeeId: number) {
   await requireAuth();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return null;
+  }
+
   return await db
     .select()
     .from(employees)
-    .where(eq(employees.id, employeeId))
+    .where(
+      and(
+        eq(employees.id, employeeId),
+        eq(employees.organizationId, organization.id),
+      ),
+    )
     .limit(1)
     .then((res) => res[0]);
 }
@@ -68,6 +89,17 @@ export async function updateEmployee(
   }>,
 ) {
   await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
   const processedUpdates: any = { ...updates, updatedAt: new Date() };
 
   for (const key in processedUpdates) {
@@ -80,7 +112,12 @@ export async function updateEmployee(
       const [emp] = await tx
         .update(employees)
         .set(processedUpdates)
-        .where(eq(employees.id, employeeId))
+        .where(
+          and(
+            eq(employees.id, employeeId),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
         .returning();
 
       await tx
@@ -128,6 +165,17 @@ export async function createEmployee(data: {
   };
   isManager: boolean;
 }) {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      error: { reason: "Organization not found" },
+      success: null,
+      data: null,
+    };
+  }
+
   const { ...userData } = data;
 
   try {
@@ -165,6 +213,7 @@ export async function createEmployee(data: {
           address: userData.data?.address ?? null,
           maritalStatus: userData.data?.maritalStatus ?? null,
           employmentType: userData.data?.employmentType ?? null,
+          organizationId: organization.id,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -175,8 +224,10 @@ export async function createEmployee(data: {
         createdBy: emp.id,
         department: emp.department,
         root: true,
+        status: "active",
         public: false,
         departmental: false,
+        organizationId: organization.id,
       });
 
       await db
@@ -192,6 +243,7 @@ export async function createEmployee(data: {
         email_on_task_notification: false,
         email_on_general_notification: false,
         notify_on_message: true,
+        organizationId: organization.id,
       });
     });
 

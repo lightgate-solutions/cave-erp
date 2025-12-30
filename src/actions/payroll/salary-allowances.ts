@@ -9,6 +9,8 @@ import {
   salaryAllowances,
   allowances,
 } from "@/db/schema/payroll";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 interface AddAllowanceToStructureProps {
   salaryStructureId: number;
@@ -25,13 +27,23 @@ export async function addAllowanceToStructure(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       // Check if structure exists
       const structure = await tx
         .select({ id: salaryStructure.id, active: salaryStructure.active })
         .from(salaryStructure)
-        .where(eq(salaryStructure.id, data.salaryStructureId))
+        .where(
+          and(
+            eq(salaryStructure.id, data.salaryStructureId),
+            eq(salaryStructure.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (structure.length === 0) {
@@ -54,7 +66,12 @@ export async function addAllowanceToStructure(
       const allowance = await tx
         .select({ id: allowances.id })
         .from(allowances)
-        .where(eq(allowances.id, data.allowanceId))
+        .where(
+          and(
+            eq(allowances.id, data.allowanceId),
+            eq(allowances.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (allowance.length === 0) {
@@ -73,6 +90,7 @@ export async function addAllowanceToStructure(
             eq(salaryAllowances.salaryStructureId, data.salaryStructureId),
             eq(salaryAllowances.allowanceId, data.allowanceId),
             sql`${salaryAllowances.effectiveTo} IS NULL`,
+            eq(salaryAllowances.organizationId, organization.id),
           ),
         )
         .limit(1);
@@ -88,6 +106,7 @@ export async function addAllowanceToStructure(
       await tx.insert(salaryAllowances).values({
         salaryStructureId: data.salaryStructureId,
         allowanceId: data.allowanceId,
+        organizationId: organization.id,
         effectiveFrom: data.effectiveFrom || new Date(),
       });
 
@@ -123,6 +142,11 @@ export async function removeAllowanceFromStructure(
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     return await db.transaction(async (tx) => {
       // Check if the relationship exists
@@ -132,7 +156,12 @@ export async function removeAllowanceFromStructure(
           structureId: salaryAllowances.salaryStructureId,
         })
         .from(salaryAllowances)
-        .where(eq(salaryAllowances.id, salaryAllowanceId))
+        .where(
+          and(
+            eq(salaryAllowances.id, salaryAllowanceId),
+            eq(salaryAllowances.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (relationship.length === 0) {
@@ -146,7 +175,12 @@ export async function removeAllowanceFromStructure(
       const structure = await tx
         .select({ active: salaryStructure.active })
         .from(salaryStructure)
-        .where(eq(salaryStructure.id, relationship[0].structureId))
+        .where(
+          and(
+            eq(salaryStructure.id, relationship[0].structureId),
+            eq(salaryStructure.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (structure.length === 0 || !structure[0].active) {
@@ -196,6 +230,11 @@ export async function getStructureAllowances(structureId: number) {
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
   try {
     const result = await db
       .select({
@@ -217,6 +256,7 @@ export async function getStructureAllowances(structureId: number) {
         and(
           eq(salaryAllowances.salaryStructureId, structureId),
           sql`${salaryAllowances.effectiveTo} IS NULL`,
+          eq(salaryAllowances.organizationId, organization.id),
         ),
       )
       .orderBy(desc(salaryAllowances.effectiveFrom));

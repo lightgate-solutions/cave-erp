@@ -3,6 +3,8 @@
 import { getUser } from "../auth/dal";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "../../../convex/_generated/api";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 type CreateNotificationInput = {
   user_id: number;
@@ -11,6 +13,7 @@ type CreateNotificationInput = {
   notification_type: "approval" | "deadline" | "message";
   reference_id?: number;
   is_read?: boolean;
+  organization_id?: string;
 };
 
 export async function createNotification({
@@ -20,6 +23,7 @@ export async function createNotification({
   notification_type,
   reference_id = 0,
   is_read = false,
+  organization_id,
 }: CreateNotificationInput) {
   try {
     const currentUser = await getUser();
@@ -32,8 +36,23 @@ export async function createNotification({
       };
     }
 
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+
+    if (!organization) {
+      return {
+        success: false,
+        data: null,
+        error: "Organization not found",
+      };
+    }
+
+    const orgId = organization_id ?? organization.id;
+
     await fetchMutation(api.notifications.createNotification, {
       created_by: currentUser.id,
+      organization_id: orgId,
       title,
       reference_id,
       user_id,
@@ -69,11 +88,26 @@ export async function getUserNotifications() {
     };
   }
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+
+  if (!organization) {
+    return {
+      success: false,
+      data: [],
+      error: "Organization not found",
+    };
+  }
+
   const userId = currentUser.id;
 
   const userNotifications = await fetchQuery(
     api.notifications.getUserNotifications,
-    { userId },
+    {
+      userId,
+      organizationId: organization.id,
+    },
   );
 
   return { success: true, data: userNotifications, error: null };

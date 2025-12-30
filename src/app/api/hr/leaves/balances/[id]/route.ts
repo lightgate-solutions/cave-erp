@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { leaveBalances } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -16,6 +16,14 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const { id } = await params;
     const balanceId = Number(id);
     if (Number.isNaN(balanceId)) {
@@ -25,7 +33,14 @@ export async function DELETE(
       );
     }
 
-    await db.delete(leaveBalances).where(eq(leaveBalances.id, balanceId));
+    await db
+      .delete(leaveBalances)
+      .where(
+        and(
+          eq(leaveBalances.id, balanceId),
+          eq(leaveBalances.organizationId, organization.id),
+        ),
+      );
 
     return NextResponse.json({
       message: "Annual leave balance deleted successfully",

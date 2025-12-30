@@ -2,9 +2,21 @@ import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function POST(request: NextRequest) {
   try {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     const body = await request.json();
     const { action, taskIds, userId, role } = body;
 
@@ -27,7 +39,13 @@ export async function POST(request: NextRequest) {
 
       const deleted = await db
         .delete(tasks)
-        .where(and(inArray(tasks.id, taskIds), eq(tasks.assignedBy, userId)))
+        .where(
+          and(
+            inArray(tasks.id, taskIds),
+            eq(tasks.assignedBy, userId),
+            eq(tasks.organizationId, organization.id),
+          ),
+        )
         .returning();
 
       return NextResponse.json({

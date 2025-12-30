@@ -16,6 +16,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      );
+    }
+
     // Get manager employee info
     const employeeResult = await db
       .select({
@@ -23,7 +31,12 @@ export async function GET() {
         isManager: employees.isManager,
       })
       .from(employees)
-      .where(eq(employees.authId, authUserId))
+      .where(
+        and(
+          eq(employees.authId, authUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     const employee = employeeResult[0];
@@ -46,7 +59,12 @@ export async function GET() {
         updatedAt: projects.updatedAt,
       })
       .from(projects)
-      .where(eq(projects.supervisorId, employee.id))
+      .where(
+        and(
+          eq(projects.supervisorId, employee.id),
+          eq(projects.organizationId, organization.id),
+        ),
+      )
       .orderBy(desc(projects.updatedAt))
       .limit(10);
 

@@ -17,6 +17,7 @@ export function MailLayoutSkeleton() {
           <ScrollArea className="h-screen">
             <div className="p-2 space-y-2">
               {Array.from({ length: 10 }).map((_, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
                 <div key={i} className="p-4 border rounded-lg space-y-2">
                   <div className="flex items-center justify-between">
                     <Skeleton className="h-5 w-32" />
