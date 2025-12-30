@@ -21,6 +21,7 @@ import { upstashIndex } from "@/lib/upstash-client";
 import { createNotification } from "../notification/notification";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { updateOrganizationStorage, fileSizeToMb } from "@/lib/storage-utils";
 
 export async function getActiveFolderDocuments(
   folderId: number,
@@ -247,6 +248,13 @@ export async function deleteDocumentAction(
           eq(document.id, documentId),
           eq(document.organizationId, organization.id),
         ),
+        with: {
+          versions: {
+            columns: {
+              fileSize: true,
+            },
+          },
+        },
       });
 
       if (!doc) throw new Error("Document not found");
@@ -317,6 +325,12 @@ export async function deleteDocumentAction(
           ),
         );
 
+      // Calculate total file size to subtract from storage
+      const totalSizeMb = (doc.versions as Array<{ fileSize: string }> ?? []).reduce(
+        (sum, version) => sum + fileSizeToMb(version.fileSize),
+        0,
+      );
+
       const recipients = accessUsers
         .map((row) => row.userId)
         .filter((id): id is number => !!id);
@@ -326,8 +340,14 @@ export async function deleteDocumentAction(
         docTitle: doc.title,
         docId: doc.id,
         recipients,
+        totalSizeMb,
       };
     });
+
+    // Update organization storage after deletion
+    if (result.totalSizeMb > 0) {
+      await updateOrganizationStorage(organization.id, -result.totalSizeMb);
+    }
 
     revalidatePath(pathname);
 

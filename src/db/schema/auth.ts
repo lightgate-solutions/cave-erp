@@ -101,6 +101,8 @@ export const organization = pgTable(
     logo: text("logo"),
     membersCount: integer("members_count").default(0),
     status: text("status").default("active"),
+    storageUsedMb: integer("storage_used_mb").default(0).notNull(),
+    storageQuotaMb: integer("storage_quota_mb").default(500).notNull(),
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),

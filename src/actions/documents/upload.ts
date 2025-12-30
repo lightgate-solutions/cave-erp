@@ -20,6 +20,12 @@ import { upstashIndex } from "@/lib/upstash-client";
 import { createNotification } from "../notification/notification";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import {
+  getOrganizationStorage,
+  canUploadFiles,
+  fileSizeToMb,
+  updateOrganizationStorage,
+} from "@/lib/storage-utils";
 
 interface UploadActionProps {
   title: string;
@@ -127,6 +133,41 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
   const isPersonal = data.folder === "personal";
   const effectivePublic = isPersonal ? false : data.public;
   const effectiveDepartmental = isPersonal ? false : data.departmental;
+
+  // Check storage quota before upload
+  const storageInfo = await getOrganizationStorage(organization.id);
+  if (!storageInfo) {
+    return {
+      error: { reason: "Could not retrieve storage information" },
+      success: null,
+    };
+  }
+
+  // Calculate total size of files being uploaded (in MB)
+  const totalUploadSizeMb = data.Files.reduce(
+    (sum, file) => sum + fileSizeToMb(file.fileSize),
+    0,
+  );
+
+  const uploadCheck = canUploadFiles(
+    storageInfo.usedMb,
+    storageInfo.quotaMb,
+    totalUploadSizeMb,
+  );
+
+  if (!uploadCheck.allowed) {
+    return {
+      error: {
+        reason: uploadCheck.reason || "Storage limit exceeded",
+        storageInfo: {
+          used: storageInfo.usedMb,
+          quota: storageInfo.quotaMb,
+          available: storageInfo.availableMb,
+        },
+      },
+      success: null,
+    };
+  }
 
   try {
     const { shareNotifications } = await db.transaction(async (tx) => {
@@ -358,6 +399,9 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
         reference_id: share.docId,
       });
     }
+
+    // Update organization storage usage after successful upload
+    await updateOrganizationStorage(organization.id, totalUploadSizeMb);
 
     // CRITICAL: Revalidate all dashboard and document-related pages
     revalidatePath("/documents", "layout");

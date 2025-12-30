@@ -172,17 +172,26 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          // Create employee record
-          await createEmployee({
-            name: user.name,
-            authId: user.id,
-            email: user.email,
-            role: "admin",
-            isManager: true,
-            data: {
-              department: "admin",
-            },
-          });
+          // Create employee record - wrapped in try-catch since organization may not exist yet
+          try {
+            await createEmployee({
+              name: user.name,
+              authId: user.id,
+              email: user.email,
+              role: "admin",
+              isManager: true,
+              data: {
+                department: "admin",
+              },
+            });
+          } catch (error) {
+            // Log error but don't fail user creation if employee creation fails
+            // This is expected during signup when user hasn't created/joined an organization yet
+            console.log(
+              "Skipping employee creation during signup (no organization yet):",
+              user.id,
+            );
+          }
 
           // Initialize subscription with free plan
           try {
