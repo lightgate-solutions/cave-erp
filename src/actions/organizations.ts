@@ -1,6 +1,5 @@
 "use server";
 
-import { getUser } from "./auth/dal";
 import {
   canCreateOrganization,
   getUserPlan,
@@ -10,18 +9,20 @@ import { db } from "@/db";
 import { subscriptions, organization } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import type { PlanId } from "@/lib/plans";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function validateOrganizationCreation() {
-  const currentUser = await getUser();
-  if (!currentUser || !currentUser.authId) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session || !session.user.id) {
     return { canCreate: false, error: "User not authenticated" };
   }
 
   try {
     const { canCreate, currentCount, limit } = await canCreateOrganization(
-      currentUser.authId,
+      session.user.id,
     );
-    const userPlan = await getUserPlan(currentUser.authId);
+    const userPlan = await getUserPlan(session.user.id);
 
     if (!canCreate) {
       const planNames = {

@@ -20,7 +20,6 @@ import {
   sendPasswordResetEmail,
   sendWelcomeEmail,
 } from "./emails";
-import { createEmployee } from "@/actions/hr/employees";
 import { subscriptions } from "@/db/schema/subscriptions";
 
 export const auth = betterAuth({
@@ -134,16 +133,25 @@ export const auth = betterAuth({
 
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
-      if (ctx.path.startsWith("/sign-up")) {
+      if (ctx.path.includes("/sign-up") || ctx.path.includes("/signup")) {
         const user = ctx.context.newSession?.user ?? {
-          name: ctx.body.name,
-          email: ctx.body.email,
-          id: ctx.body.id,
-          role: ctx.body.role,
+          name: ctx.body?.name,
+          email: ctx.body?.email,
+          id: ctx.body?.id,
+          role: ctx.body?.role,
         };
 
-        if (user != null) {
-          await sendWelcomeEmail(user);
+        if (user != null && user.email) {
+          try {
+            await sendWelcomeEmail(user);
+          } catch (error) {
+            // Log error but don't fail sign-up if welcome email fails
+            console.error(
+              "Failed to send welcome email for user:",
+              user.id,
+              error,
+            );
+          }
         }
       }
     }),
@@ -172,18 +180,6 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          // Create employee record
-          await createEmployee({
-            name: user.name,
-            authId: user.id,
-            email: user.email,
-            role: "admin",
-            isManager: true,
-            data: {
-              department: "admin",
-            },
-          });
-
           // Initialize subscription with free plan
           try {
             await db.insert(subscriptions).values({
@@ -204,6 +200,9 @@ export const auth = betterAuth({
               error,
             );
           }
+
+          // Note: Employee record is created when user joins/creates an organization
+          // Not during sign-up since organization context is required
         },
       },
     },

@@ -95,10 +95,6 @@ export const requireAuth = cache(async () => {
     )
     .limit(1);
 
-  if (!user) {
-    throw new Error("Unauthorized: User not found");
-  }
-
   return { userId: session.user.id, role: session.user.role, employee: user };
 });
 
