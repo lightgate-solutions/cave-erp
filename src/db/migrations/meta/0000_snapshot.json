@@ -1,5 +1,5 @@
 {
-  "id": "be6475fd-0d3a-4a5f-8789-51e6f5458eb2",
+  "id": "02586418-1bb8-41bc-9a0c-19088af21833",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -775,9 +775,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -819,9 +819,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "rejected_by": {
-          "name": "rejected_by",
-          "type": "integer",
+        "rejected_by_user_id": {
+          "name": "rejected_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -841,11 +841,11 @@
         }
       },
       "indexes": {
-        "attendance_employee_date_idx": {
-          "name": "attendance_employee_date_idx",
+        "attendance_user_date_idx": {
+          "name": "attendance_user_date_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -864,11 +864,11 @@
         }
       },
       "foreignKeys": {
-        "attendance_employee_id_employees_id_fk": {
-          "name": "attendance_employee_id_employees_id_fk",
+        "attendance_user_id_user_id_fk": {
+          "name": "attendance_user_id_user_id_fk",
           "tableFrom": "attendance",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -882,11 +882,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "attendance_rejected_by_employees_id_fk": {
-          "name": "attendance_rejected_by_employees_id_fk",
+        "attendance_rejected_by_user_id_user_id_fk": {
+          "name": "attendance_rejected_by_user_id_user_id_fk",
           "tableFrom": "attendance",
-          "tableTo": "employees",
-          "columnsFrom": ["rejected_by"],
+          "tableTo": "user",
+          "columnsFrom": ["rejected_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -924,8 +924,7 @@
           "name": "auth_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "''"
+          "notNull": true
         },
         "email": {
           "name": "email",
@@ -966,7 +965,7 @@
         },
         "manager_id": {
           "name": "manager_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -1078,6 +1077,24 @@
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "employees_auth_id_user_id_fk": {
+          "name": "employees_auth_id_user_id_fk",
+          "tableFrom": "employees",
+          "tableTo": "user",
+          "columnsFrom": ["auth_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "employees_manager_id_user_id_fk": {
+          "name": "employees_manager_id_user_id_fk",
+          "tableFrom": "employees",
+          "tableTo": "user",
+          "columnsFrom": ["manager_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1102,9 +1119,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -1149,11 +1166,11 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "employees_bank_employee_id_employees_id_fk": {
-          "name": "employees_bank_employee_id_employees_id_fk",
+        "employees_bank_user_id_user_id_fk": {
+          "name": "employees_bank_user_id_user_id_fk",
           "tableFrom": "employees_bank",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -1184,9 +1201,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -1226,9 +1243,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "uploaded_by": {
-          "name": "uploaded_by",
-          "type": "integer",
+        "uploaded_by_user_id": {
+          "name": "uploaded_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -1255,11 +1272,11 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "employees_documents_employee_id_employees_id_fk": {
-          "name": "employees_documents_employee_id_employees_id_fk",
+        "employees_documents_user_id_user_id_fk": {
+          "name": "employees_documents_user_id_user_id_fk",
           "tableFrom": "employees_documents",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -1273,11 +1290,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "employees_documents_uploaded_by_employees_id_fk": {
-          "name": "employees_documents_uploaded_by_employees_id_fk",
+        "employees_documents_uploaded_by_user_id_user_id_fk": {
+          "name": "employees_documents_uploaded_by_user_id_user_id_fk",
           "tableFrom": "employees_documents",
-          "tableTo": "employees",
-          "columnsFrom": ["uploaded_by"],
+          "tableTo": "user",
+          "columnsFrom": ["uploaded_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -1299,9 +1316,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -1352,11 +1369,11 @@
         }
       },
       "indexes": {
-        "history_employee_idx": {
-          "name": "history_employee_idx",
+        "history_user_idx": {
+          "name": "history_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1385,11 +1402,11 @@
         }
       },
       "foreignKeys": {
-        "employment_history_employee_id_employees_id_fk": {
-          "name": "employment_history_employee_id_employees_id_fk",
+        "employment_history_user_id_user_id_fk": {
+          "name": "employment_history_user_id_user_id_fk",
           "tableFrom": "employment_history",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -1420,9 +1437,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -1471,9 +1488,9 @@
           "notNull": true,
           "default": "'Pending'"
         },
-        "approved_by": {
-          "name": "approved_by",
-          "type": "integer",
+        "approved_by_user_id": {
+          "name": "approved_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -1512,11 +1529,11 @@
         }
       },
       "indexes": {
-        "leave_applications_employee_idx": {
-          "name": "leave_applications_employee_idx",
+        "leave_applications_user_idx": {
+          "name": "leave_applications_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1565,11 +1582,11 @@
         }
       },
       "foreignKeys": {
-        "leave_applications_employee_id_employees_id_fk": {
-          "name": "leave_applications_employee_id_employees_id_fk",
+        "leave_applications_user_id_user_id_fk": {
+          "name": "leave_applications_user_id_user_id_fk",
           "tableFrom": "leave_applications",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -1583,11 +1600,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "leave_applications_approved_by_employees_id_fk": {
-          "name": "leave_applications_approved_by_employees_id_fk",
+        "leave_applications_approved_by_user_id_user_id_fk": {
+          "name": "leave_applications_approved_by_user_id_user_id_fk",
           "tableFrom": "leave_applications",
-          "tableTo": "employees",
-          "columnsFrom": ["approved_by"],
+          "tableTo": "user",
+          "columnsFrom": ["approved_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -1609,9 +1626,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -1671,11 +1688,11 @@
         }
       },
       "indexes": {
-        "leave_balances_employee_idx": {
-          "name": "leave_balances_employee_idx",
+        "leave_balances_user_idx": {
+          "name": "leave_balances_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1709,11 +1726,11 @@
         }
       },
       "foreignKeys": {
-        "leave_balances_employee_id_employees_id_fk": {
-          "name": "leave_balances_employee_id_employees_id_fk",
+        "leave_balances_user_id_user_id_fk": {
+          "name": "leave_balances_user_id_user_id_fk",
           "tableFrom": "leave_balances",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -1833,7 +1850,7 @@
         },
         "sender_id": {
           "name": "sender_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -1953,10 +1970,10 @@
         }
       },
       "foreignKeys": {
-        "email_sender_id_employees_id_fk": {
-          "name": "email_sender_id_employees_id_fk",
+        "email_sender_id_user_id_fk": {
+          "name": "email_sender_id_user_id_fk",
           "tableFrom": "email",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["sender_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
@@ -2099,7 +2116,7 @@
         },
         "recipient_id": {
           "name": "recipient_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -2243,10 +2260,10 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "email_recipient_recipient_id_employees_id_fk": {
-          "name": "email_recipient_recipient_id_employees_id_fk",
+        "email_recipient_recipient_id_user_id_fk": {
+          "name": "email_recipient_recipient_id_user_id_fk",
           "tableFrom": "email_recipient",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["recipient_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
@@ -2536,7 +2553,7 @@
         },
         "supervisor_id": {
           "name": "supervisor_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -2594,10 +2611,10 @@
         }
       },
       "foreignKeys": {
-        "projects_supervisor_id_employees_id_fk": {
-          "name": "projects_supervisor_id_employees_id_fk",
+        "projects_supervisor_id_user_id_fk": {
+          "name": "projects_supervisor_id_user_id_fk",
           "tableFrom": "projects",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["supervisor_id"],
           "columnsTo": ["id"],
           "onDelete": "set null",
@@ -2702,7 +2719,7 @@
         },
         "uploaded_by": {
           "name": "uploaded_by",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -2791,13 +2808,13 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "document_uploaded_by_employees_id_fk": {
-          "name": "document_uploaded_by_employees_id_fk",
+        "document_uploaded_by_user_id_fk": {
+          "name": "document_uploaded_by_user_id_fk",
           "tableFrom": "document",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["uploaded_by"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "document_organization_id_organization_id_fk": {
@@ -2840,7 +2857,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -2852,7 +2869,7 @@
         },
         "granted_by": {
           "name": "granted_by",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -2979,22 +2996,22 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "document_access_user_id_employees_id_fk": {
-          "name": "document_access_user_id_employees_id_fk",
+        "document_access_user_id_user_id_fk": {
+          "name": "document_access_user_id_user_id_fk",
           "tableFrom": "document_access",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "document_access_granted_by_employees_id_fk": {
-          "name": "document_access_granted_by_employees_id_fk",
+        "document_access_granted_by_user_id_fk": {
+          "name": "document_access_granted_by_user_id_fk",
           "tableFrom": "document_access",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["granted_by"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "document_access_organization_id_organization_id_fk": {
@@ -3031,7 +3048,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -3097,13 +3114,13 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "document_comments_user_id_employees_id_fk": {
-          "name": "document_comments_user_id_employees_id_fk",
+        "document_comments_user_id_user_id_fk": {
+          "name": "document_comments_user_id_user_id_fk",
           "tableFrom": "document_comments",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "document_comments_organization_id_organization_id_fk": {
@@ -3180,9 +3197,9 @@
         },
         "created_by": {
           "name": "created_by",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "organization_id": {
           "name": "organization_id",
@@ -3268,13 +3285,13 @@
         }
       },
       "foreignKeys": {
-        "document_folders_created_by_employees_id_fk": {
-          "name": "document_folders_created_by_employees_id_fk",
+        "document_folders_created_by_user_id_fk": {
+          "name": "document_folders_created_by_user_id_fk",
           "tableFrom": "document_folders",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["created_by"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "document_folders_organization_id_organization_id_fk": {
@@ -3314,7 +3331,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -3404,13 +3421,13 @@
         }
       },
       "foreignKeys": {
-        "document_logs_user_id_employees_id_fk": {
-          "name": "document_logs_user_id_employees_id_fk",
+        "document_logs_user_id_user_id_fk": {
+          "name": "document_logs_user_id_user_id_fk",
           "tableFrom": "document_logs",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "document_logs_document_id_document_id_fk": {
@@ -3484,7 +3501,7 @@
         },
         "created_by": {
           "name": "created_by",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -3544,13 +3561,13 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "document_shared_link_created_by_employees_id_fk": {
-          "name": "document_shared_link_created_by_employees_id_fk",
+        "document_shared_link_created_by_user_id_fk": {
+          "name": "document_shared_link_created_by_user_id_fk",
           "tableFrom": "document_shared_link",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["created_by"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "document_shared_link_organization_id_organization_id_fk": {
@@ -3739,7 +3756,7 @@
         },
         "uploaded_by": {
           "name": "uploaded_by",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -3836,13 +3853,13 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "document_versions_uploaded_by_employees_id_fk": {
-          "name": "document_versions_uploaded_by_employees_id_fk",
+        "document_versions_uploaded_by_user_id_fk": {
+          "name": "document_versions_uploaded_by_user_id_fk",
           "tableFrom": "document_versions",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["uploaded_by"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "document_versions_organization_id_organization_id_fk": {
@@ -3874,7 +3891,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "serial",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -3905,9 +3922,9 @@
         },
         "created_by": {
           "name": "created_by",
-          "type": "serial",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "reference_id": {
           "name": "reference_id",
@@ -3948,10 +3965,10 @@
         }
       },
       "foreignKeys": {
-        "notifications_user_id_employees_id_fk": {
-          "name": "notifications_user_id_employees_id_fk",
+        "notifications_user_id_user_id_fk": {
+          "name": "notifications_user_id_user_id_fk",
           "tableFrom": "notifications",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
@@ -3966,10 +3983,10 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "notifications_created_by_employees_id_fk": {
-          "name": "notifications_created_by_employees_id_fk",
+        "notifications_created_by_user_id_fk": {
+          "name": "notifications_created_by_user_id_fk",
           "tableFrom": "notifications",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["created_by"],
           "columnsTo": ["id"],
           "onDelete": "set null",
@@ -3995,7 +4012,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "serial",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -4066,13 +4083,13 @@
         }
       },
       "foreignKeys": {
-        "notification_preferences_user_id_employees_id_fk": {
-          "name": "notification_preferences_user_id_employees_id_fk",
+        "notification_preferences_user_id_user_id_fk": {
+          "name": "notification_preferences_user_id_user_id_fk",
           "tableFrom": "notification_preferences",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "notification_preferences_organization_id_organization_id_fk": {
@@ -4239,7 +4256,7 @@
         },
         "reviewed_by": {
           "name": "reviewed_by",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -4351,10 +4368,10 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "task_reviews_reviewed_by_employees_id_fk": {
-          "name": "task_reviews_reviewed_by_employees_id_fk",
+        "task_reviews_reviewed_by_user_id_fk": {
+          "name": "task_reviews_reviewed_by_user_id_fk",
           "tableFrom": "task_reviews",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["reviewed_by"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
@@ -4394,7 +4411,7 @@
         },
         "submitted_by": {
           "name": "submitted_by",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -4481,10 +4498,10 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "task_submissions_submitted_by_employees_id_fk": {
-          "name": "task_submissions_submitted_by_employees_id_fk",
+        "task_submissions_submitted_by_user_id_fk": {
+          "name": "task_submissions_submitted_by_user_id_fk",
           "tableFrom": "task_submissions",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["submitted_by"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
@@ -4530,13 +4547,13 @@
         },
         "assigned_to": {
           "name": "assigned_to",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
         "assigned_by": {
           "name": "assigned_by",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -4672,19 +4689,19 @@
         }
       },
       "foreignKeys": {
-        "tasks_assigned_to_employees_id_fk": {
-          "name": "tasks_assigned_to_employees_id_fk",
+        "tasks_assigned_to_user_id_fk": {
+          "name": "tasks_assigned_to_user_id_fk",
           "tableFrom": "tasks",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["assigned_to"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "tasks_assigned_by_employees_id_fk": {
-          "name": "tasks_assigned_by_employees_id_fk",
+        "tasks_assigned_by_user_id_fk": {
+          "name": "tasks_assigned_by_user_id_fk",
           "tableFrom": "tasks",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["assigned_by"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
@@ -4724,7 +4741,7 @@
         },
         "sender_id": {
           "name": "sender_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -4775,10 +4792,10 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "task_messages_sender_id_employees_id_fk": {
-          "name": "task_messages_sender_id_employees_id_fk",
+        "task_messages_sender_id_user_id_fk": {
+          "name": "task_messages_sender_id_user_id_fk",
           "tableFrom": "task_messages",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["sender_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
@@ -4816,9 +4833,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -4852,11 +4869,11 @@
           "method": "btree",
           "with": {}
         },
-        "task_assignees_employee_idx": {
-          "name": "task_assignees_employee_idx",
+        "task_assignees_user_idx": {
+          "name": "task_assignees_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -4893,11 +4910,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "task_assignees_employee_id_employees_id_fk": {
-          "name": "task_assignees_employee_id_employees_id_fk",
+        "task_assignees_user_id_user_id_fk": {
+          "name": "task_assignees_user_id_user_id_fk",
           "tableFrom": "task_assignees",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -5118,7 +5135,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -5215,10 +5232,10 @@
         }
       },
       "foreignKeys": {
-        "balance_transactions_user_id_employees_id_fk": {
-          "name": "balance_transactions_user_id_employees_id_fk",
+        "balance_transactions_user_id_user_id_fk": {
+          "name": "balance_transactions_user_id_user_id_fk",
           "tableFrom": "balance_transactions",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
@@ -5460,15 +5477,15 @@
           "primaryKey": false,
           "notNull": false
         },
-        "created_by": {
-          "name": "created_by",
-          "type": "integer",
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "integer",
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -5514,20 +5531,20 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "allowances_created_by_employees_id_fk": {
-          "name": "allowances_created_by_employees_id_fk",
+        "allowances_created_by_user_id_user_id_fk": {
+          "name": "allowances_created_by_user_id_user_id_fk",
           "tableFrom": "allowances",
-          "tableTo": "employees",
-          "columnsFrom": ["created_by"],
+          "tableTo": "user",
+          "columnsFrom": ["created_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "allowances_updated_by_employees_id_fk": {
-          "name": "allowances_updated_by_employees_id_fk",
+        "allowances_updated_by_user_id_user_id_fk": {
+          "name": "allowances_updated_by_user_id_user_id_fk",
           "tableFrom": "allowances",
-          "tableTo": "employees",
-          "columnsFrom": ["updated_by"],
+          "tableTo": "user",
+          "columnsFrom": ["updated_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -5581,15 +5598,15 @@
           "primaryKey": false,
           "notNull": true
         },
-        "created_by": {
-          "name": "created_by",
-          "type": "integer",
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "integer",
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -5619,20 +5636,20 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "deductions_created_by_employees_id_fk": {
-          "name": "deductions_created_by_employees_id_fk",
+        "deductions_created_by_user_id_user_id_fk": {
+          "name": "deductions_created_by_user_id_user_id_fk",
           "tableFrom": "deductions",
-          "tableTo": "employees",
-          "columnsFrom": ["created_by"],
+          "tableTo": "user",
+          "columnsFrom": ["created_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "deductions_updated_by_employees_id_fk": {
-          "name": "deductions_updated_by_employees_id_fk",
+        "deductions_updated_by_user_id_user_id_fk": {
+          "name": "deductions_updated_by_user_id_user_id_fk",
           "tableFrom": "deductions",
-          "tableTo": "employees",
-          "columnsFrom": ["updated_by"],
+          "tableTo": "user",
+          "columnsFrom": ["updated_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -5654,9 +5671,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -5705,7 +5722,7 @@
           "name": "employee_allowance_id_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5720,7 +5737,7 @@
           "name": "employee_allowance_active_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5740,11 +5757,11 @@
         }
       },
       "foreignKeys": {
-        "employee_allowances_employee_id_employees_id_fk": {
-          "name": "employee_allowances_employee_id_employees_id_fk",
+        "employee_allowances_user_id_user_id_fk": {
+          "name": "employee_allowances_user_id_user_id_fk",
           "tableFrom": "employee_allowances",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -5796,9 +5813,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -5875,11 +5892,11 @@
         }
       },
       "indexes": {
-        "emp_deduction_employee_idx": {
-          "name": "emp_deduction_employee_idx",
+        "emp_deduction_user_idx": {
+          "name": "emp_deduction_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5901,11 +5918,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "employee_deductions_employee_id_employees_id_fk": {
-          "name": "employee_deductions_employee_id_employees_id_fk",
+        "employee_deductions_user_id_user_id_fk": {
+          "name": "employee_deductions_user_id_user_id_fk",
           "tableFrom": "employee_deductions",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -5942,9 +5959,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -5987,7 +6004,7 @@
           "name": "employee_salary_active_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5999,11 +6016,11 @@
           "method": "btree",
           "with": {}
         },
-        "employee_salary_employee_idx": {
-          "name": "employee_salary_employee_idx",
+        "employee_salary_user_idx": {
+          "name": "employee_salary_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6025,11 +6042,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "employee_salary_employee_id_employees_id_fk": {
-          "name": "employee_salary_employee_id_employees_id_fk",
+        "employee_salary_user_id_user_id_fk": {
+          "name": "employee_salary_user_id_user_id_fk",
           "tableFrom": "employee_salary",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -6140,15 +6157,15 @@
           "notNull": false,
           "default": "'draft'"
         },
-        "generated_by": {
-          "name": "generated_by",
-          "type": "integer",
+        "generated_by_user_id": {
+          "name": "generated_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "approved_by": {
-          "name": "approved_by",
-          "type": "integer",
+        "approved_by_user_id": {
+          "name": "approved_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -6158,9 +6175,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "completed_by": {
-          "name": "completed_by",
-          "type": "integer",
+        "completed_by_user_id": {
+          "name": "completed_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -6257,29 +6274,29 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "payrun_generated_by_employees_id_fk": {
-          "name": "payrun_generated_by_employees_id_fk",
+        "payrun_generated_by_user_id_user_id_fk": {
+          "name": "payrun_generated_by_user_id_user_id_fk",
           "tableFrom": "payrun",
-          "tableTo": "employees",
-          "columnsFrom": ["generated_by"],
+          "tableTo": "user",
+          "columnsFrom": ["generated_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "payrun_approved_by_employees_id_fk": {
-          "name": "payrun_approved_by_employees_id_fk",
+        "payrun_approved_by_user_id_user_id_fk": {
+          "name": "payrun_approved_by_user_id_user_id_fk",
           "tableFrom": "payrun",
-          "tableTo": "employees",
-          "columnsFrom": ["approved_by"],
+          "tableTo": "user",
+          "columnsFrom": ["approved_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "payrun_completed_by_employees_id_fk": {
-          "name": "payrun_completed_by_employees_id_fk",
+        "payrun_completed_by_user_id_user_id_fk": {
+          "name": "payrun_completed_by_user_id_user_id_fk",
           "tableFrom": "payrun",
-          "tableTo": "employees",
-          "columnsFrom": ["completed_by"],
+          "tableTo": "user",
+          "columnsFrom": ["completed_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -6319,9 +6336,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -6417,11 +6434,11 @@
           "method": "btree",
           "with": {}
         },
-        "payroll_item_details_employee_idx": {
-          "name": "payroll_item_details_employee_idx",
+        "payroll_item_details_user_idx": {
+          "name": "payroll_item_details_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6497,11 +6514,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "payrun_item_details_employee_id_employees_id_fk": {
-          "name": "payrun_item_details_employee_id_employees_id_fk",
+        "payrun_item_details_user_id_user_id_fk": {
+          "name": "payrun_item_details_user_id_user_id_fk",
           "tableFrom": "payrun_item_details",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -6579,9 +6596,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -6664,11 +6681,11 @@
         }
       },
       "indexes": {
-        "payrun_items_employee_idx": {
-          "name": "payrun_items_employee_idx",
+        "payrun_items_user_idx": {
+          "name": "payrun_items_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6729,11 +6746,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "payrun_items_employee_id_employees_id_fk": {
-          "name": "payrun_items_employee_id_employees_id_fk",
+        "payrun_items_user_id_user_id_fk": {
+          "name": "payrun_items_user_id_user_id_fk",
           "tableFrom": "payrun_items",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -6744,7 +6761,7 @@
         "unique_payrun_item": {
           "name": "unique_payrun_item",
           "nullsNotDistinct": false,
-          "columns": ["payrun_id", "employee_id"]
+          "columns": ["payrun_id", "user_id"]
         }
       },
       "policies": {},
@@ -6773,9 +6790,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -6813,11 +6830,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "payslips_employee_id_employees_id_fk": {
-          "name": "payslips_employee_id_employees_id_fk",
+        "payslips_user_id_user_id_fk": {
+          "name": "payslips_user_id_user_id_fk",
           "tableFrom": "payslips",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -7093,15 +7110,15 @@
           "notNull": true,
           "default": 0
         },
-        "created_by": {
-          "name": "created_by",
-          "type": "integer",
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "integer",
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -7147,20 +7164,20 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "salary_structure_created_by_employees_id_fk": {
-          "name": "salary_structure_created_by_employees_id_fk",
+        "salary_structure_created_by_user_id_user_id_fk": {
+          "name": "salary_structure_created_by_user_id_user_id_fk",
           "tableFrom": "salary_structure",
-          "tableTo": "employees",
-          "columnsFrom": ["created_by"],
+          "tableTo": "user",
+          "columnsFrom": ["created_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "salary_structure_updated_by_employees_id_fk": {
-          "name": "salary_structure_updated_by_employees_id_fk",
+        "salary_structure_updated_by_user_id_user_id_fk": {
+          "name": "salary_structure_updated_by_user_id_user_id_fk",
           "tableFrom": "salary_structure",
-          "tableTo": "employees",
-          "columnsFrom": ["updated_by"],
+          "tableTo": "user",
+          "columnsFrom": ["updated_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -7184,7 +7201,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -7301,10 +7318,10 @@
         }
       },
       "foreignKeys": {
-        "user_preferences_user_id_employees_id_fk": {
-          "name": "user_preferences_user_id_employees_id_fk",
+        "user_preferences_user_id_user_id_fk": {
+          "name": "user_preferences_user_id_user_id_fk",
           "tableFrom": "user_preferences",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
@@ -7342,9 +7359,9 @@
           "primaryKey": true,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -7402,9 +7419,9 @@
           "notNull": true,
           "default": "'Open'"
         },
-        "redirected_to": {
-          "name": "redirected_to",
-          "type": "integer",
+        "redirected_to_user_id": {
+          "name": "redirected_to_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -7424,11 +7441,11 @@
         }
       },
       "indexes": {
-        "ask_hr_questions_employee_idx": {
-          "name": "ask_hr_questions_employee_idx",
+        "ask_hr_questions_user_idx": {
+          "name": "ask_hr_questions_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7469,11 +7486,11 @@
           "method": "btree",
           "with": {}
         },
-        "ask_hr_questions_redirected_to_idx": {
-          "name": "ask_hr_questions_redirected_to_idx",
+        "ask_hr_questions_redirected_to_user_idx": {
+          "name": "ask_hr_questions_redirected_to_user_idx",
           "columns": [
             {
-              "expression": "redirected_to",
+              "expression": "redirected_to_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7486,11 +7503,11 @@
         }
       },
       "foreignKeys": {
-        "ask_hr_questions_employee_id_employees_id_fk": {
-          "name": "ask_hr_questions_employee_id_employees_id_fk",
+        "ask_hr_questions_user_id_user_id_fk": {
+          "name": "ask_hr_questions_user_id_user_id_fk",
           "tableFrom": "ask_hr_questions",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -7504,11 +7521,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "ask_hr_questions_redirected_to_employees_id_fk": {
-          "name": "ask_hr_questions_redirected_to_employees_id_fk",
+        "ask_hr_questions_redirected_to_user_id_user_id_fk": {
+          "name": "ask_hr_questions_redirected_to_user_id_user_id_fk",
           "tableFrom": "ask_hr_questions",
-          "tableTo": "employees",
-          "columnsFrom": ["redirected_to"],
+          "tableTo": "user",
+          "columnsFrom": ["redirected_to_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -7536,9 +7553,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "respondent_id": {
-          "name": "respondent_id",
-          "type": "integer",
+        "respondent_user_id": {
+          "name": "respondent_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -7592,11 +7609,11 @@
           "method": "btree",
           "with": {}
         },
-        "ask_hr_responses_respondent_idx": {
-          "name": "ask_hr_responses_respondent_idx",
+        "ask_hr_responses_respondent_user_idx": {
+          "name": "ask_hr_responses_respondent_user_idx",
           "columns": [
             {
-              "expression": "respondent_id",
+              "expression": "respondent_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7618,11 +7635,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "ask_hr_responses_respondent_id_employees_id_fk": {
-          "name": "ask_hr_responses_respondent_id_employees_id_fk",
+        "ask_hr_responses_respondent_user_id_user_id_fk": {
+          "name": "ask_hr_responses_respondent_user_id_user_id_fk",
           "tableFrom": "ask_hr_responses",
-          "tableTo": "employees",
-          "columnsFrom": ["respondent_id"],
+          "tableTo": "user",
+          "columnsFrom": ["respondent_user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -7665,9 +7682,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -7715,9 +7732,9 @@
           "notNull": true,
           "default": "'pending'"
         },
-        "hr_reviewed_by": {
-          "name": "hr_reviewed_by",
-          "type": "integer",
+        "hr_reviewed_by_user_id": {
+          "name": "hr_reviewed_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -7733,9 +7750,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "disbursed_by": {
-          "name": "disbursed_by",
-          "type": "integer",
+        "disbursed_by_user_id": {
+          "name": "disbursed_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -7800,11 +7817,11 @@
         }
       },
       "indexes": {
-        "loan_app_employee_idx": {
-          "name": "loan_app_employee_idx",
+        "loan_app_user_idx": {
+          "name": "loan_app_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7860,11 +7877,11 @@
           "method": "btree",
           "with": {}
         },
-        "loan_app_hr_reviewed_idx": {
-          "name": "loan_app_hr_reviewed_idx",
+        "loan_app_hr_reviewed_user_idx": {
+          "name": "loan_app_hr_reviewed_user_idx",
           "columns": [
             {
-              "expression": "hr_reviewed_by",
+              "expression": "hr_reviewed_by_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7875,11 +7892,11 @@
           "method": "btree",
           "with": {}
         },
-        "loan_app_disbursed_idx": {
-          "name": "loan_app_disbursed_idx",
+        "loan_app_disbursed_user_idx": {
+          "name": "loan_app_disbursed_user_idx",
           "columns": [
             {
-              "expression": "disbursed_by",
+              "expression": "disbursed_by_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7894,7 +7911,7 @@
           "name": "loan_app_active_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7923,11 +7940,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "loan_applications_employee_id_employees_id_fk": {
-          "name": "loan_applications_employee_id_employees_id_fk",
+        "loan_applications_user_id_user_id_fk": {
+          "name": "loan_applications_user_id_user_id_fk",
           "tableFrom": "loan_applications",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -7941,20 +7958,20 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "loan_applications_hr_reviewed_by_employees_id_fk": {
-          "name": "loan_applications_hr_reviewed_by_employees_id_fk",
+        "loan_applications_hr_reviewed_by_user_id_user_id_fk": {
+          "name": "loan_applications_hr_reviewed_by_user_id_user_id_fk",
           "tableFrom": "loan_applications",
-          "tableTo": "employees",
-          "columnsFrom": ["hr_reviewed_by"],
+          "tableTo": "user",
+          "columnsFrom": ["hr_reviewed_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "loan_applications_disbursed_by_employees_id_fk": {
-          "name": "loan_applications_disbursed_by_employees_id_fk",
+        "loan_applications_disbursed_by_user_id_user_id_fk": {
+          "name": "loan_applications_disbursed_by_user_id_user_id_fk",
           "tableFrom": "loan_applications",
-          "tableTo": "employees",
-          "columnsFrom": ["disbursed_by"],
+          "tableTo": "user",
+          "columnsFrom": ["disbursed_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
@@ -8015,9 +8032,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "performed_by": {
-          "name": "performed_by",
-          "type": "integer",
+        "performed_by_user_id": {
+          "name": "performed_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -8101,11 +8118,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "loan_history_performed_by_employees_id_fk": {
-          "name": "loan_history_performed_by_employees_id_fk",
+        "loan_history_performed_by_user_id_user_id_fk": {
+          "name": "loan_history_performed_by_user_id_user_id_fk",
           "tableFrom": "loan_history",
-          "tableTo": "employees",
-          "columnsFrom": ["performed_by"],
+          "tableTo": "user",
+          "columnsFrom": ["performed_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
@@ -8139,9 +8156,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "employee_id": {
-          "name": "employee_id",
-          "type": "integer",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -8239,11 +8256,11 @@
           "method": "btree",
           "with": {}
         },
-        "loan_repayment_employee_idx": {
-          "name": "loan_repayment_employee_idx",
+        "loan_repayment_user_idx": {
+          "name": "loan_repayment_user_idx",
           "columns": [
             {
-              "expression": "employee_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8304,11 +8321,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "loan_repayments_employee_id_employees_id_fk": {
-          "name": "loan_repayments_employee_id_employees_id_fk",
+        "loan_repayments_user_id_user_id_fk": {
+          "name": "loan_repayments_user_id_user_id_fk",
           "tableFrom": "loan_repayments",
-          "tableTo": "employees",
-          "columnsFrom": ["employee_id"],
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -8517,15 +8534,15 @@
           "notNull": true,
           "default": true
         },
-        "created_by": {
-          "name": "created_by",
-          "type": "integer",
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "integer",
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -8586,20 +8603,20 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "loan_types_created_by_employees_id_fk": {
-          "name": "loan_types_created_by_employees_id_fk",
+        "loan_types_created_by_user_id_user_id_fk": {
+          "name": "loan_types_created_by_user_id_user_id_fk",
           "tableFrom": "loan_types",
-          "tableTo": "employees",
-          "columnsFrom": ["created_by"],
+          "tableTo": "user",
+          "columnsFrom": ["created_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "loan_types_updated_by_employees_id_fk": {
-          "name": "loan_types_updated_by_employees_id_fk",
+        "loan_types_updated_by_user_id_user_id_fk": {
+          "name": "loan_types_updated_by_user_id_user_id_fk",
           "tableFrom": "loan_types",
-          "tableTo": "employees",
-          "columnsFrom": ["updated_by"],
+          "tableTo": "user",
+          "columnsFrom": ["updated_by_user_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -8654,7 +8671,7 @@
         },
         "author_id": {
           "name": "author_id",
-          "type": "serial",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -8735,10 +8752,10 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "news_articles_author_id_employees_id_fk": {
-          "name": "news_articles_author_id_employees_id_fk",
+        "news_articles_author_id_user_id_fk": {
+          "name": "news_articles_author_id_user_id_fk",
           "tableFrom": "news_articles",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["author_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
@@ -8874,7 +8891,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "serial",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -8935,10 +8952,10 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "news_comments_user_id_employees_id_fk": {
-          "name": "news_comments_user_id_employees_id_fk",
+        "news_comments_user_id_user_id_fk": {
+          "name": "news_comments_user_id_user_id_fk",
           "tableFrom": "news_comments",
-          "tableTo": "employees",
+          "tableTo": "user",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
