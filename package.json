@@ -14,10 +14,7 @@
     "db:stop": "docker compose stop",
     "db:studio": "drizzle-kit studio --port=5678 --host=127.0.0.1",
     "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@arcjet/ip": "1.0.0-beta.15",
@@ -27,7 +24,6 @@
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^5.2.2",
     "@next/bundle-analyzer": "^16.0.6",
-    "@opennextjs/cloudflare": "^1.14.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.10",
