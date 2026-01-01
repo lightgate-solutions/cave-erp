@@ -6,11 +6,12 @@ import {
   getOrgOwnerPlan,
 } from "@/lib/plan-utils";
 import { db } from "@/db";
-import { subscriptions, organization } from "@/db/schema";
+import { subscriptions, organization, invitation } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import type { PlanId } from "@/lib/plans";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { createEmployee } from "./hr/employees";
 
 export async function validateOrganizationCreation() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -90,6 +91,66 @@ export async function getOrganizationSubscriptionContext(
       success: false,
       data: null,
       error: "Failed to fetch subscription context",
+    };
+  }
+}
+
+export async function acceptInvitationAndCreateEmployee(invitationId: string) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session || !session.user.id) {
+      return {
+        success: false,
+        error: "User not authenticated",
+      };
+    }
+
+    // Get the invitation details before accepting
+    const inviteDetails = await db.query.invitation.findFirst({
+      where: eq(invitation.id, invitationId),
+    });
+
+    if (!inviteDetails) {
+      return {
+        success: false,
+        error: "Invitation not found",
+      };
+    }
+
+    // Accept the invitation using Better Auth
+    await auth.api.acceptInvitation({
+      headers: await headers(),
+      body: { invitationId },
+    });
+
+    // Create employee record with the department from invitation
+    const result = await createEmployee({
+      name: session.user.name,
+      email: session.user.email,
+      authId: session.user.id,
+      role: "user",
+      data: {
+        department: inviteDetails.department,
+      },
+      isManager: false,
+    });
+
+    if (result.error) {
+      return {
+        success: false,
+        error: result.error.reason,
+      };
+    }
+
+    return {
+      success: true,
+      organizationId: inviteDetails.organizationId,
+    };
+  } catch (error) {
+    console.error("Error accepting invitation and creating employee:", error);
+    return {
+      success: false,
+      error: "Failed to accept invitation",
     };
   }
 }

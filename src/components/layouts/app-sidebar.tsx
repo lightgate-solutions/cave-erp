@@ -166,11 +166,16 @@ export function AppSidebar({
   const [isManager, setIsManager] = useState<boolean | null>(null);
   const [isHrOrAdmin, setIsHrOrAdmin] = useState<boolean>(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  // Query notifications - will return undefined if query fails or is loading
   const notifications = useQuery(api.notifications.getUserNotifications, {
     userId: userId,
     organizationId,
   });
-  const unreadCount = notifications?.filter((n) => !n.isRead).length;
+  // Safely calculate unread count, defaulting to 0 if query fails or returns invalid data
+  const unreadCount =
+    notifications && Array.isArray(notifications)
+      ? notifications.filter((n) => !n.isRead).length
+      : 0;
 
   useEffect(() => {
     let active = true;

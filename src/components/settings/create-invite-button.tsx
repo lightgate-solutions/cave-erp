@@ -36,6 +36,7 @@ import {
 const createInviteSchema = z.object({
   email: z.email().min(1).trim(),
   role: z.enum(["member", "admin"]),
+  department: z.enum(["admin", "hr", "finance", "operations"]),
 });
 
 type CreateInviteForm = z.infer<typeof createInviteSchema>;
@@ -48,6 +49,7 @@ export function CreateInviteButton() {
     defaultValues: {
       email: "",
       role: "member",
+      department: "operations",
     },
   });
 
@@ -127,6 +129,43 @@ export function CreateInviteButton() {
                     <SelectContent position="item-aligned">
                       <SelectItem value="member">Member</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="department"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field
+                  orientation="responsive"
+                  data-invalid={fieldState.invalid}
+                >
+                  <FieldContent>
+                    <FieldLabel htmlFor="department">Department</FieldLabel>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </FieldContent>
+                  <Select
+                    name={field.name}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger
+                      id="department"
+                      aria-invalid={fieldState.invalid}
+                      className="min-w-[120px]"
+                    >
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent position="item-aligned">
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="hr">HR</SelectItem>
+                      <SelectItem value="finance">Finance</SelectItem>
+                      <SelectItem value="operations">Operations</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>

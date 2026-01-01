@@ -99,6 +99,7 @@ export function InvitesCard() {
                 <TableRow>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Department</TableHead>
                   <TableHead>Expires</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -109,6 +110,12 @@ export function InvitesCard() {
                     <TableCell>{invitation.email}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{invitation.role}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {invitation.department?.charAt(0).toUpperCase() +
+                          invitation.department?.slice(1) || "Operations"}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       {new Date(invitation.expiresAt).toLocaleDateString()}

@@ -132,6 +132,10 @@ export default async function OrganizationsPage() {
                                 >
                                   {invite.role}
                                 </Badge>
+                                <Badge variant="outline">
+                                  {invite.department?.charAt(0).toUpperCase() +
+                                    invite.department?.slice(1) || "Operations"}
+                                </Badge>
                               </div>
                               <div className="space-y-1 text-sm text-muted-foreground">
                                 <p className="flex items-center gap-2">

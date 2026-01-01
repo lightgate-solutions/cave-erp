@@ -65,7 +65,7 @@ export const employees = pgTable(
     authId: text("auth_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    email: text("email").notNull().unique(),
+    email: text("email").notNull(),
     phone: text("phone"),
     staffNumber: text("staff_number"),
     role: text("role").notNull(),

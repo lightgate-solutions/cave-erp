@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { acceptInvitationAndCreateEmployee } from "@/actions/organizations";
 
 export function InviteActions({
   inviteId,
@@ -16,25 +17,25 @@ export function InviteActions({
   const router = useRouter();
 
   const handleAccept = async () => {
-    await authClient.organization.acceptInvitation(
-      {
-        invitationId: inviteId,
-      },
-      {
-        onError: (err) => {
-          toast.error(err.error.message || "Failed to accept invite");
-        },
-        onSuccess: async () => {
-          await authClient.organization.setActive({
-            organizationId: orgId,
-          });
-          toast.success("Joined organization successfully");
-          setTimeout(() => {
-            router.push("/");
-          }, 1000);
-        },
-      },
-    );
+    try {
+      const result = await acceptInvitationAndCreateEmployee(inviteId);
+
+      if (!result.success) {
+        toast.error(result.error || "Failed to accept invite");
+        return;
+      }
+
+      await authClient.organization.setActive({
+        organizationId: orgId,
+      });
+
+      toast.success("Joined organization successfully");
+      setTimeout(() => {
+        router.push("/");
+      }, 1000);
+    } catch (_err) {
+      toast.error("Failed to accept invite");
+    }
   };
 
   const handleReject = async () => {

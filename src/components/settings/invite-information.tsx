@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { BetterAuthActionButton } from "@/components/auth/better-auth-action-button";
 import { authClient } from "@/lib/auth-client";
+import { acceptInvitationAndCreateEmployee } from "@/actions/organizations";
+import { toast } from "sonner";
 
 export function InviteInformation({
   invitation,
@@ -11,18 +13,30 @@ export function InviteInformation({
 }) {
   const router = useRouter();
 
-  function acceptInvite() {
-    return authClient.organization.acceptInvitation(
-      { invitationId: invitation.id },
-      {
-        onSuccess: async () => {
-          await authClient.organization.setActive({
-            organizationId: invitation.organizationId,
-          });
-          router.push("/");
-        },
-      },
-    );
+  async function acceptInvite() {
+    try {
+      const result = await acceptInvitationAndCreateEmployee(invitation.id);
+
+      if (!result.success) {
+        toast.error(result.error || "Failed to accept invite");
+        return {
+          error: { message: result.error || "Failed to accept invite" },
+        };
+      }
+
+      await authClient.organization.setActive({
+        organizationId: invitation.organizationId,
+      });
+
+      toast.success("Joined organization successfully");
+      router.push("/");
+      return { error: null };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to accept invite";
+      toast.error(message);
+      return { error: { message } };
+    }
   }
   function rejectInvite() {
     return authClient.organization.rejectInvitation(

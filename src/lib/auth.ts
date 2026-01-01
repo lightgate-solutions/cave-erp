@@ -106,6 +106,16 @@ export const auth = betterAuth({
             },
           },
         },
+        invitation: {
+          additionalFields: {
+            department: {
+              type: "string",
+              input: true,
+              required: true,
+              defaultValue: "operations",
+            },
+          },
+        },
       },
       sendInvitationEmail: async ({
         email,
