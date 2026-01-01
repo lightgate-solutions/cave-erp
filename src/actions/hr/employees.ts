@@ -204,7 +204,12 @@ export async function createEmployee(data: {
           role: data.role,
           isManager: data.isManager,
           status: "active",
-          department: userData.data?.department ?? "general",
+          department:
+            (userData.data?.department as
+              | "hr"
+              | "admin"
+              | "finance"
+              | "operations") ?? "operations",
           managerId: parsedManagerId,
           dateOfBirth: dobValue,
           documentCount: 0,

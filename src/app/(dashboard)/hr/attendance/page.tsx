@@ -49,7 +49,7 @@ export default async function AttendancePage(props: {
     if (
       isManagerOrHR &&
       authData.role !== "admin" &&
-      authData.employee.department !== "HR" &&
+      authData.employee.department !== "hr" &&
       authData.employee.isManager
     ) {
       filters.managerId = authData.userId;

@@ -240,10 +240,15 @@ export async function createUser(data: {
           authId: user.user.id,
           phone: userData.data?.phone ?? "",
           staffNumber: userData.data?.staffNumber ?? "",
-          role: user.user.role ?? "user",
+          role: (user.user.role as "user" | "admin") ?? "user",
           isManager: data.isManager,
           status: "active",
-          department: userData.data?.department ?? "general",
+          department:
+            (userData.data?.department as
+              | "hr"
+              | "admin"
+              | "finance"
+              | "operations") ?? "operations",
           managerId: parsedManagerId,
           organizationId: organization.id,
           dateOfBirth: dobValue,
@@ -251,8 +256,6 @@ export async function createUser(data: {
           address: userData.data?.address ?? null,
           maritalStatus: userData.data?.maritalStatus ?? null,
           employmentType: userData.data?.employmentType ?? null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
         })
         .returning();
 

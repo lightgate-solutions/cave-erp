@@ -8,9 +8,20 @@ import { auth } from "@/lib/auth";
 import { sql, inArray, and, gte, lte, type SQL, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
+import { requireFinance } from "@/actions/auth/dal";
 
 export async function GET(request: NextRequest) {
   try {
+    // Check Finance department or admin access
+    try {
+      await requireFinance();
+    } catch {
+      return NextResponse.json(
+        { error: "Forbidden: Finance department or Admin access required" },
+        { status: 403 },
+      );
+    }
+
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });

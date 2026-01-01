@@ -22,6 +22,7 @@ import { createNotification } from "@/actions/notification/notification";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { z } from "zod";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 
 const questionSchema = z.object({
   title: z
@@ -100,7 +101,7 @@ export async function getAskHrQuestions(filters?: {
 
     // Handle filtering based on user role and requested view
     const isHrAdmin =
-      currentUser.department === "HR" || currentUser.role === "admin";
+      currentUser.department === DEPARTMENTS.HR || currentUser.role === "admin";
 
     if (filters?.publicOnly) {
       // Public questions view - visible to all
@@ -290,7 +291,7 @@ export async function getAskHrQuestion(questionId: number) {
     }
 
     const isHrAdmin =
-      currentUser.department === "HR" || currentUser.role === "admin";
+      currentUser.department === DEPARTMENTS.HR || currentUser.role === "admin";
     const isOwner = question.authorId === currentUser.authId;
     const isRedirected = question.redirectedToUserId === currentUser.authId;
     const isPublic = question.isPublic;
@@ -472,7 +473,7 @@ export async function respondToAskHrQuestion(
 
     // Check if user can respond (HR/admin or redirected user)
     const isHrAdmin =
-      currentUser.department === "HR" || currentUser.role === "admin";
+      currentUser.department === DEPARTMENTS.HR || currentUser.role === "admin";
     const isRedirected = question.redirectedToUserId === currentUser.authId;
 
     if (!isHrAdmin && !isRedirected) {
@@ -582,7 +583,10 @@ export async function redirectAskHrQuestion(
     }
 
     // Only HR/admin can redirect questions
-    if (currentUser.department !== "HR" && currentUser.role !== "admin") {
+    if (
+      currentUser.department !== DEPARTMENTS.HR &&
+      currentUser.role !== "admin"
+    ) {
       return {
         success: null,
         error: { reason: "Only HR and admin can redirect questions" },
@@ -704,7 +708,10 @@ export async function updateAskHrQuestionStatus(
     }
 
     // Only HR/admin can update status
-    if (currentUser.department !== "HR" && currentUser.role !== "admin") {
+    if (
+      currentUser.department !== DEPARTMENTS.HR &&
+      currentUser.role !== "admin"
+    ) {
       return {
         success: null,
         error: { reason: "Only HR and admin can update question status" },
@@ -826,7 +833,7 @@ async function notifyHrDepartment(
     .from(employees)
     .where(
       and(
-        eq(employees.department, "HR"),
+        eq(employees.department, DEPARTMENTS.HR),
         eq(employees.organizationId, organizationId),
       ),
     );
@@ -859,7 +866,10 @@ export async function getEmployeesForRedirection() {
     }
 
     // Only HR/admin can access this
-    if (currentUser.department !== "HR" && currentUser.role !== "admin") {
+    if (
+      currentUser.department !== DEPARTMENTS.HR &&
+      currentUser.role !== "admin"
+    ) {
       return [];
     }
 
@@ -910,7 +920,7 @@ export async function updateQuestionVisibility(
 
     // Only HR/admin or the question owner can update visibility
     const isHrAdmin =
-      currentUser.department === "HR" || currentUser.role === "admin";
+      currentUser.department === DEPARTMENTS.HR || currentUser.role === "admin";
 
     if (!isHrAdmin) {
       // Check if user is the author

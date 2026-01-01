@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: <> */
+
 "use client";
 
 import type * as React from "react";
@@ -16,6 +18,10 @@ import {
   Bug,
   Logs,
   Timer,
+  MessageSquare,
+  CreditCard,
+  Calendar,
+  type LucideIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,6 +38,9 @@ import { getUser as getEmployee } from "@/actions/auth/dal";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { OrganizationSwitcher } from "../settings/organization-switcher";
+import { canAccessModule } from "@/lib/permissions/helpers";
+import { MODULES } from "@/lib/permissions/types";
+import type { UserPermissionContext } from "@/lib/permissions/types";
 
 const data = {
   org: [
@@ -47,17 +56,20 @@ const data = {
       url: "/",
       icon: TvMinimal,
       isActive: false,
+      module: MODULES.DASHBOARD,
     },
     {
       title: "Attendance",
       url: "/hr/attendance",
       icon: Timer,
+      module: MODULES.ATTENDANCE,
     },
     {
       title: "Documents",
       url: "/documents",
       icon: Folder,
       isActive: false,
+      module: MODULES.DOCUMENTS,
       items: [
         {
           title: "Main",
@@ -81,38 +93,48 @@ const data = {
       title: "Finance",
       url: "/finance",
       icon: Landmark,
+      module: MODULES.FINANCE,
     },
     // Task/Performance is customized per role at runtime
     {
       title: "Mail",
       url: "/mail/inbox",
       icon: Mail,
+      module: MODULES.MAIL,
     },
     {
       title: "Projects",
       url: "/projects",
       icon: Warehouse,
+      module: MODULES.PROJECTS,
+    },
+    {
+      title: "Ask HR",
+      url: "/hr/ask-hr",
+      icon: MessageSquare,
+      module: MODULES.ASK_HR,
+    },
+    {
+      title: "Loan Management",
+      url: "/hr/loans",
+      icon: CreditCard,
+      module: MODULES.LOAN_MANAGEMENT,
+    },
+    {
+      title: "Leave Management",
+      url: "/hr/leaves",
+      icon: Calendar,
+      module: MODULES.LEAVE_MANAGEMENT,
     },
     {
       title: "Hr",
       url: "/hr",
       icon: Users,
+      module: MODULES.HR_EMPLOYEES,
       items: [
         {
           title: "Employees",
           url: "/hr/employees",
-        },
-        {
-          title: "Ask HR",
-          url: "/hr/ask-hr",
-        },
-        {
-          title: "Loan Management",
-          url: "/hr/loans",
-        },
-        {
-          title: "Leave Management",
-          url: "/hr/leaves",
         },
       ],
     },
@@ -120,6 +142,7 @@ const data = {
       title: "Notifications",
       url: "/notifications",
       icon: Bell,
+      module: MODULES.NOTIFICATIONS,
       items: [
         {
           title: "View Notifications",
@@ -135,6 +158,7 @@ const data = {
       title: "Payroll",
       url: "/payroll",
       icon: DollarSign,
+      module: MODULES.PAYROLL,
       items: [
         {
           title: "Salary Structures",
@@ -164,8 +188,9 @@ export function AppSidebar({
   organizationId: string;
 }) {
   const [isManager, setIsManager] = useState<boolean | null>(null);
-  const [isHrOrAdmin, setIsHrOrAdmin] = useState<boolean>(false);
+  const [_isHrOrAdmin, setIsHrOrAdmin] = useState<boolean>(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [employee, setEmployee] = useState<any>(null);
   // Query notifications - will return undefined if query fails or is loading
   const notifications = useQuery(api.notifications.getUserNotifications, {
     userId: userId,
@@ -183,6 +208,7 @@ export function AppSidebar({
       try {
         const emp = await getEmployee();
         if (active) {
+          setEmployee(emp);
           setIsManager(!!emp?.isManager);
           setIsAdmin(emp?.role === "admin");
 
@@ -195,6 +221,7 @@ export function AppSidebar({
       } catch {
         if (active) {
           setIsManager(null);
+          setEmployee(null);
         }
       }
     })();
@@ -204,24 +231,51 @@ export function AppSidebar({
   }, []);
 
   const groupedItems = useMemo(() => {
-    const base = data.navMain.filter((i) => i.title !== "Task/Performance");
+    if (isManager === null || !employee) {
+      return {
+        overview: [],
+        modules: [],
+        management: [],
+        system: [],
+      };
+    }
+
+    // Create user permission context
+    const userContext: UserPermissionContext = {
+      department: employee?.department || "operations",
+      role: employee?.role || "member",
+      isManager: isManager || false,
+    };
+
+    // Filter base items by permission
+    const base = data.navMain.filter((item) => {
+      if (item.title === "Task/Performance") return false;
+      if (!item.module) return true; // Allow items without module specified
+      return canAccessModule(userContext, item.module);
+    });
+
     const taskItem = {
       title: "Task/Performance",
       url: "/tasks",
       icon: AlarmClockCheck,
+      isActive: false,
+      module: MODULES.TASKS,
       items: isManager
         ? [
             { title: "Task Item", url: "/tasks" },
             { title: "To-Do", url: "/tasks/employee" },
             { title: "Task Submission", url: "/tasks/manager" },
           ]
-        : [],
+        : [{ title: "To-Do", url: "/tasks/employee" }],
     };
+
     const newsItem = {
       title: "News",
       url: "/news",
       icon: Newspaper,
-      items: isHrOrAdmin
+      isActive: false,
+      module: MODULES.NEWS_VIEW,
+      items: canAccessModule(userContext, MODULES.NEWS_MANAGE)
         ? [
             { title: "View News", url: "/news" },
             { title: "Manage News", url: "/news/manage" },
@@ -229,23 +283,43 @@ export function AppSidebar({
         : [{ title: "View News", url: "/news" }],
     };
 
-    const allItems = [...base, taskItem, newsItem];
+    const allItems: Array<{
+      title: string;
+      url: string;
+      icon?: LucideIcon;
+      isActive?: boolean;
+      module?: string;
+      items?: Array<{ title: string; url: string }>;
+    }> = [...base];
 
-    // Only show Data Export to admins
+    // Add task item if user has access
+    if (canAccessModule(userContext, MODULES.TASKS)) {
+      allItems.push(taskItem);
+    }
+
+    // Add news item if user has access
+    if (canAccessModule(userContext, MODULES.NEWS_VIEW)) {
+      allItems.push(newsItem);
+    }
+
+    // Data Export - admin only
     if (isAdmin) {
       allItems.push({
         title: "Data Export",
         url: "/logs",
         icon: Logs,
         isActive: false,
+        module: MODULES.DATA_EXPORT,
       });
     }
 
+    // Support/Feedback - available to all
     allItems.push({
       title: "Support/Feedback",
       url: "/bug",
       icon: Bug,
       isActive: false,
+      module: MODULES.SUPPORT,
     });
 
     const groups = {
@@ -264,7 +338,16 @@ export function AppSidebar({
         )
       ) {
         groups.modules.push(item);
-      } else if (["Finance", "Hr", "Payroll"].includes(item.title)) {
+      } else if (
+        [
+          "Finance",
+          "Hr",
+          "Payroll",
+          "Ask HR",
+          "Loan Management",
+          "Leave Management",
+        ].includes(item.title)
+      ) {
         groups.management.push(item);
       } else {
         groups.system.push(item);
@@ -272,7 +355,7 @@ export function AppSidebar({
     });
 
     return groups;
-  }, [isManager, isHrOrAdmin, isAdmin]);
+  }, [isManager, isAdmin, employee]);
 
   return (
     <Sidebar collapsible="icon" {...props}>

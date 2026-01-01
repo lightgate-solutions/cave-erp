@@ -67,7 +67,7 @@ export default function AskHrTable() {
   });
 
   const isHrAdmin =
-    currentUser?.department === "HR" || currentUser?.role === "admin";
+    currentUser?.department === "hr" || currentUser?.role === "admin";
 
   // Parse URL params
   const initialCategory = searchParams.get("category") || "all";

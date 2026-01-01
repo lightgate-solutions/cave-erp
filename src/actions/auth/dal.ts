@@ -7,6 +7,9 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { employees } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
+import { canAccessModule } from "@/lib/permissions/helpers";
+import type { UserPermissionContext, Module } from "@/lib/permissions/types";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 
 export const verifySession = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -128,6 +131,51 @@ export const requireManager = cache(async () => {
 
   if (!authData.employee.isManager && authData.role !== "admin") {
     throw new Error("Forbidden: Manager or Admin access required");
+  }
+
+  return authData;
+});
+
+// Helper to require HR department or admin
+export const requireHR = cache(async () => {
+  const authData = await requireAuth();
+
+  if (
+    authData.role !== "admin" &&
+    authData.employee.department !== DEPARTMENTS.HR
+  ) {
+    throw new Error("Forbidden: HR department or Admin access required");
+  }
+
+  return authData;
+});
+
+// Helper to require Finance department or admin
+export const requireFinance = cache(async () => {
+  const authData = await requireAuth();
+
+  if (
+    authData.role !== "admin" &&
+    authData.employee.department !== DEPARTMENTS.FINANCE
+  ) {
+    throw new Error("Forbidden: Finance department or Admin access required");
+  }
+
+  return authData;
+});
+
+// Generic helper to require specific module access
+export const requireModuleAccess = cache(async (module: Module) => {
+  const authData = await requireAuth();
+
+  const userContext: UserPermissionContext = {
+    department: authData.employee.department,
+    role: authData.role === "admin" ? "admin" : "user",
+    isManager: authData.employee.isManager,
+  };
+
+  if (!canAccessModule(userContext, module)) {
+    throw new Error("Forbidden: You don't have access to this module");
   }
 
   return authData;

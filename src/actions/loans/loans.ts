@@ -31,6 +31,7 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { revalidatePath } from "next/cache";
 import { getUser } from "@/actions/auth/dal";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
@@ -183,7 +184,10 @@ export async function createLoanType(data: {
     if (!currentUser) {
       return { success: null, error: { reason: "Unauthorized" } };
     }
-    if (currentUser.department !== "HR" && currentUser.role !== "admin") {
+    if (
+      currentUser.department !== DEPARTMENTS.HR &&
+      currentUser.role !== "admin"
+    ) {
       return {
         success: null,
         error: { reason: "Only HR staff can create loan types" },
@@ -263,7 +267,10 @@ export async function updateLoanType(
     if (!currentUser) {
       return { success: null, error: { reason: "Unauthorized" } };
     }
-    if (currentUser.department !== "HR" && currentUser.role !== "admin") {
+    if (
+      currentUser.department !== DEPARTMENTS.HR &&
+      currentUser.role !== "admin"
+    ) {
       return {
         success: null,
         error: { reason: "Only HR staff can update loan types" },
@@ -334,7 +341,10 @@ export async function deleteLoanType(loanTypeId: number) {
     if (!currentUser) {
       return { success: null, error: { reason: "Unauthorized" } };
     }
-    if (currentUser.department !== "HR" && currentUser.role !== "admin") {
+    if (
+      currentUser.department !== DEPARTMENTS.HR &&
+      currentUser.role !== "admin"
+    ) {
       return {
         success: null,
         error: { reason: "Only HR staff can delete loan types" },
@@ -880,7 +890,10 @@ export async function hrReviewLoan(data: {
     if (!currentUser) {
       return { success: null, error: { reason: "Unauthorized" } };
     }
-    if (currentUser.department !== "HR" && currentUser.role !== "admin") {
+    if (
+      currentUser.department !== DEPARTMENTS.HR &&
+      currentUser.role !== "admin"
+    ) {
       return {
         success: null,
         error: { reason: "Only HR staff can review loan applications" },
@@ -1027,7 +1040,10 @@ export async function disburseLoan(data: {
     if (!currentUser) {
       return { success: null, error: { reason: "Unauthorized" } };
     }
-    if (currentUser.department !== "Finance" && currentUser.role !== "admin") {
+    if (
+      currentUser.department !== DEPARTMENTS.FINANCE &&
+      currentUser.role !== "admin"
+    ) {
       return {
         success: null,
         error: { reason: "Only Finance staff can disburse loans" },
@@ -1225,7 +1241,7 @@ export async function cancelLoanApplication(
     // Only the applicant or HR/admin can cancel
     const isOwner = application.userId === currentUser.authId;
     const isHROrAdmin =
-      currentUser.department === "HR" || currentUser.role === "admin";
+      currentUser.department === DEPARTMENTS.HR || currentUser.role === "admin";
     if (!isOwner && !isHROrAdmin) {
       return {
         success: null,

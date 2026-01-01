@@ -54,6 +54,15 @@ export const attendanceStatusEnum = pgEnum("attendance_status", [
   "Rejected",
 ]);
 
+export const employeesDepartmentEnum = pgEnum("employees_department", [
+  "hr",
+  "admin",
+  "finance",
+  "operations",
+]);
+
+export const employeesRoleEnum = pgEnum("employees_role", ["admin", "user"]);
+
 export const employees = pgTable(
   "employees",
   {
@@ -68,9 +77,11 @@ export const employees = pgTable(
     email: text("email").notNull(),
     phone: text("phone"),
     staffNumber: text("staff_number"),
-    role: text("role").notNull(),
+    role: employeesRoleEnum("role").notNull().default("user"),
     isManager: boolean("is_manager").notNull().default(false),
-    department: text("department").notNull(),
+    department: employeesDepartmentEnum("department")
+      .notNull()
+      .default("operations"),
     managerId: text("manager_id").references(() => user.id),
     organizationsCount: integer("organizations_count").default(0),
     dateOfBirth: date("date_of_birth"),

@@ -1,0 +1,103 @@
+import { DEPARTMENTS, MODULES, type Department, type Module } from "./types";
+
+// Define which departments have access to which modules
+const DEPARTMENT_MODULE_ACCESS: Record<Department, Module[]> = {
+  [DEPARTMENTS.ADMIN]: [
+    // Admin has access to everything
+    ...Object.values(MODULES),
+  ],
+  [DEPARTMENTS.HR]: [
+    // General access
+    MODULES.DASHBOARD,
+    MODULES.ATTENDANCE,
+    MODULES.DOCUMENTS,
+    MODULES.MAIL,
+    MODULES.PROJECTS,
+    MODULES.TASKS,
+    MODULES.ASK_HR,
+    MODULES.LOAN_MANAGEMENT,
+    MODULES.LEAVE_MANAGEMENT,
+    MODULES.NOTIFICATIONS,
+    MODULES.NEWS_VIEW,
+    MODULES.SUPPORT,
+    // HR specific
+    MODULES.HR_EMPLOYEES,
+    MODULES.PAYROLL,
+    MODULES.NEWS_MANAGE,
+  ],
+  [DEPARTMENTS.FINANCE]: [
+    // General access
+    MODULES.DASHBOARD,
+    MODULES.ATTENDANCE,
+    MODULES.DOCUMENTS,
+    MODULES.MAIL,
+    MODULES.PROJECTS,
+    MODULES.TASKS,
+    MODULES.ASK_HR,
+    MODULES.LOAN_MANAGEMENT,
+    MODULES.LEAVE_MANAGEMENT,
+    MODULES.NOTIFICATIONS,
+    MODULES.NEWS_VIEW,
+    MODULES.SUPPORT,
+    // Finance specific
+    MODULES.FINANCE,
+  ],
+  [DEPARTMENTS.OPERATIONS]: [
+    // General access only
+    MODULES.DASHBOARD,
+    MODULES.ATTENDANCE,
+    MODULES.DOCUMENTS,
+    MODULES.MAIL,
+    MODULES.PROJECTS,
+    MODULES.TASKS,
+    MODULES.ASK_HR,
+    MODULES.LOAN_MANAGEMENT,
+    MODULES.LEAVE_MANAGEMENT,
+    MODULES.NOTIFICATIONS,
+    MODULES.NEWS_VIEW,
+    MODULES.SUPPORT,
+  ],
+};
+
+// Map routes to modules for easy lookup
+export const ROUTE_MODULE_MAP: Record<string, Module> = {
+  "/": MODULES.DASHBOARD,
+  "/hr/attendance": MODULES.ATTENDANCE,
+  "/documents": MODULES.DOCUMENTS,
+  "/documents/search": MODULES.DOCUMENTS,
+  "/documents/all": MODULES.DOCUMENTS,
+  "/documents/archive": MODULES.DOCUMENTS,
+  "/documents/f": MODULES.DOCUMENTS,
+  "/mail": MODULES.MAIL,
+  "/mail/inbox": MODULES.MAIL,
+  "/mail/sent": MODULES.MAIL,
+  "/mail/archive": MODULES.MAIL,
+  "/mail/trash": MODULES.MAIL,
+  "/projects": MODULES.PROJECTS,
+  "/tasks": MODULES.TASKS,
+  "/tasks/employee": MODULES.TASKS,
+  "/tasks/manager": MODULES.TASKS,
+  "/hr/employees": MODULES.HR_EMPLOYEES,
+  "/hr/ask-hr": MODULES.ASK_HR,
+  "/hr/loans": MODULES.LOAN_MANAGEMENT,
+  "/hr/leaves": MODULES.LEAVE_MANAGEMENT,
+  "/finance": MODULES.FINANCE,
+  "/finance/balance": MODULES.FINANCE,
+  "/finance/payruns": MODULES.FINANCE,
+  "/finance/expenses": MODULES.FINANCE,
+  "/finance/loans": MODULES.FINANCE,
+  "/payroll": MODULES.PAYROLL,
+  "/payroll/structure": MODULES.PAYROLL,
+  "/payroll/employees": MODULES.PAYROLL,
+  "/payroll/payrun": MODULES.PAYROLL,
+  "/notification": MODULES.NOTIFICATIONS,
+  "/notification-preferences": MODULES.NOTIFICATIONS,
+  "/news": MODULES.NEWS_VIEW,
+  "/news/manage": MODULES.NEWS_MANAGE,
+  "/bug": MODULES.SUPPORT,
+  "/logs": MODULES.DATA_EXPORT,
+};
+
+export function getModuleAccessByDepartment(department: Department): Module[] {
+  return DEPARTMENT_MODULE_ACCESS[department] || [];
+}
