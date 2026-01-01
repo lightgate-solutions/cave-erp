@@ -8,6 +8,13 @@
       "when": 1767271911084,
       "tag": "0000_workable_johnny_blaze",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1767308171794,
+      "tag": "0001_classy_thunderbolt",
+      "breakpoints": true
     }
   ]
 }
