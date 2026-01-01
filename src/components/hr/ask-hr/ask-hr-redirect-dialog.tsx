@@ -41,7 +41,7 @@ import { useQuery } from "@tanstack/react-query";
 
 // Define the schema for form validation
 const formSchema = z.object({
-  employeeId: z.string().min(1, "Please select an employee"),
+  userId: z.string().min(1, "Please select an employee"),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -61,7 +61,7 @@ export function AskHrRedirectDialog({
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      employeeId: "",
+      userId: "",
     },
   });
 
@@ -77,7 +77,7 @@ export function AskHrRedirectDialog({
   const onSubmit = async (data: FormData) => {
     try {
       const result = await redirectAskHrQuestion(questionId, {
-        employeeId: Number(data.employeeId),
+        userId: data.userId,
       });
 
       if (result.error) {
@@ -129,7 +129,7 @@ export function AskHrRedirectDialog({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="employeeId"
+              name="userId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Redirect To</FormLabel>

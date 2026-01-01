@@ -20,9 +20,9 @@ export async function GET() {
       return Response.json({ success: false, count: 0 });
     }
 
-    // Get employee info to get the employee ID (notifications.user_id references employees.id)
+    // Get employee info to get the employee ID (notifications.user_id references user.id which is authId)
     const employeeResult = await db
-      .select({ id: employees.id })
+      .select({ authId: employees.authId })
       .from(employees)
       .where(
         and(
@@ -43,7 +43,7 @@ export async function GET() {
       .from(notifications)
       .where(
         and(
-          eq(notifications.user_id, employee.id),
+          eq(notifications.user_id, employee.authId),
           eq(notifications.is_read, false),
           eq(notifications.organizationId, organization.id),
         ),

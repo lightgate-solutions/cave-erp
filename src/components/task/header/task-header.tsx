@@ -8,7 +8,7 @@ import { TaskFilters } from "./task-filters";
 import { TaskFormDialog } from "../dialogs/task-form-dialog";
 
 interface TaskHeaderProps {
-  employeeId: number;
+  userId: string;
   role: "employee" | "manager" | "admin";
   priority: string;
   assignee: string;
@@ -19,7 +19,7 @@ interface TaskHeaderProps {
 }
 
 export function TaskHeader({
-  employeeId,
+  userId,
   role,
   priority,
   assignee,
@@ -70,7 +70,7 @@ export function TaskHeader({
         <TaskFormDialog
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
-          employeeId={employeeId}
+          userId={userId}
         />
       )}
     </div>

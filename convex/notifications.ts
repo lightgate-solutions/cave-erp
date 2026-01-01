@@ -4,7 +4,7 @@ import * as values from "convex/values";
 // Get all notifications for a user (both read and unread)
 export const getUserNotifications = query({
   args: {
-    userId: values.v.number(),
+    userId: values.v.string(),
     organizationId: values.v.string(),
   },
   handler: async (ctx, args) => {
@@ -21,8 +21,8 @@ export const getUserNotifications = query({
 // Create a new notification
 export const createNotification = mutation({
   args: {
-    user_id: values.v.number(),
-    created_by: values.v.number(),
+    user_id: values.v.string(),
+    created_by: values.v.string(),
     organization_id: values.v.string(),
     title: values.v.string(),
     message: values.v.string(),
@@ -52,7 +52,7 @@ export const createNotification = mutation({
 export const markAsRead = mutation({
   args: {
     id: values.v.id("notifications"),
-    userId: values.v.number(),
+    userId: values.v.string(),
     organizationId: values.v.string(),
   },
   handler: async (ctx, args) => {
@@ -77,7 +77,7 @@ export const markAsRead = mutation({
 export const markNotificationsAsRead = mutation({
   args: {
     ids: values.v.array(values.v.id("notifications")),
-    userId: values.v.number(),
+    userId: values.v.string(),
     organizationId: values.v.string(),
   },
   handler: async (ctx, args) => {
@@ -101,7 +101,7 @@ export const markNotificationsAsRead = mutation({
 // Mark all notifications as read for a user
 export const markAllAsRead = mutation({
   args: {
-    userId: values.v.number(),
+    userId: values.v.string(),
     organizationId: values.v.string(),
   },
   handler: async (ctx, args) => {
@@ -125,7 +125,7 @@ export const markAllAsRead = mutation({
 export const deleteNotification = mutation({
   args: {
     id: values.v.id("notifications"),
-    userId: values.v.number(),
+    userId: values.v.string(),
     organizationId: values.v.string(),
   },
   handler: async (ctx, args) => {
@@ -148,7 +148,7 @@ export const deleteNotification = mutation({
 // Delete all notifications for a user
 export const clearAllNotifications = mutation({
   args: {
-    userId: values.v.number(),
+    userId: values.v.string(),
     organizationId: values.v.string(),
   },
   handler: async (ctx, args) => {
@@ -168,7 +168,7 @@ export const clearAllNotifications = mutation({
 // Get unread notification count for a user
 export const getUnreadCount = query({
   args: {
-    userId: values.v.number(),
+    userId: values.v.string(),
     organizationId: values.v.string(),
   },
   handler: async (ctx, args) => {

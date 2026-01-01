@@ -36,7 +36,7 @@ import {
 
 const replyForwardSchema = z.object({
   recipientIds: z
-    .array(z.number())
+    .array(z.string())
     .min(1, "At least one recipient is required"),
   subject: z.string().min(1, "Subject is required").max(500),
   body: z.string().min(1, "Body is required"),
@@ -46,7 +46,7 @@ const replyForwardSchema = z.object({
 type ReplyForwardFormData = z.infer<typeof replyForwardSchema>;
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
 }
@@ -70,7 +70,7 @@ interface OriginalEmail {
   id: number;
   subject: string;
   body: string;
-  senderId: number;
+  senderId: string;
   senderName: string;
   senderEmail: string;
   createdAt: Date;
@@ -222,7 +222,7 @@ export function ReplyForwardEmail({
     );
   };
 
-  const handleUserRemove = (userId: number) => {
+  const handleUserRemove = (userId: string) => {
     const newSelectedUsers = selectedUsers.filter((u) => u.id !== userId);
     setSelectedUsers(newSelectedUsers);
     form.setValue(

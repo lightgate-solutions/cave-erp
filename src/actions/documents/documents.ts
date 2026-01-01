@@ -58,7 +58,7 @@ export async function getActiveFolderDocuments(
       if (folder.length === 0) throw new Error("Folder not found");
 
       const currentFolder = folder[0];
-      const isOwner = currentFolder.createdBy === user.id;
+      const isOwner = currentFolder.createdBy === user.authId;
       const isDepartmental =
         currentFolder.departmental &&
         currentFolder.department === user.department;
@@ -80,7 +80,7 @@ export async function getActiveFolderDocuments(
               WHERE ${documentAccess.documentId} = ${document.id}
                 AND ${documentAccess.organizationId} = ${organization.id}
                 AND (
-                  ${documentAccess.userId} = ${user.id}
+                  ${documentAccess.userId} = ${user.authId}
                   OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${user.department})
                 )
             )
@@ -119,10 +119,10 @@ export async function getActiveFolderDocuments(
           fileSize: documentVersions.fileSize,
           filePath: documentVersions.filePath,
           mimeType: documentVersions.mimeType,
-          loggedUser: sql`${user.id}`,
+          loggedUser: sql`${user.authId}`,
         })
         .from(document)
-        .leftJoin(employees, eq(document.uploadedBy, employees.id))
+        .leftJoin(employees, eq(document.uploadedBy, employees.authId))
         .leftJoin(documentFolders, eq(document.folderId, documentFolders.id))
         .leftJoin(
           documentVersions,
@@ -176,7 +176,7 @@ export async function getActiveFolderDocuments(
               eq(documentAccess.organizationId, organization.id),
             ),
           )
-          .leftJoin(employees, eq(documentAccess.userId, employees.id)),
+          .leftJoin(employees, eq(documentAccess.userId, employees.authId)),
       ]);
 
       const enrichedDocs = documents.map((doc) => ({
@@ -249,7 +249,7 @@ export async function deleteDocumentAction(
       });
 
       if (!doc) throw new Error("Document not found");
-      if (doc.uploadedBy !== user.id && user.role !== "admin") {
+      if (doc.uploadedBy !== user.authId && user.role !== "admin") {
         throw new Error("You don't have permission to delete this document");
       }
 
@@ -318,7 +318,7 @@ export async function deleteDocumentAction(
 
       const recipients = accessUsers
         .map((row) => row.userId)
-        .filter((id): id is number => !!id);
+        .filter((id): id is string => !!id);
       if (doc.uploadedBy) recipients.push(doc.uploadedBy);
 
       return {
@@ -331,17 +331,25 @@ export async function deleteDocumentAction(
     revalidatePath(pathname);
 
     if (result) {
-      const uniqueRecipients = new Set<number>(result.recipients);
-      uniqueRecipients.delete(user.id);
+      const uniqueRecipients = new Set<string>(result.recipients);
+      uniqueRecipients.delete(user.authId);
 
       for (const recipientId of uniqueRecipients) {
-        await createNotification({
-          user_id: recipientId,
-          title: "Document Deleted",
-          message: `${user.name} removed "${result.docTitle}"`,
-          notification_type: "message",
-          reference_id: result.docId,
-        });
+        const [emp] = await db
+          .select({ id: employees.authId })
+          .from(employees)
+          .where(eq(employees.authId, recipientId))
+          .limit(1);
+
+        if (emp) {
+          await createNotification({
+            user_id: emp.id,
+            title: "Document Deleted",
+            message: `${user.name} removed "${result.docTitle}"`,
+            notification_type: "message",
+            reference_id: result.docId,
+          });
+        }
       }
     }
 
@@ -396,7 +404,7 @@ export async function archiveDocumentAction(
         error: { reason: "Document not found" },
       };
     }
-    if (doc.uploadedBy !== user.id && user.role !== "admin") {
+    if (doc.uploadedBy !== user.authId && user.role !== "admin") {
       return {
         success: null,
         error: { reason: "You dont have permission to archive this document" },
@@ -425,20 +433,28 @@ export async function archiveDocumentAction(
 
     const recipients = accessRows
       .map((row) => row.userId)
-      .filter((id): id is number => !!id);
+      .filter((id): id is string => !!id);
     if (doc.uploadedBy) recipients.push(doc.uploadedBy);
 
-    const uniqueRecipients = new Set<number>(recipients);
-    uniqueRecipients.delete(user.id);
+    const uniqueRecipients = new Set<string>(recipients);
+    uniqueRecipients.delete(user.authId);
 
     for (const recipientId of uniqueRecipients) {
-      await createNotification({
-        user_id: recipientId,
-        title: "Document Archived",
-        message: `${user.name} archived "${doc.title}"`,
-        notification_type: "message",
-        reference_id: doc.id,
-      });
+      const [emp] = await db
+        .select({ id: employees.authId })
+        .from(employees)
+        .where(eq(employees.authId, recipientId))
+        .limit(1);
+
+      if (emp) {
+        await createNotification({
+          user_id: emp.id,
+          title: "Document Archived",
+          message: `${user.name} archived "${doc.title}"`,
+          notification_type: "message",
+          reference_id: doc.id,
+        });
+      }
     }
 
     revalidatePath(pathname);
@@ -498,14 +514,14 @@ export async function getDocumentComments(documentId: number) {
 
       const hasExplicitAccess = accessRows.some(
         (a) =>
-          a.userId === user.id ||
+          a.userId === user.authId ||
           (a.department && a.department === user.department),
       );
 
       const canView =
         doc.public ||
         (doc.departmental && doc.department === user.department) ||
-        doc.uploadedBy === user.id ||
+        doc.uploadedBy === user.authId ||
         hasExplicitAccess;
 
       if (!canView) throw new Error("Access denied");
@@ -520,7 +536,7 @@ export async function getDocumentComments(documentId: number) {
           userEmail: employees.email,
         })
         .from(documentComments)
-        .leftJoin(employees, eq(documentComments.userId, employees.id))
+        .leftJoin(employees, eq(documentComments.userId, employees.authId))
         .where(
           and(
             eq(documentComments.documentId, documentId),
@@ -594,26 +610,26 @@ export async function addDocumentComment(documentId: number, content: string) {
       const hasEditOrManage =
         accessRows.some(
           (a) =>
-            (a.userId === user.id ||
+            (a.userId === user.authId ||
               (a.department && a.department === user.department)) &&
             (a.accessLevel === "edit" || a.accessLevel === "manage"),
         ) || user.role === "admin";
 
-      const canComment = doc.uploadedBy === user.id || hasEditOrManage;
+      const canComment = doc.uploadedBy === user.authId || hasEditOrManage;
       if (!canComment) throw new Error("Access denied");
 
       const [commentRow] = await tx
         .insert(documentComments)
         .values({
           documentId,
-          userId: user.id,
+          userId: user.authId,
           comment: content.trim(),
           organizationId: organization.id,
         })
         .returning();
 
       await tx.insert(documentLogs).values({
-        userId: user.id,
+        userId: user.authId,
         documentId,
         documentVersionId: doc.currentVersionId,
         action: "comment",
@@ -623,7 +639,7 @@ export async function addDocumentComment(documentId: number, content: string) {
 
       const explicitUsers = accessRows
         .map((row) => row.userId)
-        .filter((id): id is number => !!id);
+        .filter((id): id is string => !!id);
 
       return {
         commentRow,
@@ -633,9 +649,9 @@ export async function addDocumentComment(documentId: number, content: string) {
       };
     });
 
-    const notificationRecipients = new Set<number>(result.recipients ?? []);
+    const notificationRecipients = new Set<string>(result.recipients ?? []);
     if (result.uploaderId) notificationRecipients.add(result.uploaderId);
-    notificationRecipients.delete(user.id);
+    notificationRecipients.delete(user.authId);
 
     if (notificationRecipients.size > 0) {
       const preview =
@@ -644,13 +660,21 @@ export async function addDocumentComment(documentId: number, content: string) {
           : content.trim();
 
       for (const recipientId of notificationRecipients) {
-        await createNotification({
-          user_id: recipientId,
-          title: "New Document Comment",
-          message: `${user.name} commented on "${result.docTitle}" • ${preview}`,
-          notification_type: "message",
-          reference_id: documentId,
-        });
+        const [emp] = await db
+          .select({ id: employees.authId })
+          .from(employees)
+          .where(eq(employees.authId, recipientId))
+          .limit(1);
+
+        if (emp) {
+          await createNotification({
+            user_id: emp.id,
+            title: "New Document Comment",
+            message: `${user.name} commented on "${result.docTitle}" • ${preview}`,
+            notification_type: "message",
+            reference_id: documentId,
+          });
+        }
       }
     }
 
@@ -728,13 +752,13 @@ export async function deleteDocumentComment(commentId: number) {
 
       const hasManageAccess = accessRows.some(
         (a) =>
-          (a.userId === user.id ||
+          (a.userId === user.authId ||
             (a.department && a.department === user.department)) &&
           a.accessLevel === "manage",
       );
 
-      const isAuthor = commentRow.userId === user.id;
-      const isDocOwner = doc.uploadedBy === user.id;
+      const isAuthor = commentRow.userId === user.authId;
+      const isDocOwner = doc.uploadedBy === user.authId;
 
       if (!(isAuthor || isDocOwner || hasManageAccess)) {
         throw new Error("Access denied");
@@ -750,7 +774,7 @@ export async function deleteDocumentComment(commentId: number) {
         );
 
       await tx.insert(documentLogs).values({
-        userId: user.id,
+        userId: user.authId,
         documentId: doc.id,
         documentVersionId: doc.currentVersionId,
         action: "delete_comment",
@@ -815,14 +839,14 @@ export async function getDocumentVersions(documentId: number) {
 
       const hasExplicitAccess = accessRows.some(
         (a) =>
-          a.userId === user.id ||
+          a.userId === user.authId ||
           (a.department && a.department === user.department),
       );
 
       const canView =
         doc.public ||
         (doc.departmental && doc.department === user.department) ||
-        doc.uploadedBy === user.id ||
+        doc.uploadedBy === user.authId ||
         hasExplicitAccess;
 
       if (!canView) throw new Error("Access denied");
@@ -840,7 +864,7 @@ export async function getDocumentVersions(documentId: number) {
           uploadedByEmail: employees.email,
         })
         .from(documentVersions)
-        .leftJoin(employees, eq(documentVersions.uploadedBy, employees.id))
+        .leftJoin(employees, eq(documentVersions.uploadedBy, employees.authId))
         .where(
           and(
             eq(documentVersions.documentId, documentId),
@@ -932,12 +956,12 @@ export async function deleteDocumentVersion(
 
       const hasManageAccess = accessRows.some(
         (a) =>
-          (a.userId === user.id ||
+          (a.userId === user.authId ||
             (a.department && a.department === user.department)) &&
           a.accessLevel === "manage",
       );
 
-      const isDocOwner = doc.uploadedBy === user.id;
+      const isDocOwner = doc.uploadedBy === user.authId;
       if (!(isDocOwner || hasManageAccess)) {
         throw new Error("Access denied");
       }
@@ -952,7 +976,7 @@ export async function deleteDocumentVersion(
         );
 
       await tx.insert(documentLogs).values({
-        userId: user.id,
+        userId: user.authId,
         documentId: version.documentId,
         documentVersionId: version.id,
         action: "delete_version",
@@ -1016,10 +1040,10 @@ export async function getDocumentLogs(documentId: number) {
           ),
         );
 
-      const isOwner = doc.uploadedBy === user.id;
+      const isOwner = doc.uploadedBy === user.authId;
       const hasManageAccess = accessRows.some(
         (a) =>
-          (a.userId === user.id ||
+          (a.userId === user.authId ||
             (a.department && a.department === user.department)) &&
           a.accessLevel === "manage",
       );
@@ -1040,7 +1064,7 @@ export async function getDocumentLogs(documentId: number) {
           documentVersionId: documentLogs.documentVersionId,
         })
         .from(documentLogs)
-        .leftJoin(employees, eq(documentLogs.userId, employees.id))
+        .leftJoin(employees, eq(documentLogs.userId, employees.authId))
         .where(
           and(
             eq(documentLogs.documentId, documentId),
@@ -1110,11 +1134,11 @@ export async function updateDocumentPublic(
           ),
         );
 
-      const isOwner = doc.uploadedBy === user.id;
+      const isOwner = doc.uploadedBy === user.authId;
       const hasManageAccess =
         accessRows.some(
           (a) =>
-            (a.userId === user.id ||
+            (a.userId === user.authId ||
               (a.department && a.department === user.department)) &&
             a.accessLevel === "manage",
         ) || user.department === "admin";
@@ -1134,7 +1158,7 @@ export async function updateDocumentPublic(
         );
 
       await tx.insert(documentLogs).values({
-        userId: user.id,
+        userId: user.authId,
         documentId,
         documentVersionId: doc.currentVersionId,
         action: "update_public",
@@ -1200,11 +1224,11 @@ export async function updateDepartmentAccess(
           ),
         );
 
-      const isOwner = doc.uploadedBy === user.id;
+      const isOwner = doc.uploadedBy === user.authId;
       const hasManageAccess =
         accessRows.some(
           (a) =>
-            (a.userId === user.id ||
+            (a.userId === user.authId ||
               (a.department && a.department === user.department)) &&
             a.accessLevel === "manage",
         ) || user.department === "admin";
@@ -1237,7 +1261,7 @@ export async function updateDepartmentAccess(
           );
 
         await tx.insert(documentLogs).values({
-          userId: user.id,
+          userId: user.authId,
           documentId,
           documentVersionId: doc.currentVersionId,
           action: "update_departmental_access",
@@ -1288,13 +1312,13 @@ export async function updateDepartmentAccess(
           documentId,
           userId: null,
           department: doc.department,
-          grantedBy: user.id,
+          grantedBy: user.authId,
           organizationId: organization.id,
         });
       }
 
       await tx.insert(documentLogs).values({
-        userId: user.id,
+        userId: user.authId,
         documentId,
         documentVersionId: doc.currentVersionId,
         action: "update_departmental_access",
@@ -1349,7 +1373,7 @@ export async function searchEmployeesForShare(query: string, limit = 8) {
       })
       .from(employees)
       .where(
-        sql`(${employees.name} ILIKE ${`%${q}%`} OR ${employees.email} ILIKE ${`%${q}%`}) AND ${employees.id} <> ${user.id} AND ${employees.organizationId} = ${organization.id}`,
+        sql`(${employees.name} ILIKE ${`%${q}%`} OR ${employees.email} ILIKE ${`%${q}%`}) AND ${employees.authId} <> ${user.authId} AND ${employees.organizationId} = ${organization.id}`,
       )
       .limit(limit);
 
@@ -1401,10 +1425,10 @@ export async function getDocumentShares(documentId: number) {
           ),
         );
 
-      const isOwner = doc.uploadedBy === user.id;
+      const isOwner = doc.uploadedBy === user.authId;
       const hasManageAccess = accessRows.some(
         (a) =>
-          (a.userId === user.id ||
+          (a.userId === user.authId ||
             (a.department && a.department === user.department)) &&
           a.accessLevel === "manage",
       );
@@ -1421,7 +1445,7 @@ export async function getDocumentShares(documentId: number) {
           email: employees.email,
         })
         .from(documentAccess)
-        .leftJoin(employees, eq(documentAccess.userId, employees.id))
+        .leftJoin(employees, eq(documentAccess.userId, employees.authId))
         .where(
           and(
             eq(documentAccess.documentId, documentId),
@@ -1489,10 +1513,10 @@ export async function addDocumentShare(
           ),
         );
 
-      const isOwner = doc.uploadedBy === user.id;
+      const isOwner = doc.uploadedBy === user.authId;
       const hasManageAccess = accessRows.some(
         (a) =>
-          (a.userId === user.id ||
+          (a.userId === user.authId ||
             (a.department && a.department === user.department)) &&
           a.accessLevel === "manage",
       );
@@ -1501,7 +1525,11 @@ export async function addDocumentShare(
       }
 
       const [target] = await tx
-        .select({ id: employees.id, email: employees.email })
+        .select({
+          id: employees.authId,
+          authId: employees.authId,
+          email: employees.email,
+        })
         .from(employees)
         .where(
           and(
@@ -1527,7 +1555,7 @@ export async function addDocumentShare(
         .where(
           and(
             eq(documentAccess.documentId, documentId),
-            eq(documentAccess.userId, target.id),
+            eq(documentAccess.userId, target.authId),
             eq(documentAccess.organizationId, organization.id),
           ),
         )
@@ -1547,15 +1575,15 @@ export async function addDocumentShare(
         await tx.insert(documentAccess).values({
           accessLevel,
           documentId,
-          userId: target.id,
+          userId: target.authId,
           department: null,
-          grantedBy: user.id,
+          grantedBy: user.authId,
           organizationId: organization.id,
         });
       }
 
       await tx.insert(documentLogs).values({
-        userId: user.id,
+        userId: user.authId,
         documentId,
         action: "share",
         details: `granted ${accessLevel} to ${target.email}`,
@@ -1617,7 +1645,7 @@ export async function addDocumentShare(
 
 export async function removeDocumentShare(
   documentId: number,
-  targetUserId: number,
+  targetUserId: string,
 ) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
@@ -1651,10 +1679,10 @@ export async function removeDocumentShare(
           ),
         );
 
-      const isOwner = doc.uploadedBy === user.id;
+      const isOwner = doc.uploadedBy === user.authId;
       const hasManageAccess = accessRows.some(
         (a) =>
-          (a.userId === user.id ||
+          (a.userId === user.authId ||
             (a.department && a.department === user.department)) &&
           a.accessLevel === "manage",
       );
@@ -1677,7 +1705,7 @@ export async function removeDocumentShare(
         );
 
       await tx.insert(documentLogs).values({
-        userId: user.id,
+        userId: user.authId,
         documentId,
         action: "revoke_share",
         details: `revoked access from user ${targetUserId}`,
@@ -1689,13 +1717,21 @@ export async function removeDocumentShare(
     });
 
     // Notify the user that their access was revoked
-    await createNotification({
-      user_id: targetUserId,
-      title: "Document Access Revoked",
-      message: `Your access to "${result.documentName}" has been revoked`,
-      notification_type: "message",
-      reference_id: documentId,
-    });
+    const [targetEmp] = await db
+      .select({ id: employees.authId })
+      .from(employees)
+      .where(eq(employees.authId, targetUserId))
+      .limit(1);
+
+    if (targetEmp) {
+      await createNotification({
+        user_id: targetEmp.id,
+        title: "Document Access Revoked",
+        message: `Your access to "${result.documentName}" has been revoked`,
+        notification_type: "message",
+        reference_id: documentId,
+      });
+    }
 
     return { success: { reason: "Share removed" }, error: null };
   } catch (err) {
@@ -1742,7 +1778,7 @@ export async function getMyDocumentAccess(documentId: number) {
       });
       if (!doc) throw new Error("Document not found");
 
-      if (doc.uploadedBy === user.id) {
+      if (doc.uploadedBy === user.authId) {
         return {
           level: "manage" as const,
           isOwner: true,
@@ -1771,7 +1807,7 @@ export async function getMyDocumentAccess(documentId: number) {
 
       for (const r of rules) {
         const applies =
-          r.userId === user.id ||
+          r.userId === user.authId ||
           (r.department && r.department === user.department);
         if (!applies) continue;
         if (rank(r.accessLevel) > rank(best)) {
@@ -1827,7 +1863,7 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
     const offset = Math.max(0, (page - 1) * pageSize);
 
     const visibilityCondition = sql`(
-      ${document.uploadedBy} = ${user.id}
+      ${document.uploadedBy} = ${user.authId}
       OR ${document.public} = true
       OR (${document.departmental} = true AND ${document.department} = ${user.department})
       OR EXISTS (
@@ -1835,7 +1871,7 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
         WHERE ${documentAccess.documentId} = ${document.id}
           AND ${documentAccess.organizationId} = ${organization.id}
           AND (
-            ${documentAccess.userId} = ${user.id}
+            ${documentAccess.userId} = ${user.authId}
             OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${user.department})
           )
       )
@@ -1873,10 +1909,10 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
         fileSize: documentVersions.fileSize,
         filePath: documentVersions.filePath,
         mimeType: documentVersions.mimeType,
-        loggedUser: sql`${user.id}`,
+        loggedUser: sql`${user.authId}`,
       })
       .from(document)
-      .leftJoin(employees, eq(document.uploadedBy, employees.id))
+      .leftJoin(employees, eq(document.uploadedBy, employees.authId))
       .leftJoin(documentFolders, eq(document.folderId, documentFolders.id))
       .leftJoin(
         documentVersions,
@@ -1898,7 +1934,7 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
     let accessRules: {
       documentId: number;
       accessLevel: string;
-      userId: number | null;
+      userId: string | null;
       name: string | null;
       email: string | null;
       department: string | null;
@@ -1934,7 +1970,7 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
               eq(documentAccess.organizationId, organization.id),
             ),
           )
-          .leftJoin(employees, eq(documentAccess.userId, employees.id)),
+          .leftJoin(employees, eq(documentAccess.userId, employees.authId)),
       ]);
     }
 
@@ -1993,7 +2029,7 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
     const offset = Math.max(0, (page - 1) * pageSize);
 
     const visibilityCondition = sql`(
-      ${document.uploadedBy} = ${user.id}
+      ${document.uploadedBy} = ${user.authId}
       OR ${document.public} = true
       OR (${document.departmental} = true AND ${document.department} = ${user.department})
       OR EXISTS (
@@ -2001,7 +2037,7 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
         WHERE ${documentAccess.documentId} = ${document.id}
           AND ${documentAccess.organizationId} = ${organization.id}
           AND (
-            ${documentAccess.userId} = ${user.id}
+            ${documentAccess.userId} = ${user.authId}
             OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${user.department})
           )
       )
@@ -2039,10 +2075,10 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
         fileSize: documentVersions.fileSize,
         filePath: documentVersions.filePath,
         mimeType: documentVersions.mimeType,
-        loggedUser: sql`${user.id}`,
+        loggedUser: sql`${user.authId}`,
       })
       .from(document)
-      .leftJoin(employees, eq(document.uploadedBy, employees.id))
+      .leftJoin(employees, eq(document.uploadedBy, employees.authId))
       .leftJoin(documentFolders, eq(document.folderId, documentFolders.id))
       .leftJoin(
         documentVersions,
@@ -2064,7 +2100,7 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
     let accessRules: {
       documentId: number;
       accessLevel: string;
-      userId: number | null;
+      userId: string | null;
       name: string | null;
       email: string | null;
       department: string | null;
@@ -2100,7 +2136,7 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
               eq(documentAccess.organizationId, organization.id),
             ),
           )
-          .leftJoin(employees, eq(documentAccess.userId, employees.id)),
+          .leftJoin(employees, eq(documentAccess.userId, employees.authId)),
       ]);
     }
 

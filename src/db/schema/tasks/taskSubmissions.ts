@@ -9,9 +9,8 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { tasks } from "./tasks";
-import { employees } from "../hr";
 import { taskReviews } from "./tasksReviews";
-import { organization } from "../auth";
+import { organization, user } from "../auth";
 
 export const taskSubmissions = pgTable(
   "task_submissions",
@@ -22,9 +21,9 @@ export const taskSubmissions = pgTable(
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
 
-    submittedBy: integer("submitted_by")
+    submittedBy: text("submitted_by")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
 
     organizationId: text("organization_id")
       .notNull()
@@ -49,9 +48,9 @@ export const taskSubmissionsRelations = relations(
       fields: [taskSubmissions.taskId],
       references: [tasks.id],
     }),
-    submittedBy: one(employees, {
+    submittedBy: one(user, {
       fields: [taskSubmissions.submittedBy],
-      references: [employees.id],
+      references: [user.id],
     }),
     reviews: many(taskReviews),
   }),

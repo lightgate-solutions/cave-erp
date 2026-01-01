@@ -26,7 +26,7 @@ export async function submitTask(submissionData: NewSubmission) {
   }
 
   // Verify user can only submit their own tasks
-  if (authData.employee.id !== submissionData.submittedBy) {
+  if (authData.userId !== submissionData.submittedBy) {
     return {
       success: null,
       error: { reason: "You can only submit your own tasks" },
@@ -117,7 +117,7 @@ export async function getTaskSubmissions(taskId: number) {
     );
 }
 
-export async function getEmployeeSubmissions(employeeId: number) {
+export async function getEmployeeSubmissions(userId: string) {
   await requireAuth();
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -130,7 +130,7 @@ export async function getEmployeeSubmissions(employeeId: number) {
     .from(taskSubmissions)
     .where(
       and(
-        eq(taskSubmissions.submittedBy, employeeId),
+        eq(taskSubmissions.submittedBy, userId),
         eq(taskSubmissions.organizationId, organization.id),
       ),
     );
@@ -157,7 +157,7 @@ export async function getSubmissionById(submissionId: number) {
     .then((res) => res[0]);
 }
 
-export async function getManagerTeamSubmissions(managerId: number) {
+export async function getManagerTeamSubmissions(managerId: string) {
   const authData = await requireManager();
 
   const organization = await auth.api.getFullOrganization({
@@ -168,7 +168,7 @@ export async function getManagerTeamSubmissions(managerId: number) {
   }
 
   // Verify the user is requesting their own team's submissions
-  if (authData.employee.id !== managerId) {
+  if (authData.userId !== managerId) {
     throw new Error("You can only view your own team's submissions");
   }
 
@@ -187,7 +187,7 @@ export async function getManagerTeamSubmissions(managerId: number) {
     })
     .from(taskSubmissions)
     .leftJoin(tasks, eq(tasks.id, taskSubmissions.taskId))
-    .leftJoin(employees, eq(employees.id, taskSubmissions.submittedBy))
+    .leftJoin(employees, eq(employees.authId, taskSubmissions.submittedBy))
     .where(
       and(
         eq(tasks.assignedBy, managerId),
@@ -201,14 +201,14 @@ export async function getManagerTeamSubmissions(managerId: number) {
 export async function createSubmissionReview(args: {
   submissionId: number;
   taskId: number;
-  reviewedBy: number;
+  reviewedBy: string;
   status: "Accepted" | "Rejected";
   reviewNote?: string;
 }) {
   const authData = await requireManager();
 
   // Verify the user is the one doing the review
-  if (authData.employee.id !== args.reviewedBy) {
+  if (authData.userId !== args.reviewedBy) {
     return {
       success: null,
       error: { reason: "You can only review as yourself" },

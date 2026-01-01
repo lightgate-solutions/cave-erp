@@ -59,7 +59,7 @@ type AllowanceType =
 
 type EmployeeAllowance = {
   id: number;
-  employeeId: number;
+  userId: string;
   allowanceId: number;
   effectiveFrom: Date | null;
   allowanceName: string;
@@ -84,7 +84,7 @@ type AvailableAllowance = {
 
 type EmployeeAllowanceDialogProps = {
   trigger?: React.ReactNode;
-  employeeId: number;
+  userId: string;
   employeeName: string;
   isOpen?: boolean;
   onOpenChangeAction?: (open: boolean) => void;
@@ -92,7 +92,7 @@ type EmployeeAllowanceDialogProps = {
 
 export function EmployeeAllowanceDialog({
   trigger,
-  employeeId,
+  userId,
   employeeName,
   isOpen,
   onOpenChangeAction,
@@ -117,8 +117,8 @@ export function EmployeeAllowanceDialog({
     setLoading(true);
     try {
       const [activeAllowances, available] = await Promise.all([
-        getActiveEmployeeAllowances(employeeId),
-        getAvailableAllowancesForEmployee(employeeId),
+        getActiveEmployeeAllowances(userId),
+        getAvailableAllowancesForEmployee(userId),
       ]);
 
       setAllowances(activeAllowances);
@@ -140,7 +140,7 @@ export function EmployeeAllowanceDialog({
     if (open) {
       loadData();
     }
-  }, [open, employeeId]);
+  }, [open, userId]);
 
   const handleAssignAllowance = async () => {
     if (!selectedAllowanceId) {
@@ -151,7 +151,7 @@ export function EmployeeAllowanceDialog({
     setLoadingAssign(true);
     try {
       const result = await addAllowanceToEmployee(
-        employeeId,
+        userId,
         Number(selectedAllowanceId),
         date,
         window.location.pathname,

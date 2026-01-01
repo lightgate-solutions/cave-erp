@@ -30,7 +30,7 @@ export async function getAllEmployees() {
 
   return await db
     .select({
-      id: employees.id,
+      id: employees.authId,
       email: employees.email,
       role: employees.role,
       name: employees.name,
@@ -45,11 +45,11 @@ export async function getAllEmployees() {
       startDate: employmentHistory.startDate,
     })
     .from(employees)
-    .leftJoin(employmentHistory, eq(employees.id, employmentHistory.employeeId))
+    .leftJoin(employmentHistory, eq(employees.authId, employmentHistory.userId))
     .where(eq(employees.organizationId, organization.id));
 }
 
-export async function getEmployee(employeeId: number) {
+export async function getEmployee(userId: string) {
   await requireAuth();
 
   const organization = await auth.api.getFullOrganization({
@@ -64,7 +64,7 @@ export async function getEmployee(employeeId: number) {
     .from(employees)
     .where(
       and(
-        eq(employees.id, employeeId),
+        eq(employees.authId, userId),
         eq(employees.organizationId, organization.id),
       ),
     )
@@ -73,7 +73,7 @@ export async function getEmployee(employeeId: number) {
 }
 
 export async function updateEmployee(
-  employeeId: number,
+  userId: string,
   updates: Partial<{
     name: string;
     email: string;
@@ -81,7 +81,7 @@ export async function updateEmployee(
     staffNumber: string;
     isManager: boolean;
     department: string;
-    managerId: number | null;
+    managerId: string | null;
     dateOfBirth: string;
     address: string;
     maritalStatus: string;
@@ -114,7 +114,7 @@ export async function updateEmployee(
         .set(processedUpdates)
         .where(
           and(
-            eq(employees.id, employeeId),
+            eq(employees.authId, userId),
             eq(employees.organizationId, organization.id),
           ),
         )
@@ -184,9 +184,7 @@ export async function createEmployee(data: {
       userData.data?.managerId === null ||
       userData.data?.managerId === ""
         ? null
-        : typeof userData.data?.managerId === "string"
-          ? parseInt(userData.data.managerId, 10)
-          : Number(userData.data.managerId);
+        : String(userData.data.managerId);
 
     const dobValue = userData.data?.dateOfBirth
       ? typeof userData.data.dateOfBirth === "string"
@@ -221,7 +219,7 @@ export async function createEmployee(data: {
 
       await tx.insert(documentFolders).values({
         name: "personal",
-        createdBy: emp.id,
+        createdBy: emp.authId,
         department: emp.department,
         root: true,
         status: "active",
@@ -236,7 +234,7 @@ export async function createEmployee(data: {
         .where(eq(user.id, data.authId));
 
       await tx.insert(notification_preferences).values({
-        user_id: emp.id,
+        user_id: emp.authId,
         email_notifications: true,
         in_app_notifications: true,
         email_on_in_app_message: true,

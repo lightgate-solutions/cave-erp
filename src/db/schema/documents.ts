@@ -10,8 +10,7 @@ import {
   foreignKey,
   uuid,
 } from "drizzle-orm/pg-core";
-import { employees } from "./hr";
-import { organization } from "./auth";
+import { organization, user } from "./auth";
 
 export const documentFolders = pgTable(
   "document_folders",
@@ -24,9 +23,9 @@ export const documentFolders = pgTable(
     status: text("status").notNull().default("active"),
     public: boolean("public").notNull().default(false),
     departmental: boolean("departmental").notNull().default(false),
-    createdBy: integer("created_by")
-      .references(() => employees.id)
-      .notNull(),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -62,7 +61,9 @@ export const document = pgTable(
     currentVersion: integer("current_version").notNull().default(0),
     currentVersionId: integer("current_version_id").notNull().default(0),
     public: boolean("public").default(false),
-    uploadedBy: integer("uploaded_by").references(() => employees.id),
+    uploadedBy: text("uploaded_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -89,7 +90,9 @@ export const documentVersions = pgTable(
     fileSize: numeric("file_size", { scale: 2, precision: 10 }).notNull(),
     mimeType: text("mime_type"),
     scannedOcr: text("scanned_ocr"),
-    uploadedBy: integer("uploaded_by").references(() => employees.id),
+    uploadedBy: text("uploaded_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -131,9 +134,11 @@ export const documentAccess = pgTable(
     documentId: integer("document_id")
       .references(() => document.id)
       .notNull(),
-    userId: integer("user_id").references(() => employees.id),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
     department: text("department"),
-    grantedBy: integer("granted_by").references(() => employees.id),
+    grantedBy: text("granted_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -154,7 +159,7 @@ export const documentLogs = pgTable(
   "document_logs",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").references(() => employees.id),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
     documentId: integer("document_id").references(() => document.id, {
       onDelete: "cascade",
     }),
@@ -184,7 +189,9 @@ export const documentSharedLinks = pgTable(
     token: text("token").unique().notNull(),
     expiresAt: timestamp("expires_at"),
     accessLevel: text("access_level").default("View"),
-    createdBy: integer("created_by").references(() => employees.id),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -201,7 +208,7 @@ export const documentComments = pgTable(
   {
     id: serial("id").primaryKey(),
     documentId: integer("document_id").references(() => document.id),
-    userId: integer("user_id").references(() => employees.id),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
     comment: text("comment").notNull(),
     organizationId: text("organization_id")
       .notNull()

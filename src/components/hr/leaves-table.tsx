@@ -58,11 +58,11 @@ import {
 } from "@/components/ui/pagination";
 
 export default function LeavesTable({
-  employeeId,
+  userId,
   isHR = false,
   showFilters = true,
 }: {
-  employeeId?: number;
+  userId?: string;
   isHR?: boolean;
   showFilters?: boolean;
 }) {
@@ -110,10 +110,10 @@ export default function LeavesTable({
   }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["leaves", employeeId, filters, debouncedSearch, page],
+    queryKey: ["leaves", userId, filters, debouncedSearch, page],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (employeeId) params.append("employeeId", employeeId.toString());
+      if (userId) params.append("userId", userId.toString());
       if (filters.status && filters.status !== "all")
         params.append("status", filters.status);
       if (filters.leaveType && filters.leaveType !== "all")
@@ -420,7 +420,7 @@ export default function LeavesTable({
             </DialogDescription>
           </DialogHeader>
           <LeaveApplicationForm
-            employeeId={employeeId}
+            userId={userId}
             onSuccess={() => {
               setShowApplyForm(false);
               queryClient.invalidateQueries({ queryKey: ["leaves"] });
@@ -551,7 +551,7 @@ export default function LeavesTable({
 
           {viewMode === "edit" && selectedLeave && (
             <LeaveApplicationForm
-              employeeId={employeeId}
+              userId={userId}
               leaveToEdit={selectedLeave}
               onSuccess={() => {
                 setSelectedLeave(null);

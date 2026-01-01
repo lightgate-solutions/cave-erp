@@ -23,14 +23,14 @@ interface Email {
   body: string;
   createdAt: Date;
   type: string;
-  senderId?: number;
+  senderId?: string;
   senderName?: string;
   senderEmail?: string;
   isRead?: boolean;
   readAt?: Date | null;
   hasBeenOpened?: boolean;
   recipients?: Array<{
-    id: number;
+    authId: string;
     name: string;
     email: string;
     isRead: boolean;
@@ -39,7 +39,7 @@ interface Email {
 }
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -61,13 +61,13 @@ interface SelectedEmail {
   createdAt: Date;
   type: string;
   parentEmailId?: number | null;
-  senderId: number;
+  senderId: string;
   senderName: string;
   senderEmail: string;
   senderImage?: string | null;
   hasBeenOpened: boolean;
   recipients: Array<{
-    id: number;
+    authId: string;
     name: string;
     email: string;
     image?: string | null;

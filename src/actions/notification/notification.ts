@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 type CreateNotificationInput = {
-  user_id: number;
+  user_id: string;
   title: string;
   message: string;
   notification_type: "approval" | "deadline" | "message";
@@ -51,7 +51,7 @@ export async function createNotification({
     const orgId = organization_id ?? organization.id;
 
     await fetchMutation(api.notifications.createNotification, {
-      created_by: currentUser.id,
+      created_by: currentUser.authId,
       organization_id: orgId,
       title,
       reference_id,
@@ -100,7 +100,7 @@ export async function getUserNotifications() {
     };
   }
 
-  const userId = currentUser.id;
+  const userId = currentUser.authId;
 
   const userNotifications = await fetchQuery(
     api.notifications.getUserNotifications,

@@ -60,7 +60,7 @@ import {
 import * as z from "zod";
 
 const employmentHistorySchema = z.object({
-  employeeId: z.number(),
+  userId: z.string(),
   startDate: z.string().nullable(),
   endDate: z.string().nullable(),
   department: z.string().nullable(),
@@ -70,14 +70,14 @@ const employmentHistorySchema = z.object({
 });
 
 interface EmploymentHistoryProps {
-  employeeId: number;
+  userId: string;
   employeeName: string;
 }
 
 type FormMode = "add" | "edit";
 
 export default function EmployeeHistory({
-  employeeId,
+  userId,
   employeeName,
 }: EmploymentHistoryProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -90,15 +90,15 @@ export default function EmployeeHistory({
 
   // Fetch employee history records
   const { data: historyRecords = [], isLoading } = useQuery({
-    queryKey: ["employee-history", employeeId],
-    queryFn: () => getEmployeeHistory(employeeId),
+    queryKey: ["employee-history", userId],
+    queryFn: () => getEmployeeHistory(userId),
   });
 
   // Setup form
   const form = useForm<EmploymentHistoryFormValues>({
     resolver: zodResolver(employmentHistorySchema),
     defaultValues: {
-      employeeId: employeeId,
+      userId: userId,
       startDate: null,
       endDate: null,
       department: null,
@@ -112,7 +112,7 @@ export default function EmployeeHistory({
     onSuccess: () => {
       toast.success("Employment history added successfully");
       queryClient.invalidateQueries({
-        queryKey: ["employee-history", employeeId],
+        queryKey: ["employee-history", userId],
       });
       setIsDialogOpen(false);
       form.reset();
@@ -131,7 +131,7 @@ export default function EmployeeHistory({
     onSuccess: () => {
       toast.success("Employment history updated successfully");
       queryClient.invalidateQueries({
-        queryKey: ["employee-history", employeeId],
+        queryKey: ["employee-history", userId],
       });
       setIsDialogOpen(false);
       form.reset();
@@ -147,7 +147,7 @@ export default function EmployeeHistory({
     onSuccess: () => {
       toast.success("Employment history deleted successfully");
       queryClient.invalidateQueries({
-        queryKey: ["employee-history", employeeId],
+        queryKey: ["employee-history", userId],
       });
     },
     onError: () => {
@@ -167,7 +167,7 @@ export default function EmployeeHistory({
     setFormMode("edit");
     setSelectedHistoryId(history.id);
     form.reset({
-      employeeId: employeeId,
+      userId: userId,
       startDate: history.startDate
         ? format(new Date(history.startDate), "yyyy-MM-dd")
         : null,
@@ -189,7 +189,7 @@ export default function EmployeeHistory({
   const handleAddNew = () => {
     setFormMode("add");
     form.reset({
-      employeeId: employeeId,
+      userId: userId,
       startDate: null,
       endDate: null,
       department: null,

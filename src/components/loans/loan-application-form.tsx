@@ -43,13 +43,13 @@ const loanApplicationSchema = z.object({
 type LoanApplicationFormValues = z.infer<typeof loanApplicationSchema>;
 
 interface LoanApplicationFormProps {
-  employeeId?: number;
+  userId?: string;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
 export default function LoanApplicationForm({
-  employeeId,
+  userId,
   onSuccess,
   onCancel,
 }: LoanApplicationFormProps) {
@@ -67,16 +67,16 @@ export default function LoanApplicationForm({
 
   // Get eligible loan types
   const { data: eligibleData, isLoading: loadingTypes } = useQuery({
-    queryKey: ["eligible-loan-types", employeeId],
-    queryFn: () => getEligibleLoanTypes(employeeId!),
-    enabled: !!employeeId,
+    queryKey: ["eligible-loan-types", userId],
+    queryFn: () => getEligibleLoanTypes(userId!),
+    enabled: !!userId,
   });
 
   // Calculate max eligible amount when loan type is selected
   const { data: eligibilityData, isLoading: _loadingEligibility } = useQuery({
-    queryKey: ["loan-eligibility", employeeId, selectedLoanType],
-    queryFn: () => calculateMaxEligibleAmount(employeeId!, selectedLoanType!),
-    enabled: !!employeeId && !!selectedLoanType,
+    queryKey: ["loan-eligibility", userId, selectedLoanType],
+    queryFn: () => calculateMaxEligibleAmount(userId!, selectedLoanType!),
+    enabled: !!userId && !!selectedLoanType,
   });
 
   // Calculate loan details based on requested amount
@@ -125,7 +125,7 @@ export default function LoanApplicationForm({
     }).format(amount);
   };
 
-  if (!employeeId) {
+  if (!userId) {
     return (
       <div className="p-4 text-center text-muted-foreground">
         Employee information not available

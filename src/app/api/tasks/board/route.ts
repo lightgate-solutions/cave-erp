@@ -36,13 +36,37 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
 
     const role = searchParams.get("role") || undefined;
-    const employeeId = searchParams.get("employeeId");
+    // Note: API query parameter is still "employeeId" for backward compatibility
+    const employeeIdParam = searchParams.get("employeeId");
+    const employeeId = employeeIdParam ? Number(employeeIdParam) : 0;
     if (!employeeId || !role) {
       return NextResponse.json(
         { error: "Missing employeeId or role parameter" },
         { status: 400 },
       );
     }
+
+    // Look up employee to get authId (string userId)
+    const employee = await db
+      .select({ authId: employees.authId })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.id, employeeId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1)
+      .then((res) => res[0]);
+
+    if (!employee) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 400 },
+      );
+    }
+
+    const userId = employee.authId; // Now it's string (text)
 
     const priority = searchParams.get("priority") || undefined;
     const assignee = searchParams.get("assignee") || undefined;
@@ -51,22 +75,21 @@ export async function GET(request: NextRequest) {
     let where: ReturnType<typeof or> | ReturnType<typeof eq> | undefined;
 
     if (role === "employee") {
-      const eid = Number(employeeId || "0");
       const rows = await db
         .select({ id: taskAssignees.taskId })
         .from(taskAssignees)
         .where(
           and(
-            eq(taskAssignees.employeeId, eid),
+            eq(taskAssignees.userId, userId),
             eq(taskAssignees.organizationId, organization.id),
           ),
         );
       const ids = rows.map((r) => r.id);
       where = ids.length
-        ? or(eq(tasks.assignedTo, eid), inArray(tasks.id, ids))
-        : eq(tasks.assignedTo, eid);
+        ? or(eq(tasks.assignedTo, userId), inArray(tasks.id, ids))
+        : eq(tasks.assignedTo, userId);
     } else if (role === "manager") {
-      where = eq(tasks.assignedBy, Number(employeeId || "0"));
+      where = eq(tasks.assignedBy, userId);
     }
 
     if (q) {
@@ -88,10 +111,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (assignee === "me") {
-      const eid = Number(employeeId || "0");
       where = where
-        ? and(where, eq(tasks.assignedTo, eid))
-        : eq(tasks.assignedTo, eid);
+        ? and(where, eq(tasks.assignedTo, userId))
+        : eq(tasks.assignedTo, userId);
     }
 
     // Add organization filter to all task queries
@@ -116,32 +138,32 @@ export async function GET(request: NextRequest) {
 
     const taskIds = allTasks.map((t) => t.id);
 
-    // Get all employee IDs for enrichment
-    const employeeIds = Array.from(
+    // Get all user IDs for enrichment
+    const userIds = Array.from(
       new Set(
         allTasks
           .flatMap((t) => [t.assignedTo, t.assignedBy])
-          .filter(Boolean) as number[],
+          .filter(Boolean) as string[],
       ),
     );
 
     // Fetch employee data
-    const employeeRows = employeeIds.length
+    const employeeRows = userIds.length
       ? await db
           .select({
-            id: employees.id,
+            authId: employees.authId,
             email: employees.email,
             name: employees.name,
           })
           .from(employees)
-          .where(inArray(employees.id, employeeIds))
+          .where(inArray(employees.authId, userIds))
       : [];
 
     const employeeMap = new Map(
       employeeRows.map((r) => [
-        r.id,
+        r.authId,
         {
-          id: r.id,
+          id: r.authId,
           email: r.email,
           name: r.name,
           avatar: null as string | null,
@@ -158,7 +180,7 @@ export async function GET(request: NextRequest) {
         name: employees.name,
       })
       .from(taskAssignees)
-      .leftJoin(employees, eq(employees.id, taskAssignees.employeeId))
+      .leftJoin(employees, eq(employees.authId, taskAssignees.userId))
       .where(inArray(taskAssignees.taskId, taskIds));
 
     const assigneesMap = new Map<
@@ -226,7 +248,7 @@ export async function GET(request: NextRequest) {
       createdAt: Date;
       updatedAt: Date;
       assignedBy: {
-        id: number;
+        id: string;
         email: string | null;
         name: string | null;
         avatar: string | null;

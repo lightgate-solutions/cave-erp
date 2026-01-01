@@ -212,7 +212,7 @@ export default function EmployeesTable() {
               <TabsContent value="documents">
                 {selectedEmployee && (
                   <EmployeeDocuments
-                    employeeId={selectedEmployee.id}
+                    userId={selectedEmployee.id}
                     employeeName={selectedEmployee.name}
                   />
                 )}
@@ -221,7 +221,7 @@ export default function EmployeesTable() {
               <TabsContent value="account">
                 {selectedEmployee && (
                   <EmployeeBankDetails
-                    employeeId={selectedEmployee.id}
+                    userId={selectedEmployee.id}
                     employeeName={selectedEmployee.name}
                   />
                 )}
@@ -234,7 +234,7 @@ export default function EmployeesTable() {
               <TabsContent value="history">
                 {selectedEmployee && (
                   <EmployeeHistory
-                    employeeId={selectedEmployee.id}
+                    userId={selectedEmployee.id}
                     employeeName={selectedEmployee.name}
                   />
                 )}

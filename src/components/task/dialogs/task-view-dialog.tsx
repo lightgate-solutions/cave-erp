@@ -51,7 +51,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   task: BoardTask;
   onStatusChange: (taskId: number, newStatus: StatusType) => void;
-  employeeId: number;
+  userId: string;
   role: "employee" | "manager" | "admin";
 }
 
@@ -83,7 +83,7 @@ export function TaskViewDialog({
   onOpenChange,
   task,
   onStatusChange,
-  employeeId,
+  userId,
   role,
 }: Props) {
   const [deleting, setDeleting] = useState(false);
@@ -151,7 +151,7 @@ export function TaskViewDialog({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            employeeId,
+            userId,
             attachments: newAttachments,
           }),
         });
@@ -209,7 +209,7 @@ export function TaskViewDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          senderId: employeeId,
+          senderId: userId,
           content: newComment.trim(),
         }),
       });
@@ -228,12 +228,9 @@ export function TaskViewDialog({
   const handleDelete = async () => {
     try {
       setDeleting(true);
-      const res = await fetch(
-        `/api/tasks/${task.id}?employeeId=${employeeId}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const res = await fetch(`/api/tasks/${task.id}?userId=${userId}`, {
+        method: "DELETE",
+      });
 
       if (res.ok) {
         onOpenChange(false);

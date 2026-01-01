@@ -31,7 +31,7 @@ export default async function AttendancePage(props: {
   }
 
   let allAttendance = null;
-  let filters: { page: number; limit: number; managerId?: number } | undefined;
+  let filters: { page: number; limit: number; managerId?: string } | undefined;
 
   if (isManagerOrHR) {
     const page =
@@ -52,7 +52,7 @@ export default async function AttendancePage(props: {
       authData.employee.department !== "HR" &&
       authData.employee.isManager
     ) {
-      filters.managerId = authData.employee.id;
+      filters.managerId = authData.userId;
     }
 
     allAttendance = await getAttendanceRecords(filters);
@@ -68,7 +68,7 @@ export default async function AttendancePage(props: {
           myAttendance={myAttendance}
           allAttendance={allAttendance}
           isManagerOrHR={isManagerOrHR}
-          currentEmployeeId={authData.employee.id}
+          currentEmployeeId={authData.userId}
           managerIdFilter={filters?.managerId}
         />
       </Suspense>

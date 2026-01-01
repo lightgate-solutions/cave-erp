@@ -21,6 +21,7 @@ import {
   sendWelcomeEmail,
 } from "./emails";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { user as userSchema } from "@/db/schema/auth";
 
 export const auth = betterAuth({
   appName: "Cave ERP",
@@ -192,6 +193,11 @@ export const auth = betterAuth({
               currentPeriodEnd: null,
               trialEnd: null,
             });
+
+            await db
+              .update(userSchema)
+              .set({ role: "admin" })
+              .where(eq(userSchema.id, user.id));
           } catch (error) {
             // Log error but don't fail user creation if subscription creation fails
             console.error(

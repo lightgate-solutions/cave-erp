@@ -85,7 +85,7 @@ async function getUsersFolderId(folder: string, organizationId: string) {
     .where(
       and(
         eq(documentFolders.name, folder),
-        eq(documentFolders.createdBy, user.id),
+        eq(documentFolders.createdBy, user.authId),
         eq(documentFolders.organizationId, organizationId),
       ),
     )
@@ -97,7 +97,7 @@ async function getUsersFolderId(folder: string, organizationId: string) {
     .insert(documentFolders)
     .values({
       name: folder,
-      createdBy: user.id,
+      createdBy: user.authId,
       department: user.department,
       departmental: user.department === folder,
       organizationId,
@@ -133,7 +133,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
         .from(employees)
         .where(
           and(
-            eq(employees.id, user.id),
+            eq(employees.authId, user.authId),
             eq(employees.organizationId, organization.id),
           ),
         );
@@ -145,7 +145,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
         .set({ documentCount: updatedCount })
         .where(
           and(
-            eq(employees.id, user.id),
+            eq(employees.authId, user.authId),
             eq(employees.organizationId, organization.id),
           ),
         );
@@ -161,7 +161,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
             departmental: effectiveDepartmental,
             folderId,
             public: effectivePublic,
-            uploadedBy: user.id,
+            uploadedBy: user.authId,
             status: data.status,
             organizationId: organization.id,
           })),
@@ -193,7 +193,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
           filePath: file.filePath,
           fileSize: file.fileSize,
           mimeType: file.mimeType,
-          uploadedBy: user.id,
+          uploadedBy: user.authId,
           organizationId: organization.id,
         };
       });
@@ -235,9 +235,9 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
         rows.push({
           accessLevel: "manage",
           documentId: doc.id,
-          userId: user.id,
+          userId: user.authId,
           department: null,
-          grantedBy: user.id,
+          grantedBy: user.authId,
           organizationId: organization.id,
         });
         // If departmental is enabled, add a department-level rule derived from provided permissions
@@ -259,7 +259,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
               documentId: doc.id,
               userId: null,
               department: user.department,
-              grantedBy: user.id,
+              grantedBy: user.authId,
               organizationId: organization.id,
             });
           }
@@ -271,7 +271,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
       }
 
       const shareNotifications: {
-        userId: number;
+        userId: string;
         docId: number;
         docTitle: string;
         accessLevel: string;
@@ -287,7 +287,11 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
         );
         if (uniqueEmails.length > 0) {
           const shareUsers = await tx
-            .select({ id: employees.id, email: employees.email })
+            .select({
+              id: employees.authId,
+              authId: employees.authId,
+              email: employees.email,
+            })
             .from(employees)
             .where(
               and(
@@ -305,9 +309,9 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
               return {
                 accessLevel: level,
                 documentId: doc.id,
-                userId: u.id,
+                userId: u.authId,
                 department: null,
-                grantedBy: user.id,
+                grantedBy: user.authId,
                 organizationId: organization.id,
               };
             }),
@@ -335,7 +339,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
       }
 
       const logsToInsert = insertedDocuments.map((doc, i) => ({
-        userId: user.id,
+        userId: user.authId,
         documentId: doc.id,
         action: "upload",
         details: `uploaded ${data.Files[i].originalFileName}`,
@@ -408,7 +412,7 @@ export async function uploadNewDocumentVersion(data: UploadNewVersionProps) {
           filePath: data.url ?? "",
           mimeType: data.mimeType,
           fileSize: data.fileSize,
-          uploadedBy: user.id,
+          uploadedBy: user.authId,
           documentId: data.id,
           organizationId: organization.id,
         })
@@ -420,7 +424,7 @@ export async function uploadNewDocumentVersion(data: UploadNewVersionProps) {
           currentVersion: data.newVersionNumber,
           currentVersionId: version.id,
           updatedAt: new Date(),
-          uploadedBy: user.id,
+          uploadedBy: user.authId,
         })
         .where(
           and(
@@ -430,7 +434,7 @@ export async function uploadNewDocumentVersion(data: UploadNewVersionProps) {
         );
 
       await tx.insert(documentLogs).values({
-        userId: user.id,
+        userId: user.authId,
         documentId: data.id,
         action: "upload",
         details: `uploaded new version v${data.newVersionNumber}`,

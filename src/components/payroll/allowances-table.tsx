@@ -164,7 +164,7 @@ export function AllowancesTable() {
                           : "Non-taxable"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{allowance.createdBy}</TableCell>
+                    <TableCell>{allowance.createdByUserId}</TableCell>
                     <TableCell>
                       {new Date(allowance.updatedAt).toLocaleDateString()}
                     </TableCell>

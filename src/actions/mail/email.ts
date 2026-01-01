@@ -35,7 +35,7 @@ async function sendExternalEmailNotifications({
   senderEmail,
   attachmentCount = 0,
 }: {
-  recipientIds: number[];
+  recipientIds: string[];
   emailId: number;
   emailSubject: string;
   emailBody: string;
@@ -63,12 +63,12 @@ async function sendExternalEmailNotifications({
     // Fetch recipient email addresses
     const recipients = await db
       .select({
-        employeeId: employees.id,
+        userId: employees.authId,
         employeeName: employees.name,
         employeeEmail: employees.email,
       })
       .from(employees)
-      .where(inArray(employees.id, recipientsToNotify));
+      .where(inArray(employees.authId, recipientsToNotify));
 
     // Send emails in parallel
     const emailPromises = recipients.map((recipient) =>
@@ -109,7 +109,7 @@ async function sendExternalEmailNotifications({
 
 const sendEmailSchema = z.object({
   recipientIds: z
-    .array(z.number())
+    .array(z.string())
     .min(1, "At least one recipient is required"),
   subject: z.string().min(1, "Subject is required").max(500),
   body: z.string().min(1, "Body is required"),
@@ -119,7 +119,7 @@ const sendEmailSchema = z.object({
 const replyEmailSchema = z.object({
   parentEmailId: z.number(),
   recipientIds: z
-    .array(z.number())
+    .array(z.string())
     .min(1, "At least one recipient is required"),
   subject: z.string().min(1, "Subject is required").max(500),
   body: z.string().min(1, "Body is required"),
@@ -129,7 +129,7 @@ const replyEmailSchema = z.object({
 const forwardEmailSchema = z.object({
   parentEmailId: z.number(),
   recipientIds: z
-    .array(z.number())
+    .array(z.string())
     .min(1, "At least one recipient is required"),
   subject: z.string().min(1, "Subject is required").max(500),
   body: z.string().min(1, "Body is required"),
@@ -164,9 +164,9 @@ export async function sendEmail(
 
     const emailRecord = await db.transaction(async (tx) => {
       const recipients = await tx
-        .select({ id: employees.id })
+        .select({ id: employees.authId })
         .from(employees)
-        .where(inArray(employees.id, validated.recipientIds));
+        .where(inArray(employees.authId, validated.recipientIds));
 
       if (recipients.length !== validated.recipientIds.length) {
         return {
@@ -179,7 +179,7 @@ export async function sendEmail(
       const [newEmail] = await tx
         .insert(email)
         .values({
-          senderId: currentUser.id,
+          senderId: currentUser.authId,
           subject: validated.subject,
           body: validated.body,
           type: "sent",
@@ -206,7 +206,7 @@ export async function sendEmail(
               inArray(document.id, validated.attachmentIds),
               eq(document.status, "active"),
               or(
-                eq(document.uploadedBy, currentUser.id),
+                eq(document.uploadedBy, currentUser.authId),
                 eq(document.public, true),
                 and(
                   eq(document.departmental, true),
@@ -330,9 +330,9 @@ export async function replyToEmail(data: z.infer<typeof replyEmailSchema>) {
       }
 
       const recipients = await tx
-        .select({ id: employees.id })
+        .select({ authId: employees.authId })
         .from(employees)
-        .where(inArray(employees.id, validated.recipientIds));
+        .where(inArray(employees.authId, validated.recipientIds));
 
       if (recipients.length !== validated.recipientIds.length) {
         return {
@@ -345,7 +345,7 @@ export async function replyToEmail(data: z.infer<typeof replyEmailSchema>) {
       const [newEmail] = await tx
         .insert(email)
         .values({
-          senderId: currentUser.id,
+          senderId: currentUser.authId,
           subject: validated.subject,
           body: validated.body,
           type: "reply",
@@ -373,7 +373,7 @@ export async function replyToEmail(data: z.infer<typeof replyEmailSchema>) {
               inArray(document.id, validated.attachmentIds),
               eq(document.status, "active"),
               or(
-                eq(document.uploadedBy, currentUser.id),
+                eq(document.uploadedBy, currentUser.authId),
                 eq(document.public, true),
                 and(
                   eq(document.departmental, true),
@@ -497,9 +497,9 @@ export async function forwardEmail(data: z.infer<typeof forwardEmailSchema>) {
       }
 
       const recipients = await tx
-        .select({ id: employees.id })
+        .select({ authId: employees.authId })
         .from(employees)
-        .where(inArray(employees.id, validated.recipientIds));
+        .where(inArray(employees.authId, validated.recipientIds));
 
       if (recipients.length !== validated.recipientIds.length) {
         return {
@@ -512,7 +512,7 @@ export async function forwardEmail(data: z.infer<typeof forwardEmailSchema>) {
       const [newEmail] = await tx
         .insert(email)
         .values({
-          senderId: currentUser.id,
+          senderId: currentUser.authId,
           subject: validated.subject,
           body: validated.body,
           type: "forward",
@@ -540,7 +540,7 @@ export async function forwardEmail(data: z.infer<typeof forwardEmailSchema>) {
               inArray(document.id, validated.attachmentIds),
               eq(document.status, "active"),
               or(
-                eq(document.uploadedBy, currentUser.id),
+                eq(document.uploadedBy, currentUser.authId),
                 eq(document.public, true),
                 and(
                   eq(document.departmental, true),
@@ -658,10 +658,10 @@ export async function getInboxEmails(page = 1, limit = 20) {
         })
         .from(emailRecipient)
         .innerJoin(email, eq(emailRecipient.emailId, email.id))
-        .innerJoin(employees, eq(email.senderId, employees.id))
+        .innerJoin(employees, eq(email.senderId, employees.authId))
         .where(
           and(
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
             eq(emailRecipient.isArchived, false),
             eq(emailRecipient.isDeleted, false),
             eq(email.organizationId, organization.id),
@@ -676,7 +676,7 @@ export async function getInboxEmails(page = 1, limit = 20) {
         .from(emailRecipient)
         .where(
           and(
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
             eq(emailRecipient.isArchived, false),
             eq(emailRecipient.isDeleted, false),
           ),
@@ -748,10 +748,10 @@ export async function getArchivedEmails(page = 1, limit = 20) {
         })
         .from(emailRecipient)
         .innerJoin(email, eq(emailRecipient.emailId, email.id))
-        .innerJoin(employees, eq(email.senderId, employees.id))
+        .innerJoin(employees, eq(email.senderId, employees.authId))
         .where(
           and(
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
             eq(emailRecipient.isArchived, true),
             eq(emailRecipient.isDeleted, false),
             eq(email.organizationId, organization.id),
@@ -766,7 +766,7 @@ export async function getArchivedEmails(page = 1, limit = 20) {
         .from(emailRecipient)
         .where(
           and(
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
             eq(emailRecipient.isArchived, true),
             eq(emailRecipient.isDeleted, false),
           ),
@@ -833,11 +833,16 @@ export async function getSentEmails(page = 1, limit = 20) {
           type: email.type,
           hasBeenOpened: email.hasBeenOpened,
           recipients: sql<
-            Array<{ id: number; name: string; email: string; isRead: boolean }>
+            Array<{
+              authId: string;
+              name: string;
+              email: string;
+              isRead: boolean;
+            }>
           >`
 	json_agg(
 		json_build_object(
-				'id', ${employees.id},
+				'authId', ${employees.authId},
 				'name', ${employees.name},
 				'email', ${employees.email},
 				'isRead', ${emailRecipient.isRead},
@@ -848,10 +853,10 @@ export async function getSentEmails(page = 1, limit = 20) {
         })
         .from(email)
         .innerJoin(emailRecipient, eq(email.id, emailRecipient.emailId))
-        .innerJoin(employees, eq(emailRecipient.recipientId, employees.id))
+        .innerJoin(employees, eq(emailRecipient.recipientId, employees.authId))
         .where(
           and(
-            eq(email.senderId, currentUser.id),
+            eq(email.senderId, currentUser.authId),
             eq(email.organizationId, organization.id),
           ),
         )
@@ -863,7 +868,7 @@ export async function getSentEmails(page = 1, limit = 20) {
       const [{ count }] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(email)
-        .where(eq(email.senderId, currentUser.id));
+        .where(eq(email.senderId, currentUser.authId));
 
       return {
         success: true,
@@ -932,10 +937,10 @@ export async function getTrashEmails(page = 1, limit = 20) {
         })
         .from(emailRecipient)
         .innerJoin(email, eq(emailRecipient.emailId, email.id))
-        .innerJoin(employees, eq(email.senderId, employees.id))
+        .innerJoin(employees, eq(email.senderId, employees.authId))
         .where(
           and(
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
             eq(emailRecipient.isDeleted, true),
             eq(email.organizationId, organization.id),
           ),
@@ -949,7 +954,7 @@ export async function getTrashEmails(page = 1, limit = 20) {
         .from(emailRecipient)
         .where(
           and(
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
             eq(emailRecipient.isDeleted, true),
           ),
         );
@@ -1017,7 +1022,7 @@ export async function getEmailById(emailId: number) {
           hasBeenOpened: email.hasBeenOpened,
         })
         .from(email)
-        .innerJoin(employees, eq(email.senderId, employees.id))
+        .innerJoin(employees, eq(email.senderId, employees.authId))
         .where(
           and(eq(email.id, emailId), eq(email.organizationId, organization.id)),
         )
@@ -1036,12 +1041,12 @@ export async function getEmailById(emailId: number) {
         .where(
           and(
             eq(emailRecipient.emailId, emailId),
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
           ),
         )
         .limit(1);
 
-      const isSender = emailData.senderId === currentUser.id;
+      const isSender = emailData.senderId === currentUser.authId;
       const isRecipient = !!recipientRow;
       if (!isSender && !isRecipient) {
         return { success: false, data: null, error: "Unauthorized" };
@@ -1049,18 +1054,20 @@ export async function getEmailById(emailId: number) {
 
       const recipients = await tx
         .select({
-          id: employees.id,
+          authId: employees.authId,
           name: employees.name,
           email: employees.email,
           isRead: emailRecipient.isRead,
           readAt: emailRecipient.readAt,
         })
         .from(emailRecipient)
-        .innerJoin(employees, eq(emailRecipient.recipientId, employees.id))
+        .innerJoin(employees, eq(emailRecipient.recipientId, employees.authId))
         .where(eq(emailRecipient.emailId, emailId));
 
-      const isUserSender = emailData.senderId === currentUser.id;
-      const isUserReceipient = recipients.some((r) => r.id === currentUser.id);
+      const isUserSender = emailData.senderId === currentUser.authId;
+      const isUserReceipient = recipients.some(
+        (r) => r.authId === currentUser.authId,
+      );
 
       if (!isUserSender && !isUserReceipient) {
         return {
@@ -1083,7 +1090,7 @@ export async function getEmailById(emailId: number) {
           .where(
             and(
               eq(emailRecipient.emailId, emailId),
-              eq(emailRecipient.recipientId, currentUser.id),
+              eq(emailRecipient.recipientId, currentUser.authId),
             ),
           )
           .limit(1);
@@ -1129,7 +1136,7 @@ export async function markEmailAsRead(emailId: number) {
         .where(
           and(
             eq(emailRecipient.emailId, emailId),
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
           ),
         )
         .limit(1);
@@ -1202,7 +1209,7 @@ export async function archiveEmail(emailId: number) {
       .where(
         and(
           eq(emailRecipient.emailId, emailId),
-          eq(emailRecipient.recipientId, currentUser.id),
+          eq(emailRecipient.recipientId, currentUser.authId),
         ),
       )
       .returning();
@@ -1249,7 +1256,7 @@ export async function unarchiveEmail(emailId: number) {
       .where(
         and(
           eq(emailRecipient.emailId, emailId),
-          eq(emailRecipient.recipientId, currentUser.id),
+          eq(emailRecipient.recipientId, currentUser.authId),
         ),
       )
       .returning();
@@ -1297,7 +1304,7 @@ export async function moveEmailToTrash(emailId: number) {
       .where(
         and(
           eq(emailRecipient.emailId, emailId),
-          eq(emailRecipient.recipientId, currentUser.id),
+          eq(emailRecipient.recipientId, currentUser.authId),
         ),
       )
       .returning();
@@ -1347,7 +1354,7 @@ export async function restoreEmailFromTrash(emailId: number) {
       .where(
         and(
           eq(emailRecipient.emailId, emailId),
-          eq(emailRecipient.recipientId, currentUser.id),
+          eq(emailRecipient.recipientId, currentUser.authId),
         ),
       )
       .returning();
@@ -1407,7 +1414,7 @@ export async function deleteSentEmail(emailId: number) {
         };
       }
 
-      if (emailData.senderId !== currentUser.id) {
+      if (emailData.senderId !== currentUser.authId) {
         return {
           success: false,
           data: null,
@@ -1458,7 +1465,7 @@ export async function permanentlyDeleteEmail(emailId: number) {
       .where(
         and(
           eq(emailRecipient.emailId, emailId),
-          eq(emailRecipient.recipientId, currentUser.id),
+          eq(emailRecipient.recipientId, currentUser.authId),
           eq(emailRecipient.isDeleted, true),
         ),
       )
@@ -1535,10 +1542,10 @@ export async function searchEmails(data: z.infer<typeof searchEmailSchema>) {
           })
           .from(emailRecipient)
           .innerJoin(email, eq(emailRecipient.emailId, email.id))
-          .innerJoin(employees, eq(email.senderId, employees.id))
+          .innerJoin(employees, eq(email.senderId, employees.authId))
           .where(
             and(
-              eq(emailRecipient.recipientId, currentUser.id),
+              eq(emailRecipient.recipientId, currentUser.authId),
               eq(emailRecipient.isArchived, false),
               eq(emailRecipient.isDeleted, false),
               eq(email.organizationId, organization.id),
@@ -1571,10 +1578,10 @@ export async function searchEmails(data: z.infer<typeof searchEmailSchema>) {
           })
           .from(emailRecipient)
           .innerJoin(email, eq(emailRecipient.emailId, email.id))
-          .innerJoin(employees, eq(email.senderId, employees.id))
+          .innerJoin(employees, eq(email.senderId, employees.authId))
           .where(
             and(
-              eq(emailRecipient.recipientId, currentUser.id),
+              eq(emailRecipient.recipientId, currentUser.authId),
               eq(emailRecipient.isArchived, true),
               eq(emailRecipient.isDeleted, false),
               eq(email.organizationId, organization.id),
@@ -1606,10 +1613,10 @@ export async function searchEmails(data: z.infer<typeof searchEmailSchema>) {
             folder: sql<string>`'sent'`,
           })
           .from(email)
-          .innerJoin(employees, eq(email.senderId, employees.id))
+          .innerJoin(employees, eq(email.senderId, employees.authId))
           .where(
             and(
-              eq(email.senderId, currentUser.id),
+              eq(email.senderId, currentUser.authId),
               eq(email.organizationId, organization.id),
               or(
                 ilike(email.subject, searchTerm),
@@ -1638,10 +1645,10 @@ export async function searchEmails(data: z.infer<typeof searchEmailSchema>) {
           })
           .from(emailRecipient)
           .innerJoin(email, eq(emailRecipient.emailId, email.id))
-          .innerJoin(employees, eq(email.senderId, employees.id))
+          .innerJoin(employees, eq(email.senderId, employees.authId))
           .where(
             and(
-              eq(emailRecipient.recipientId, currentUser.id),
+              eq(emailRecipient.recipientId, currentUser.authId),
               eq(emailRecipient.isDeleted, true),
               or(
                 ilike(email.subject, searchTerm),
@@ -1688,7 +1695,7 @@ export async function getEmailStats() {
         .from(emailRecipient)
         .where(
           and(
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
             eq(emailRecipient.isRead, false),
             eq(emailRecipient.isArchived, false),
             eq(emailRecipient.isDeleted, false),
@@ -1700,7 +1707,7 @@ export async function getEmailStats() {
         .from(emailRecipient)
         .where(
           and(
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
             eq(emailRecipient.isArchived, false),
             eq(emailRecipient.isDeleted, false),
           ),
@@ -1711,7 +1718,7 @@ export async function getEmailStats() {
         .from(emailRecipient)
         .where(
           and(
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
             eq(emailRecipient.isArchived, true),
             eq(emailRecipient.isDeleted, false),
           ),
@@ -1720,14 +1727,14 @@ export async function getEmailStats() {
       const [{ sentCount }] = await tx
         .select({ sentCount: sql<number>`count(*)::int` })
         .from(email)
-        .where(eq(email.senderId, currentUser.id));
+        .where(eq(email.senderId, currentUser.authId));
 
       const [{ trashCount }] = await tx
         .select({ trashCount: sql<number>`count(*)::int` })
         .from(emailRecipient)
         .where(
           and(
-            eq(emailRecipient.recipientId, currentUser.id),
+            eq(emailRecipient.recipientId, currentUser.authId),
             eq(emailRecipient.isDeleted, true),
           ),
         );
@@ -1808,9 +1815,9 @@ export async function attachDocumentToEmail(
       }
 
       // Check if user is sender or recipient
-      const isSender = emailRecord.senderId === currentUser.id;
+      const isSender = emailRecord.senderId === currentUser.authId;
       const isRecipient = emailRecord.recipients.some(
-        (r) => r.recipientId === currentUser.id,
+        (r) => r.recipientId === currentUser.authId,
       );
 
       if (!isSender && !isRecipient) {
@@ -1836,7 +1843,7 @@ export async function attachDocumentToEmail(
 
       // Check if user has access to the document
       const hasDocumentAccess =
-        documentRecord.uploadedBy === currentUser.id ||
+        documentRecord.uploadedBy === currentUser.authId ||
         documentRecord.public ||
         (documentRecord.departmental &&
           documentRecord.department === currentUser.department);
@@ -1921,9 +1928,9 @@ export async function getEmailAttachments(emailId: number) {
       }
 
       // Check if user is sender or recipient
-      const isSender = emailRecord.senderId === currentUser.id;
+      const isSender = emailRecord.senderId === currentUser.authId;
       const isRecipient = emailRecord.recipients.some(
-        (r) => r.recipientId === currentUser.id,
+        (r) => r.recipientId === currentUser.authId,
       );
 
       if (!isSender && !isRecipient) {
@@ -1956,7 +1963,7 @@ export async function getEmailAttachments(emailId: number) {
           documentVersions,
           eq(document.currentVersionId, documentVersions.id),
         )
-        .leftJoin(employees, eq(document.uploadedBy, employees.id))
+        .leftJoin(employees, eq(document.uploadedBy, employees.authId))
         .where(eq(emailAttachment.emailId, emailId))
         .orderBy(desc(emailAttachment.createdAt));
 
@@ -2010,9 +2017,9 @@ export async function removeAttachmentFromEmail(attachmentId: number) {
       }
 
       // Check if user is sender or recipient
-      const isSender = attachment.email.senderId === currentUser.id;
+      const isSender = attachment.email.senderId === currentUser.authId;
       const isRecipient = attachment.email.recipients.some(
-        (r) => r.recipientId === currentUser.id,
+        (r) => r.recipientId === currentUser.authId,
       );
 
       if (!isSender && !isRecipient) {
@@ -2081,7 +2088,7 @@ export async function getAccessibleDocumentsForAttachment() {
         mimeType: documentVersions.mimeType,
       })
       .from(document)
-      .leftJoin(employees, eq(document.uploadedBy, employees.id))
+      .leftJoin(employees, eq(document.uploadedBy, employees.authId))
       .leftJoin(
         documentVersions,
         eq(document.currentVersionId, documentVersions.id),
@@ -2090,7 +2097,7 @@ export async function getAccessibleDocumentsForAttachment() {
         and(
           eq(document.status, "active"),
           or(
-            eq(document.uploadedBy, currentUser.id),
+            eq(document.uploadedBy, currentUser.authId),
             eq(document.public, true),
             and(
               eq(document.departmental, true),
@@ -2138,7 +2145,7 @@ export async function getAccessibleDocumentsForAttachmentPaginated(
       const baseWhere = and(
         eq(document.status, "active"),
         or(
-          eq(document.uploadedBy, currentUser.id),
+          eq(document.uploadedBy, currentUser.authId),
           eq(document.public, true),
           and(
             eq(document.departmental, true),
@@ -2176,7 +2183,7 @@ export async function getAccessibleDocumentsForAttachmentPaginated(
           mimeType: documentVersions.mimeType,
         })
         .from(document)
-        .leftJoin(employees, eq(document.uploadedBy, employees.id))
+        .leftJoin(employees, eq(document.uploadedBy, employees.authId))
         .leftJoin(
           documentVersions,
           eq(document.currentVersionId, documentVersions.id),

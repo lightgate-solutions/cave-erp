@@ -72,7 +72,7 @@ export default function EmployeeEditForm({
       staffNumber: employee.staffNumber || "",
       department: employee.department || "",
       role: employee.role || "Employee",
-      managerId: employee.managerId?.toString() || null,
+      managerId: employee.managerId || null,
       dateOfBirth: employee.dateOfBirth || "",
       address: employee.address || "",
       maritalStatus: employee.maritalStatus || "",
@@ -86,7 +86,7 @@ export default function EmployeeEditForm({
     try {
       const res = await updateEmployee(employee.id, {
         ...values,
-        managerId: values.managerId ? Number(values.managerId) : null,
+        managerId: values.managerId || null,
       });
 
       if (res?.error) {

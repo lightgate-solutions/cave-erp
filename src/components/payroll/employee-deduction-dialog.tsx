@@ -60,7 +60,7 @@ type DeductionType =
 
 type EmployeeDeduction = {
   id: number;
-  employeeId: number;
+  userId: string;
   name: string;
   salaryStructureId: number;
   structureName: string | null;
@@ -91,7 +91,7 @@ type SalaryStructure = {
 
 type EmployeeDeductionDialogProps = {
   trigger?: React.ReactNode;
-  employeeId: number;
+  userId: string;
   employeeName: string;
   isOpen?: boolean;
   onOpenChangeAction?: (open: boolean) => void;
@@ -99,7 +99,7 @@ type EmployeeDeductionDialogProps = {
 
 export function EmployeeDeductionDialog({
   trigger,
-  employeeId,
+  userId,
   employeeName,
   isOpen,
   onOpenChangeAction,
@@ -133,9 +133,9 @@ export function EmployeeDeductionDialog({
     setLoading(true);
     try {
       const [activeDeductions, templates, salary] = await Promise.all([
-        getActiveEmployeeDeductions(employeeId),
+        getActiveEmployeeDeductions(userId),
         getDeductionTypes(),
-        getEmployeeSalaryHistory(employeeId),
+        getEmployeeSalaryHistory(userId),
       ]);
 
       setDeductions(activeDeductions);
@@ -162,7 +162,7 @@ export function EmployeeDeductionDialog({
     if (open) {
       loadData();
     }
-  }, [open, employeeId]);
+  }, [open, userId]);
 
   useEffect(() => {
     if (selectedDeductionId) {
@@ -219,7 +219,7 @@ export function EmployeeDeductionDialog({
     try {
       const result = await addDeductionToEmployee(
         {
-          employeeId,
+          userId,
           salaryStructureId: activeSalaryStructure.salaryStructureId,
           name: deductionName,
           amount:

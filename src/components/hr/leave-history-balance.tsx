@@ -39,7 +39,7 @@ export default function LeaveHistoryBalance() {
     queryFn: async () => {
       if (!currentEmployee?.id) return { leaves: [], total: 0 };
       const response = await fetch(
-        `/api/hr/leaves?employeeId=${currentEmployee.id}&limit=10`,
+        `/api/hr/leaves?userId=${currentEmployee.id}&limit=10`,
       );
       const data = await response.json();
       return data;
@@ -54,7 +54,7 @@ export default function LeaveHistoryBalance() {
       if (!currentEmployee?.id) return { balances: [] };
       const currentYear = new Date().getFullYear();
       const response = await fetch(
-        `/api/hr/leaves/balances?employeeId=${currentEmployee.id}&year=${currentYear}`,
+        `/api/hr/leaves/balances?userId=${currentEmployee.id}&year=${currentYear}`,
       );
       const data = await response.json();
       return data;

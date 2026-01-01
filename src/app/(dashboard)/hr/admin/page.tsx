@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 const AdminPage = async () => {
-  redirect("/hr/admin/users");
+  redirect("/");
 };
 
 export default AdminPage;

@@ -22,6 +22,7 @@ export default async function Page() {
   const [employee] = await db
     .select({
       id: employees.id,
+      userId: employees.authId,
       role: employees.role,
       department: employees.department,
     })
@@ -67,7 +68,7 @@ export default async function Page() {
         )}
       </div>
       <LeavesTable
-        employeeId={canManageLeaves ? undefined : employee.id}
+        userId={canManageLeaves ? undefined : employee.userId}
         isHR={canManageLeaves}
         showFilters={true}
       />

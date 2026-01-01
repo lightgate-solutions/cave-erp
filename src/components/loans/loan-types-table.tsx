@@ -32,10 +32,10 @@ import { getAllLoanTypes, deleteLoanType } from "@/actions/loans/loans";
 import LoanTypeForm from "./loan-type-form";
 
 interface LoanTypesTableProps {
-  employeeId: number;
+  userId: string;
 }
 
-export default function LoanTypesTable({ employeeId }: LoanTypesTableProps) {
+export default function LoanTypesTable({ userId }: LoanTypesTableProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingType, setEditingType] = useState<number | null>(null);
 
@@ -187,7 +187,7 @@ export default function LoanTypesTable({ employeeId }: LoanTypesTableProps) {
             </DialogDescription>
           </DialogHeader>
           <LoanTypeForm
-            employeeId={employeeId}
+            userId={userId}
             onSuccess={() => {
               setShowForm(false);
               queryClient.invalidateQueries({ queryKey: ["loan-types"] });
@@ -211,7 +211,7 @@ export default function LoanTypesTable({ employeeId }: LoanTypesTableProps) {
           </DialogHeader>
           {editingType && (
             <LoanTypeForm
-              employeeId={employeeId}
+              userId={userId}
               loanTypeId={editingType}
               onSuccess={() => {
                 setEditingType(null);

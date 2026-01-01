@@ -4,6 +4,9 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { db } from "@/db";
+import { employees } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +26,9 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const employeeId = searchParams.get("employeeId");
+    // Note: API query parameter is still "employeeId" for backward compatibility
+    const employeeIdParam = searchParams.get("employeeId");
+    const employeeId = employeeIdParam ? Number(employeeIdParam) : undefined;
     const yearParam = searchParams.get("year");
     const year = yearParam ? Number(yearParam) : undefined;
 
@@ -34,8 +39,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Look up employee to get authId
+    const [employeeRecord] = await db
+      .select({
+        authId: employees.authId,
+        organizationId: employees.organizationId,
+      })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.id, employeeId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1);
+
+    if (!employeeRecord?.authId) {
+      return NextResponse.json(
+        { error: "Employee not found or access denied" },
+        { status: 404 },
+      );
+    }
+
     // Verify employee belongs to the user's organization
-    const employee = await getEmployee(Number(employeeId));
+    const employee = await getEmployee(employeeRecord.authId);
     if (!employee) {
       return NextResponse.json(
         { error: "Employee not found or access denied" },
@@ -53,7 +80,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get leave balance - this function also has organizationId filtering
-    const balances = await getLeaveBalance(Number(employeeId), year);
+    const balances = await getLeaveBalance(employeeRecord.authId, year);
 
     return NextResponse.json({ balances });
   } catch (error) {

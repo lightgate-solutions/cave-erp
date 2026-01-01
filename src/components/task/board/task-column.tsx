@@ -18,7 +18,7 @@ interface TaskColumnProps {
   status: Status;
   tasks: BoardTask[];
   onStatusChange: (taskId: number, newStatus: StatusType) => void;
-  employeeId: number;
+  userId: string;
   role: "employee" | "manager" | "admin";
 }
 
@@ -26,7 +26,7 @@ export function TaskColumn({
   status,
   tasks,
   onStatusChange,
-  employeeId,
+  userId,
   role,
 }: TaskColumnProps) {
   const StatusIcon = status.icon;
@@ -96,7 +96,7 @@ export function TaskColumn({
                       <TaskCard
                         task={task}
                         onStatusChange={onStatusChange}
-                        employeeId={employeeId}
+                        userId={userId}
                         role={role}
                       />
                     </div>
@@ -126,7 +126,7 @@ export function TaskColumn({
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
           defaultStatus={status.name}
-          employeeId={employeeId}
+          userId={userId}
         />
       )}
     </div>

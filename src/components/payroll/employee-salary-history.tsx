@@ -23,7 +23,7 @@ import { toast } from "sonner";
 
 type Props = {
   trigger: React.ReactNode;
-  employeeId: number;
+  userId: string;
   employeeName: string;
 };
 interface HistoryDataType {
@@ -37,7 +37,7 @@ interface HistoryDataType {
 
 export function EmployeeSalaryHistory({
   trigger,
-  employeeId,
+  userId,
   employeeName,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -53,7 +53,7 @@ export function EmployeeSalaryHistory({
     const loadHistory = async () => {
       setLoading(true);
       try {
-        const historyData = await getEmployeeSalaryHistory(employeeId);
+        const historyData = await getEmployeeSalaryHistory(userId);
         setHistory(historyData);
       } catch (_error) {
         toast.error("Failed to load salary history:");
@@ -63,7 +63,7 @@ export function EmployeeSalaryHistory({
     };
 
     loadHistory();
-  }, [open, employeeId]);
+  }, [open, userId]);
 
   const formatDate = (date: Date | null) => {
     return date ? date.toLocaleDateString() : "-";

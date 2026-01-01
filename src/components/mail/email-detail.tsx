@@ -59,7 +59,7 @@ import {
 import { ScrollArea } from "../ui/scroll-area";
 
 interface Recipient {
-  id: number;
+  authId: string;
   name: string;
   email: string;
   image?: string | null;
@@ -89,7 +89,7 @@ interface EmailData {
   createdAt: Date;
   type: string;
   parentEmailId?: number | null;
-  senderId: number;
+  senderId: string;
   senderName: string;
   senderEmail: string;
   senderImage?: string | null;
@@ -445,7 +445,7 @@ export function EmailDetail({
                           <div className="space-y-2">
                             {email.recipients.map((recipient) => (
                               <div
-                                key={recipient.id}
+                                key={recipient.authId}
                                 className="flex items-center justify-between text-sm"
                               >
                                 <div className="flex items-center gap-2">

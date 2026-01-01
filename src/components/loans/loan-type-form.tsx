@@ -59,7 +59,7 @@ const loanTypeSchema = z.object({
 type LoanTypeFormValues = z.infer<typeof loanTypeSchema>;
 
 interface LoanTypeFormProps {
-  employeeId?: number; // Kept for backward compatibility, no longer used
+  userId?: string; // Kept for backward compatibility, no longer used
   loanTypeId?: number;
   onSuccess?: () => void;
   onCancel?: () => void;

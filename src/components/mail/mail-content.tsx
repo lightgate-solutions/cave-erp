@@ -18,7 +18,7 @@ import {
 type Folder = "inbox" | "sent" | "archive" | "trash";
 
 interface EmailRecipient {
-  id: number;
+  authId: string;
   name: string;
   email: string;
   isRead: boolean;
@@ -31,7 +31,7 @@ interface Email {
   body: string;
   createdAt: Date;
   type: string;
-  senderId?: number;
+  senderId?: string;
   senderName?: string;
   senderEmail?: string;
   isRead?: boolean;
@@ -51,7 +51,7 @@ interface SelectedEmail {
   createdAt: Date;
   type: string;
   parentEmailId?: number | null;
-  senderId: number;
+  senderId: string;
   senderName: string;
   senderEmail: string;
   senderImage?: string | null;

@@ -32,6 +32,7 @@ export async function GET() {
     const employeeResult = await db
       .select({
         id: employees.id,
+        authId: employees.authId,
       })
       .from(employees)
       .where(
@@ -43,7 +44,7 @@ export async function GET() {
       .limit(1);
 
     const employee = employeeResult[0];
-    if (!employee) {
+    if (!employee || !employee.authId) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 404 },
@@ -58,7 +59,7 @@ export async function GET() {
         .from(taskAssignees)
         .where(
           and(
-            eq(taskAssignees.employeeId, employee.id),
+            eq(taskAssignees.userId, employee.authId),
             eq(taskAssignees.organizationId, organization.id),
           ),
         );
@@ -72,9 +73,11 @@ export async function GET() {
     // Build where clause - tasks assigned directly or via assignees table, filtered by organization
     const whereClause: SQL<unknown> =
       taskIds.length > 0
-        ? (or(eq(tasks.assignedTo, employee.id), inArray(tasks.id, taskIds)) ??
-          eq(tasks.assignedTo, employee.id))
-        : eq(tasks.assignedTo, employee.id);
+        ? (or(
+            eq(tasks.assignedTo, employee.authId),
+            inArray(tasks.id, taskIds),
+          ) ?? eq(tasks.assignedTo, employee.authId))
+        : eq(tasks.assignedTo, employee.authId);
 
     // Get active tasks (not completed) ordered by due date (soonest first, nulls last)
     const assignedTasks = await db

@@ -34,7 +34,7 @@ export async function GET(
         supervisorEmail: employees.email,
       })
       .from(projects)
-      .leftJoin(employees, eq(employees.id, projects.supervisorId))
+      .leftJoin(employees, eq(employees.authId, projects.supervisorId))
       .where(
         and(eq(projects.id, id), eq(projects.organizationId, organization.id)),
       )

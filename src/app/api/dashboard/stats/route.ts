@@ -37,6 +37,7 @@ export async function GET() {
     const employeeResult = await db
       .select({
         id: employees.id,
+        authId: employees.authId,
         isManager: employees.isManager,
         department: employees.department,
       })
@@ -69,11 +70,11 @@ export async function GET() {
         ? eq(tasks.organizationId, organization.id)
         : isManager
           ? and(
-              eq(tasks.assignedBy, employee.id),
+              eq(tasks.assignedBy, employee.authId),
               eq(tasks.organizationId, organization.id),
             )
           : and(
-              eq(tasks.assignedTo, employee.id),
+              eq(tasks.assignedTo, employee.authId),
               eq(tasks.organizationId, organization.id),
             );
 
@@ -182,7 +183,7 @@ export async function GET() {
           .from(emailRecipient)
           .where(
             and(
-              eq(emailRecipient.recipientId, employee.id),
+              eq(emailRecipient.recipientId, employee.authId),
               eq(emailRecipient.isRead, false),
               eq(emailRecipient.isArchived, false),
               eq(emailRecipient.isDeleted, false),
@@ -193,7 +194,7 @@ export async function GET() {
           .from(emailRecipient)
           .where(
             and(
-              eq(emailRecipient.recipientId, employee.id),
+              eq(emailRecipient.recipientId, employee.authId),
               eq(emailRecipient.isArchived, false),
               eq(emailRecipient.isDeleted, false),
             ),
@@ -216,7 +217,7 @@ export async function GET() {
         .from(notifications)
         .where(
           and(
-            eq(notifications.user_id, employee.id),
+            eq(notifications.user_id, employee.authId),
             eq(notifications.is_read, false),
           ),
         );

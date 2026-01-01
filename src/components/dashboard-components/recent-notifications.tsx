@@ -15,22 +15,8 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 
 dayjs.extend(relativeTime);
-
-interface _Notification {
-  _id: Id<"notifications">;
-  _creationTime: number;
-  title: string;
-  message: string;
-  notificationType: string;
-  referenceId?: number;
-  isRead: boolean;
-  createdBy: number;
-  userId: number;
-  organizationId: string;
-}
 
 const getNotificationIcon = (type: string) => {
   switch (type) {
@@ -70,14 +56,14 @@ const getNotificationColor = (type: string) => {
 };
 
 export default function RecentNotifications({
-  employeeId,
+  userId,
   organizationId,
 }: {
-  employeeId: number;
+  userId: string;
   organizationId: string;
 }) {
   const allNotifications = useQuery(api.notifications.getUserNotifications, {
-    userId: employeeId,
+    userId: userId,
     organizationId,
   });
 

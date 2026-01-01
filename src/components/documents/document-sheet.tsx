@@ -188,7 +188,7 @@ export function DocumentSheet({
     }
   }
 
-  async function handleShareRemove(userId: number) {
+  async function handleShareRemove(userId: string) {
     const res = await removeDocumentShare(doc.id, userId);
     if (res.success) {
       toast.success(res.success.reason);

@@ -32,7 +32,7 @@ import { DocumentSelectionDialog } from "@/components/mail/document-selection-di
 
 const composeEmailSchema = z.object({
   recipientIds: z
-    .array(z.number())
+    .array(z.string())
     .min(1, "At least one recipient is required"),
   subject: z.string().min(1, "Subject is required").max(500),
   body: z.string().min(1, "Body is required"),
@@ -42,7 +42,7 @@ const composeEmailSchema = z.object({
 type ComposeEmailFormData = z.infer<typeof composeEmailSchema>;
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -137,7 +137,7 @@ export function ComposeEmail({
     setShowUserList(false);
   };
 
-  const handleUserRemove = (userId: number) => {
+  const handleUserRemove = (userId: string) => {
     const newSelectedUsers = selectedUsers.filter((u) => u.id !== userId);
     setSelectedUsers(newSelectedUsers);
     form.setValue(

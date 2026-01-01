@@ -37,7 +37,7 @@ const statusConfig: Status[] = [
 ];
 
 interface TaskBoardProps {
-  employeeId: number;
+  userId: string;
   role: "employee" | "manager" | "admin";
   priority?: string;
   assignee?: string;
@@ -45,7 +45,7 @@ interface TaskBoardProps {
 }
 
 export function TaskBoard({
-  employeeId,
+  userId,
   role,
   priority,
   assignee,
@@ -65,7 +65,7 @@ export function TaskBoard({
   const fetchTasks = useCallback(async () => {
     try {
       const params = new URLSearchParams({
-        employeeId: employeeId.toString(),
+        userId: userId.toString(),
         role,
       });
 
@@ -90,7 +90,7 @@ export function TaskBoard({
     } finally {
       setLoading(false);
     }
-  }, [employeeId, role, priority, assignee, search]);
+  }, [userId, role, priority, assignee, search]);
 
   useEffect(() => {
     fetchTasks();
@@ -197,7 +197,7 @@ export function TaskBoard({
             status={status}
             tasks={tasksByStatus[status.name] || []}
             onStatusChange={handleStatusChange}
-            employeeId={employeeId}
+            userId={userId}
             role={role}
           />
         ))}

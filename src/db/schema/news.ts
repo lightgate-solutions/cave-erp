@@ -4,13 +4,11 @@ import {
   uuid,
   boolean,
   timestamp,
-  serial,
   pgEnum,
   integer,
   index,
 } from "drizzle-orm/pg-core";
-import { employees } from "./hr";
-import { organization } from "./auth";
+import { organization, user } from "./auth";
 
 export const newsStatusEnum = pgEnum("news_status", [
   "draft",
@@ -28,8 +26,8 @@ export const newsArticles = pgTable(
     title: text("title").notNull(),
     content: text("content").notNull(),
     excerpt: text("excerpt"),
-    authorId: serial("author_id")
-      .references(() => employees.id, { onDelete: "cascade" })
+    authorId: text("author_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     status: newsStatusEnum("status").default("draft").notNull(),
     commentsEnabled: boolean("comments_enabled").default(true).notNull(),
@@ -52,8 +50,8 @@ export const newsComments = pgTable(
     articleId: uuid("article_id")
       .references(() => newsArticles.id, { onDelete: "cascade" })
       .notNull(),
-    userId: serial("user_id")
-      .references(() => employees.id, { onDelete: "cascade" })
+    userId: text("user_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     content: text("content").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

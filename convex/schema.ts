@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
   notifications: defineTable({
-    userId: v.number(),
+    userId: v.string(),
     organizationId: v.string(),
     title: v.string(),
     message: v.string(),
@@ -12,7 +12,7 @@ export default defineSchema({
       v.literal("deadline"),
       v.literal("message"),
     ),
-    createdBy: v.number(),
+    createdBy: v.string(),
     referenceId: v.optional(v.number()),
     isRead: v.boolean(),
   })

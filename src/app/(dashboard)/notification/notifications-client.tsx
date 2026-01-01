@@ -17,22 +17,22 @@ interface Notification {
   notificationType: string;
   referenceId?: number;
   isRead: boolean;
-  createdBy: number;
-  userId: number;
+  createdBy: string;
+  userId: string;
   organizationId: string;
 }
 
 interface NotificationsClientProps {
-  employeeId: number;
+  userId: string;
   organizationId: string;
 }
 
 export default function NotificationsClient({
-  employeeId,
+  userId,
   organizationId,
 }: NotificationsClientProps) {
   const notifications = useQuery(api.notifications.getUserNotifications, {
-    userId: employeeId,
+    userId: userId,
     organizationId,
   });
 
@@ -49,7 +49,7 @@ export default function NotificationsClient({
     try {
       await markAsReadMutation({
         id,
-        userId: employeeId,
+        userId: userId,
         organizationId,
       });
     } catch (err) {
@@ -60,7 +60,7 @@ export default function NotificationsClient({
   const markAllAsRead = async () => {
     try {
       await markAllAsReadMutation({
-        userId: employeeId,
+        userId: userId,
         organizationId,
       });
     } catch (error) {
@@ -71,7 +71,7 @@ export default function NotificationsClient({
   const clearAllNotifications = async () => {
     try {
       await clearAllNotificationsMutation({
-        userId: employeeId,
+        userId: userId,
         organizationId,
       });
     } catch (err) {
@@ -83,7 +83,7 @@ export default function NotificationsClient({
     try {
       await deleteNotificationMutation({
         id,
-        userId: employeeId,
+        userId: userId,
         organizationId,
       });
     } catch (err) {

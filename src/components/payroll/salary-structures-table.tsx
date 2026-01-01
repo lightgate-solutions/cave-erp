@@ -146,7 +146,7 @@ export function SalaryStructuresTable() {
                       </Badge>
                     </TableCell>
                     <TableCell>{structure.employeeCount}</TableCell>
-                    <TableCell>{structure.createdBy}</TableCell>
+                    <TableCell>{structure.createdByUserId}</TableCell>
                     <TableCell>
                       {new Date(structure.updatedAt).toLocaleDateString()}
                     </TableCell>

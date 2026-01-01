@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { eq, DrizzleQueryError, and, desc, sql } from "drizzle-orm";
+import { eq, DrizzleQueryError, and, desc, sql, inArray } from "drizzle-orm";
 import { getUser } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import { employees } from "@/db/schema/hr";
@@ -78,8 +78,8 @@ export async function createDeduction(
         percentage: data.percentage?.toString(),
         amount: data.amount?.toString(),
         organizationId: organization.id,
-        createdBy: user.id,
-        updatedBy: user.id,
+        createdByUserId: user.authId,
+        updatedByUserId: user.authId,
       });
 
       revalidatePath(pathname);
@@ -125,7 +125,7 @@ export async function getAllDeductions() {
         type: deductions.type,
         percentage: deductions.percentage,
         amount: deductions.amount,
-        createdById: deductions.createdBy,
+        createdById: deductions.createdByUserId,
         updatedAt: deductions.updatedAt,
       })
       .from(deductions)
@@ -134,29 +134,28 @@ export async function getAllDeductions() {
 
     const creatorIds = [...new Set(allDeductions.map((d) => d.createdById))];
 
-    const creators = await db
-      .select({
-        id: employees.id,
-        name: employees.name,
-      })
-      .from(employees)
-      .where(
-        creatorIds.length > 0
-          ? sql`${employees.id} IN (${creatorIds.join(", ")})`
-          : sql`FALSE`,
-      );
+    const creators =
+      creatorIds.length > 0
+        ? await db
+            .select({
+              authId: employees.authId,
+              name: employees.name,
+            })
+            .from(employees)
+            .where(inArray(employees.authId, creatorIds))
+        : [];
 
     const creatorsMap = creators.reduce(
       (map, creator) => {
-        map[creator.id] = creator.name;
+        map[creator.authId] = creator.name;
         return map;
       },
-      {} as Record<number, string>,
+      {} as Record<string, string>,
     );
 
     return allDeductions.map((deduction) => ({
       ...deduction,
-      createdBy: creatorsMap[deduction.createdById] || "Unknown",
+      createdByUserId: creatorsMap[deduction.createdById] || "Unknown",
     }));
   } catch (_error) {
     return [];
@@ -181,7 +180,7 @@ export async function getAllRecurringDeductions() {
         type: deductions.type,
         percentage: deductions.percentage,
         amount: deductions.amount,
-        createdById: deductions.createdBy,
+        createdById: deductions.createdByUserId,
         updatedAt: deductions.updatedAt,
       })
       .from(deductions)
@@ -195,29 +194,28 @@ export async function getAllRecurringDeductions() {
 
     const creatorIds = [...new Set(allDeductions.map((d) => d.createdById))];
 
-    const creators = await db
-      .select({
-        id: employees.id,
-        name: employees.name,
-      })
-      .from(employees)
-      .where(
-        creatorIds.length > 0
-          ? sql`${employees.id} IN (${creatorIds.join(", ")})`
-          : sql`FALSE`,
-      );
+    const creators =
+      creatorIds.length > 0
+        ? await db
+            .select({
+              authId: employees.authId,
+              name: employees.name,
+            })
+            .from(employees)
+            .where(inArray(employees.authId, creatorIds))
+        : [];
 
     const creatorsMap = creators.reduce(
       (map, creator) => {
-        map[creator.id] = creator.name;
+        map[creator.authId] = creator.name;
         return map;
       },
-      {} as Record<number, string>,
+      {} as Record<string, string>,
     );
 
     return allDeductions.map((deduction) => ({
       ...deduction,
-      createdBy: creatorsMap[deduction.createdById] || "Unknown",
+      createdByUserId: creatorsMap[deduction.createdById] || "Unknown",
     }));
   } catch (_error) {
     return [];
@@ -242,7 +240,7 @@ export async function getDeduction(id: number) {
         type: deductions.type,
         percentage: deductions.percentage,
         amount: deductions.amount,
-        createdById: deductions.createdBy,
+        createdById: deductions.createdByUserId,
         updatedAt: deductions.updatedAt,
       })
       .from(deductions)
@@ -261,12 +259,12 @@ export async function getDeduction(id: number) {
     const creator = await db
       .select({ name: employees.name })
       .from(employees)
-      .where(eq(employees.id, deduction[0].createdById))
+      .where(eq(employees.authId, deduction[0].createdById))
       .limit(1);
 
     return {
       ...deduction[0],
-      createdBy: creator.length > 0 ? creator[0].name : "Unknown",
+      createdByUserId: creator.length > 0 ? creator[0].name : "Unknown",
     };
   } catch (_error) {
     return null;
@@ -341,7 +339,7 @@ export async function updateDeduction(
             percentage: data.percentage.toString(),
           }),
           ...(data.amount !== undefined && { amount: data.amount.toString() }),
-          updatedBy: user.id,
+          updatedByUserId: user.authId,
           updatedAt: new Date(),
         })
         .where(eq(deductions.id, id));

@@ -71,12 +71,12 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const emp = await db
-      .select()
+      .select({ authId: employees.authId })
       .from(employees)
       .where(eq(employees.authId, authUserId))
       .limit(1)
       .then((r) => r[0]);
-    if (!emp) {
+    if (!emp?.authId) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 403 },
@@ -85,7 +85,7 @@ export async function POST(
 
     const res = await createTaskMessage({
       taskId: id,
-      senderId: emp.id,
+      senderId: emp.authId,
       content,
       organizationId: organization.id,
     });

@@ -24,6 +24,7 @@ export async function getEmployeesBySalaryStructure(structureId: number) {
     const result = await db
       .select({
         id: employees.id,
+        userId: employees.authId,
         name: employees.name,
         staffNumber: employees.staffNumber,
         department: employees.department,
@@ -32,7 +33,7 @@ export async function getEmployeesBySalaryStructure(structureId: number) {
         effectiveFrom: employeeSalary.effectiveFrom,
       })
       .from(employeeSalary)
-      .innerJoin(employees, eq(employeeSalary.employeeId, employees.id))
+      .innerJoin(employees, eq(employeeSalary.userId, employees.authId))
       .where(
         and(
           eq(employeeSalary.salaryStructureId, structureId),
@@ -48,7 +49,7 @@ export async function getEmployeesBySalaryStructure(structureId: number) {
   }
 }
 
-export async function getEmployeeSalaryHistory(employeeId: number) {
+export async function getEmployeeSalaryHistory(userId: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
@@ -75,7 +76,7 @@ export async function getEmployeeSalaryHistory(employeeId: number) {
       )
       .where(
         and(
-          eq(employeeSalary.employeeId, employeeId),
+          eq(employeeSalary.userId, userId),
           eq(employeeSalary.organizationId, organization.id),
         ),
       )
@@ -101,7 +102,7 @@ export async function getEmployeesNotInStructure(structureId: number) {
     // Step 1: Get all employees
     const allEmployees = await db
       .select({
-        id: employees.id,
+        authId: employees.authId,
         name: employees.name,
         staffNumber: employees.staffNumber,
         department: employees.department,
@@ -116,7 +117,7 @@ export async function getEmployeesNotInStructure(structureId: number) {
 
     // Step 2: Get employees already in this structure
     const assignedEmployeeIds = await db
-      .select({ employeeId: employeeSalary.employeeId })
+      .select({ userId: employeeSalary.userId })
       .from(employeeSalary)
       .where(
         and(
@@ -126,12 +127,12 @@ export async function getEmployeesNotInStructure(structureId: number) {
         ),
       );
 
-    const assignedIds = new Set(assignedEmployeeIds.map((e) => e.employeeId));
+    const assignedIds = new Set(assignedEmployeeIds.map((e) => e.userId));
 
     // Step 3: Get current structures for all employees
     const employeeStructures = await db
       .select({
-        employeeId: employeeSalary.employeeId,
+        userId: employeeSalary.userId,
         structureId: employeeSalary.salaryStructureId,
         structureName: salaryStructure.name,
       })
@@ -150,7 +151,7 @@ export async function getEmployeesNotInStructure(structureId: number) {
     // Create lookup map for current structures
     const structureMap = new Map();
     for (const item of employeeStructures) {
-      structureMap.set(item.employeeId, {
+      structureMap.set(item.userId, {
         structureId: item.structureId,
         structureName: item.structureName,
       });
@@ -158,9 +159,9 @@ export async function getEmployeesNotInStructure(structureId: number) {
 
     // Filter employees not in this structure and add current structure info
     const availableEmployees = allEmployees
-      .filter((emp) => !assignedIds.has(emp.id))
+      .filter((emp) => !assignedIds.has(emp.authId))
       .map((emp) => {
-        const currentStructure = structureMap.get(emp.id);
+        const currentStructure = structureMap.get(emp.authId);
         return {
           ...emp,
           currentStructureId: currentStructure?.structureId || null,
@@ -175,7 +176,7 @@ export async function getEmployeesNotInStructure(structureId: number) {
 }
 
 interface AssignEmployeeProps {
-  employeeId: number;
+  userId: string;
   salaryStructureId: number;
   effectiveFrom: Date;
 }
@@ -229,9 +230,9 @@ export async function assignEmployeeToStructure(
 
       // Check if employee exists
       const employee = await tx
-        .select({ id: employees.id, name: employees.name })
+        .select({ authId: employees.authId, name: employees.name })
         .from(employees)
-        .where(eq(employees.id, data.employeeId))
+        .where(eq(employees.authId, data.userId))
         .limit(1);
 
       if (employee.length === 0) {
@@ -250,7 +251,7 @@ export async function assignEmployeeToStructure(
         .from(employeeSalary)
         .where(
           and(
-            eq(employeeSalary.employeeId, data.employeeId),
+            eq(employeeSalary.userId, data.userId),
             isNull(employeeSalary.effectiveTo),
             eq(employeeSalary.organizationId, organization.id),
           ),
@@ -282,14 +283,14 @@ export async function assignEmployeeToStructure(
           .set({
             employeeCount: sql`${salaryStructure.employeeCount} - 1`,
             updatedAt: new Date(),
-            updatedBy: user.id,
+            updatedByUserId: user.authId,
           })
           .where(eq(salaryStructure.id, currentStructure[0].structureId));
       }
 
       // Insert new employee salary record
       await tx.insert(employeeSalary).values({
-        employeeId: data.employeeId,
+        userId: data.userId,
         salaryStructureId: data.salaryStructureId,
         organizationId: organization.id,
         effectiveFrom: data.effectiveFrom,
@@ -302,7 +303,7 @@ export async function assignEmployeeToStructure(
         .set({
           employeeCount: sql`${salaryStructure.employeeCount} + 1`,
           updatedAt: new Date(),
-          updatedBy: user.id,
+          updatedByUserId: user.authId,
         })
         .where(eq(salaryStructure.id, data.salaryStructureId));
 
@@ -358,7 +359,7 @@ export async function removeEmployeeFromStructure(
         .set({
           employeeCount: sql`${salaryStructure.employeeCount} - 1`,
           updatedAt: new Date(),
-          updatedBy: user.id,
+          updatedByUserId: user.authId,
         })
         .where(eq(salaryStructure.id, salaryStructureId));
 

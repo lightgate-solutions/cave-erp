@@ -63,7 +63,7 @@ export async function PUT(request: NextRequest) {
 
     // Get employee ID from auth user ID
     const [employee] = await db
-      .select({ id: employees.id })
+      .select({ id: employees.id, authId: employees.authId })
       .from(employees)
       .where(eq(employees.authId, authUserId))
       .limit(1);
@@ -143,7 +143,7 @@ export async function PUT(request: NextRequest) {
     // Record transaction only if there's a change in balance
     if (Number(transactionAmount) !== 0) {
       await db.insert(balanceTransactions).values({
-        userId: employee.id,
+        userId: employee.authId,
         amount: transactionAmount,
         transactionType,
         organizationId: organization.id,

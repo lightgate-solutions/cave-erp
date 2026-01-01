@@ -34,6 +34,7 @@ export async function GET() {
     const employeeResult = await db
       .select({
         id: employees.id,
+        authId: employees.authId,
         isManager: employees.isManager,
         department: employees.department,
       })
@@ -63,54 +64,54 @@ export async function GET() {
     } else if (employee.isManager || normalizedRole === "manager") {
       // Manager can see own documents, team member documents, departmental documents, and public documents
       const subordinates = await db
-        .select({ id: employees.id })
+        .select({ authId: employees.authId })
         .from(employees)
         .where(
           and(
-            eq(employees.managerId, employee.id),
+            eq(employees.managerId, employee.authId),
             eq(employees.isManager, false),
             eq(employees.organizationId, organization.id),
           ),
         );
 
-      const teamMemberIds = subordinates.map((s) => s.id);
+      const teamMemberIds = subordinates.map((s) => s.authId);
 
       whereClause =
         teamMemberIds.length > 0
           ? (and(
               eq(document.status, "active"),
               or(
-                eq(document.uploadedBy, employee.id),
+                eq(document.uploadedBy, employee.authId),
                 inArray(document.uploadedBy, teamMemberIds),
                 and(
                   eq(document.departmental, true),
                   eq(document.department, employee.department || ""),
                 ),
                 eq(document.public, true),
-              ) ?? eq(document.uploadedBy, employee.id),
+              ) ?? eq(document.uploadedBy, employee.authId),
             ) ?? eq(document.status, "active"))
           : (and(
               eq(document.status, "active"),
               or(
-                eq(document.uploadedBy, employee.id),
+                eq(document.uploadedBy, employee.authId),
                 and(
                   eq(document.departmental, true),
                   eq(document.department, employee.department || ""),
                 ),
                 eq(document.public, true),
-              ) ?? eq(document.uploadedBy, employee.id),
+              ) ?? eq(document.uploadedBy, employee.authId),
             ) ?? eq(document.status, "active"));
     } else {
       // Staff/User can see own documents, public documents, departmental documents, or documents with explicit access
       const visibilityCondition = sql`(
-        ${document.uploadedBy} = ${employee.id}
+        ${document.uploadedBy} = ${employee.authId}
         OR ${document.public} = true
         OR (${document.departmental} = true AND ${document.department} = ${employee.department ?? ""})
         OR EXISTS (
           SELECT 1 FROM ${documentAccess}
           WHERE ${documentAccess.documentId} = ${document.id}
             AND (
-              ${documentAccess.userId} = ${employee.id}
+              ${documentAccess.userId} = ${employee.authId}
               OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${employee.department ?? ""})
             )
         )
@@ -135,7 +136,7 @@ export async function GET() {
         currentVersionId: document.currentVersionId,
       })
       .from(document)
-      .leftJoin(employees, eq(document.uploadedBy, employees.id))
+      .leftJoin(employees, eq(document.uploadedBy, employees.authId))
       .leftJoin(
         documentVersions,
         eq(documentVersions.id, document.currentVersionId),

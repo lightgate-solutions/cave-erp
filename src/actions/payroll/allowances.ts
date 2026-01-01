@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { eq, DrizzleQueryError, and, desc, sql } from "drizzle-orm";
+import { eq, DrizzleQueryError, and, desc, sql, inArray } from "drizzle-orm";
 import { getUser } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import { employees } from "@/db/schema/hr";
@@ -88,8 +88,8 @@ export async function createAllowance(
         taxable: data.taxable,
         taxPercentage: data.taxPercentage?.toString(),
         description: data.description?.trim() || "",
-        createdBy: user.id,
-        updatedBy: user.id,
+        createdByUserId: user.authId,
+        updatedByUserId: user.authId,
       });
 
       revalidatePath(pathname);
@@ -138,7 +138,7 @@ export async function getAllAllowances() {
         taxable: allowances.taxable,
         taxPercentage: allowances.taxPercentage,
         description: allowances.description,
-        createdById: allowances.createdBy,
+        createdById: allowances.createdByUserId,
         updatedAt: allowances.updatedAt,
       })
       .from(allowances)
@@ -147,29 +147,28 @@ export async function getAllAllowances() {
 
     const creatorIds = [...new Set(allAllowances.map((a) => a.createdById))];
 
-    const creators = await db
-      .select({
-        id: employees.id,
-        name: employees.name,
-      })
-      .from(employees)
-      .where(
-        creatorIds.length > 0
-          ? sql`${employees.id} IN (${creatorIds.join(", ")})`
-          : sql`FALSE`,
-      );
+    const creators =
+      creatorIds.length > 0
+        ? await db
+            .select({
+              authId: employees.authId,
+              name: employees.name,
+            })
+            .from(employees)
+            .where(inArray(employees.authId, creatorIds))
+        : [];
 
     const creatorsMap = creators.reduce(
       (map, creator) => {
-        map[creator.id] = creator.name;
+        map[creator.authId] = creator.name;
         return map;
       },
-      {} as Record<number, string>,
+      {} as Record<string, string>,
     );
 
     return allAllowances.map((allowance) => ({
       ...allowance,
-      createdBy: creatorsMap[allowance.createdById] || "Unknown",
+      createdByUserId: creatorsMap[allowance.createdById] || "Unknown",
     }));
   } catch (_error) {
     return [];
@@ -197,7 +196,7 @@ export async function getAllAllowancesMonthly() {
         taxable: allowances.taxable,
         taxPercentage: allowances.taxPercentage,
         description: allowances.description,
-        createdById: allowances.createdBy,
+        createdById: allowances.createdByUserId,
         updatedAt: allowances.updatedAt,
       })
       .from(allowances)
@@ -211,29 +210,28 @@ export async function getAllAllowancesMonthly() {
 
     const creatorIds = [...new Set(allAllowances.map((a) => a.createdById))];
 
-    const creators = await db
-      .select({
-        id: employees.id,
-        name: employees.name,
-      })
-      .from(employees)
-      .where(
-        creatorIds.length > 0
-          ? sql`${employees.id} IN (${creatorIds.join(", ")})`
-          : sql`FALSE`,
-      );
+    const creators =
+      creatorIds.length > 0
+        ? await db
+            .select({
+              authId: employees.authId,
+              name: employees.name,
+            })
+            .from(employees)
+            .where(inArray(employees.authId, creatorIds))
+        : [];
 
     const creatorsMap = creators.reduce(
       (map, creator) => {
-        map[creator.id] = creator.name;
+        map[creator.authId] = creator.name;
         return map;
       },
-      {} as Record<number, string>,
+      {} as Record<string, string>,
     );
 
     return allAllowances.map((allowance) => ({
       ...allowance,
-      createdBy: creatorsMap[allowance.createdById] || "Unknown",
+      createdByUserId: creatorsMap[allowance.createdById] || "Unknown",
     }));
   } catch (_error) {
     return [];
@@ -261,7 +259,7 @@ export async function getAllowance(id: number) {
         taxable: allowances.taxable,
         taxPercentage: allowances.taxPercentage,
         description: allowances.description,
-        createdById: allowances.createdBy,
+        createdById: allowances.createdByUserId,
         updatedAt: allowances.updatedAt,
       })
       .from(allowances)
@@ -280,12 +278,12 @@ export async function getAllowance(id: number) {
     const creator = await db
       .select({ name: employees.name })
       .from(employees)
-      .where(eq(employees.id, allowance[0].createdById))
+      .where(eq(employees.authId, allowance[0].createdById))
       .limit(1);
 
     return {
       ...allowance[0],
-      createdBy: creator.length > 0 ? creator[0].name : "Unknown",
+      createdByUserId: creator.length > 0 ? creator[0].name : "Unknown",
     };
   } catch (_error) {
     return null;
@@ -388,7 +386,7 @@ export async function updateAllowance(
             taxPercentage: data.taxPercentage.toString(),
           }),
           ...(data.description && { description: data.description.trim() }),
-          updatedBy: user.id,
+          updatedByUserId: user.authId,
           updatedAt: new Date(),
         })
         .where(eq(allowances.id, id));

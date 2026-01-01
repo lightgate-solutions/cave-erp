@@ -2,9 +2,9 @@ import { getUser } from "@/actions/auth/dal";
 import { getUserPreferences } from "@/actions/user-preferences/preferences";
 import { PersonalizationDashboard } from "@/components/dashboard/personalization-dashboard";
 
-type UserPreferences = {
+type LocalUserPreferences = {
   id?: number;
-  userId?: number;
+  userId?: string;
   theme?: "light" | "dark" | "system";
   language?: "en" | "fr" | "es" | "de";
   dateFormat?: "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD" | "DD MMM YYYY";
@@ -25,7 +25,7 @@ export default async function PersonalizationPage() {
   }
 
   // Gracefully handle if preferences table doesn't exist
-  let preferences: UserPreferences | null = null;
+  let preferences: LocalUserPreferences | null = null;
   try {
     const rawPreferences = await getUserPreferences();
     // Convert null values to undefined to match component's expected type
@@ -55,7 +55,7 @@ export default async function PersonalizationPage() {
         profileVisibility: validProfileVisibility,
         emailDigest: validEmailDigest,
         compactMode: rawPreferences.compactMode ?? undefined,
-      } as UserPreferences;
+      };
     }
   } catch {
     // Continue with null preferences - component will handle defaults

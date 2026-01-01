@@ -10,10 +10,10 @@ import { headers } from "next/headers";
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Partial<CreateTask> & {
-      assignees?: number[];
+      assignees?: string[];
     };
     const created = await createTask(
-      body as CreateTask & { assignees?: number[] },
+      body as CreateTask & { assignees?: string[] },
     );
 
     if (!created.success) {
@@ -55,13 +55,37 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
 
     const role = searchParams.get("role") || undefined;
-    const employeeId = searchParams.get("employeeId");
+    // Note: API query parameter is still "employeeId" for backward compatibility
+    const employeeIdParam = searchParams.get("employeeId");
+    const employeeId = employeeIdParam ? Number(employeeIdParam) : 0;
     if (!employeeId || !role) {
       return NextResponse.json(
         { error: "Missing employeeId or role parameter" },
         { status: 400 },
       );
     }
+
+    // Look up employee to get authId (string userId)
+    const employee = await db
+      .select({ authId: employees.authId })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.id, employeeId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1)
+      .then((res) => res[0]);
+
+    if (!employee) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 400 },
+      );
+    }
+
+    const userId = employee.authId; // Now it's string (text)
     const page = Number(searchParams.get("page") || "1");
     const limit = Number(searchParams.get("limit") || "10");
     const offset = (page - 1) * limit;
@@ -89,14 +113,13 @@ export async function GET(request: NextRequest) {
 
     let where: ReturnType<typeof or> | ReturnType<typeof eq> | undefined;
     if (role === "employee") {
-      const eid = Number(employeeId || "0");
       // Fetch tasks where employee is explicitly assigned via join table
       const rows = await db
         .select({ id: taskAssignees.taskId })
         .from(taskAssignees)
         .where(
           and(
-            eq(taskAssignees.employeeId, eid),
+            eq(taskAssignees.userId, userId),
             eq(taskAssignees.organizationId, organization.id),
           ),
         );
@@ -104,16 +127,16 @@ export async function GET(request: NextRequest) {
       where = ids.length
         ? and(
             eq(tasks.organizationId, organization.id),
-            or(eq(tasks.assignedTo, eid), inArray(tasks.id, ids)),
+            or(eq(tasks.assignedTo, userId), inArray(tasks.id, ids)),
           )
         : and(
             eq(tasks.organizationId, organization.id),
-            eq(tasks.assignedTo, eid),
+            eq(tasks.assignedTo, userId),
           );
     } else if (role === "manager") {
       where = and(
         eq(tasks.organizationId, organization.id),
-        eq(tasks.assignedBy, Number(employeeId || "0")),
+        eq(tasks.assignedBy, userId),
       );
     }
 
@@ -150,25 +173,27 @@ export async function GET(request: NextRequest) {
       new Set(
         all_tasks
           .flatMap((t) => [t.assignedTo, t.assignedBy])
-          .filter(Boolean) as number[],
+          .filter(Boolean) as string[],
       ),
     );
-    let map = new Map<number, { email: string | null; name: string | null }>();
+    let map = new Map<string, { email: string | null; name: string | null }>();
     if (ids.length) {
       const rows = await db
         .select({
-          id: employees.id,
+          authId: employees.authId,
           email: employees.email,
           name: employees.name,
         })
         .from(employees)
         .where(
           and(
-            inArray(employees.id, ids),
+            inArray(employees.authId, ids),
             eq(employees.organizationId, organization.id),
           ),
         );
-      map = new Map(rows.map((r) => [r.id, { email: r.email, name: r.name }]));
+      map = new Map(
+        rows.map((r) => [r.authId, { email: r.email, name: r.name }]),
+      );
     }
 
     // Build assignees map for these tasks
@@ -186,7 +211,7 @@ export async function GET(request: NextRequest) {
           name: employees.name,
         })
         .from(taskAssignees)
-        .leftJoin(employees, eq(employees.id, taskAssignees.employeeId))
+        .leftJoin(employees, eq(employees.authId, taskAssignees.userId))
         .where(
           and(
             inArray(taskAssignees.taskId, taskIds),
@@ -203,10 +228,10 @@ export async function GET(request: NextRequest) {
     const enriched = all_tasks.map((t) => {
       return {
         ...t,
-        assignedToEmail: map.get(t.assignedTo || -1)?.email ?? null,
-        assignedByEmail: map.get(t.assignedBy || -1)?.email ?? null,
-        assignedToName: map.get(t.assignedTo || -1)?.name ?? null,
-        assignedByName: map.get(t.assignedBy || -1)?.name ?? null,
+        assignedToEmail: map.get(t.assignedTo || "")?.email ?? null,
+        assignedByEmail: map.get(t.assignedBy || "")?.email ?? null,
+        assignedToName: map.get(t.assignedTo || "")?.name ?? null,
+        assignedByName: map.get(t.assignedBy || "")?.name ?? null,
         assignees: assigneesMap.get(t.id) ?? [],
       };
     });

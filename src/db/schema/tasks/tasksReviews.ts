@@ -9,9 +9,8 @@ import {
 import { relations } from "drizzle-orm";
 import { tasks } from "./tasks";
 import { taskSubmissions } from "./taskSubmissions";
-import { employees } from "../hr";
 import { reviewStatusEnum } from "./enums";
-import { organization } from "../auth";
+import { organization, user } from "../auth";
 
 export const taskReviews = pgTable(
   "task_reviews",
@@ -26,9 +25,9 @@ export const taskReviews = pgTable(
       .notNull()
       .references(() => taskSubmissions.id, { onDelete: "cascade" }),
 
-    reviewedBy: integer("reviewed_by")
+    reviewedBy: text("reviewed_by")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
 
     organizationId: text("organization_id")
       .notNull()
@@ -57,8 +56,8 @@ export const taskReviewsRelations = relations(taskReviews, ({ one }) => ({
     fields: [taskReviews.submissionId],
     references: [taskSubmissions.id],
   }),
-  reviewedBy: one(employees, {
+  reviewedBy: one(user, {
     fields: [taskReviews.reviewedBy],
-    references: [employees.id],
+    references: [user.id],
   }),
 }));

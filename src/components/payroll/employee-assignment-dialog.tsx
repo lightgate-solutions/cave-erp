@@ -39,7 +39,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 
 type EmployeeOption = {
-  id: number;
+  id: string;
   name: string;
   staffNumber: string | null;
   department: string | null;
@@ -99,7 +99,15 @@ export function EmployeeAssignmentDialog({
     setLoading(true);
     try {
       const employeesList = await getEmployeesNotInStructure(structureId);
-      setEmployees(employeesList);
+      const mappedEmployees = employeesList.map((emp: any) => ({
+        id: emp.authId,
+        name: emp.name,
+        staffNumber: emp.staffNumber,
+        department: emp.department,
+        currentStructureId: emp.currentStructureId,
+        currentStructureName: emp.currentStructureName,
+      }));
+      setEmployees(mappedEmployees);
 
       if (employeesList.length === 0) {
         setTimeout(() => {
@@ -117,10 +125,9 @@ export function EmployeeAssignmentDialog({
     }
   };
 
-  const handleEmployeeChange = (employeeId: string) => {
-    setSelectedEmployeeId(employeeId);
-    const employee =
-      employees.find((e) => e.id.toString() === employeeId) || null;
+  const handleEmployeeChange = (userId: string) => {
+    setSelectedEmployeeId(userId);
+    const employee = employees.find((e) => e.id.toString() === userId) || null;
     setSelectedEmployee(employee);
   };
 
@@ -154,7 +161,7 @@ export function EmployeeAssignmentDialog({
     try {
       const result = await assignEmployeeToStructure(
         {
-          employeeId: selectedEmployee.id,
+          userId: selectedEmployee.id,
           salaryStructureId: structureId,
           effectiveFrom: new Date(effectiveDate),
         },

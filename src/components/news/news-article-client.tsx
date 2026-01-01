@@ -32,7 +32,7 @@ interface NewsArticleClientProps {
 interface Comment {
   id: string;
   content: string;
-  userId: number;
+  userId: string;
   userName: string;
   createdAt: Date;
 }

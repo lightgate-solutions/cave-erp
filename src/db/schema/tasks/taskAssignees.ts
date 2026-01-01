@@ -8,7 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { tasks } from "./tasks";
-import { employees } from "../hr";
+import { user } from "../auth";
 import { organization } from "../auth";
 
 export const taskAssignees = pgTable(
@@ -18,9 +18,9 @@ export const taskAssignees = pgTable(
     taskId: integer("task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
-    employeeId: integer("employee_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -28,7 +28,7 @@ export const taskAssignees = pgTable(
   },
   (t) => [
     index("task_assignees_task_idx").on(t.taskId),
-    index("task_assignees_employee_idx").on(t.employeeId),
+    index("task_assignees_user_idx").on(t.userId),
     index("task_assignees_organization_idx").on(t.organizationId),
   ],
 );
@@ -38,8 +38,8 @@ export const taskAssigneesRelations = relations(taskAssignees, ({ one }) => ({
     fields: [taskAssignees.taskId],
     references: [tasks.id],
   }),
-  employee: one(employees, {
-    fields: [taskAssignees.employeeId],
-    references: [employees.id],
+  user: one(user, {
+    fields: [taskAssignees.userId],
+    references: [user.id],
   }),
 }));

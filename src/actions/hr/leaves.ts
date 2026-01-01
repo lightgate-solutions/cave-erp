@@ -50,7 +50,7 @@ function calculateWorkingDays(startDate: Date, endDate: Date): number {
 
 // Get all leave applications
 export async function getAllLeaveApplications(filters?: {
-  employeeId?: number;
+  userId?: string;
   status?: string;
   leaveType?: string;
   startDate?: string;
@@ -80,8 +80,8 @@ export async function getAllLeaveApplications(filters?: {
     eq(leaveApplications.organizationId, organization.id),
   ];
 
-  if (filters?.employeeId) {
-    conditions.push(eq(leaveApplications.employeeId, filters.employeeId));
+  if (filters?.userId) {
+    conditions.push(eq(leaveApplications.userId, filters.userId));
   }
   if (filters?.status) {
     conditions.push(eq(leaveApplications.status, filters.status as any));
@@ -116,7 +116,7 @@ export async function getAllLeaveApplications(filters?: {
   const totalResult = await db
     .select({ count: count() })
     .from(leaveApplications)
-    .leftJoin(employees, eq(leaveApplications.employeeId, employees.id))
+    .leftJoin(employees, eq(leaveApplications.userId, employees.authId))
     .where(whereClause);
 
   const total = totalResult[0]?.count || 0;
@@ -125,7 +125,7 @@ export async function getAllLeaveApplications(filters?: {
   const result = await db
     .select({
       id: leaveApplications.id,
-      employeeId: leaveApplications.employeeId,
+      userId: leaveApplications.userId,
       employeeName: employees.name,
       employeeEmail: employees.email,
       leaveType: leaveApplications.leaveType,
@@ -134,7 +134,7 @@ export async function getAllLeaveApplications(filters?: {
       totalDays: leaveApplications.totalDays,
       reason: leaveApplications.reason,
       status: leaveApplications.status,
-      approvedBy: leaveApplications.approvedBy,
+      approvedByUserId: leaveApplications.approvedByUserId,
       approverName: approver.name,
       approvedAt: leaveApplications.approvedAt,
       rejectionReason: leaveApplications.rejectionReason,
@@ -142,8 +142,8 @@ export async function getAllLeaveApplications(filters?: {
       createdAt: leaveApplications.createdAt,
     })
     .from(leaveApplications)
-    .leftJoin(employees, eq(leaveApplications.employeeId, employees.id))
-    .leftJoin(approver, eq(leaveApplications.approvedBy, approver.id))
+    .leftJoin(employees, eq(leaveApplications.userId, employees.authId))
+    .leftJoin(approver, eq(leaveApplications.approvedByUserId, approver.id))
     .where(whereClause)
     .orderBy(desc(leaveApplications.createdAt))
     .limit(limit)
@@ -174,7 +174,7 @@ export async function getLeaveApplication(leaveId: number) {
   const result = await db
     .select({
       id: leaveApplications.id,
-      employeeId: leaveApplications.employeeId,
+      userId: leaveApplications.userId,
       employeeName: employees.name,
       employeeEmail: employees.email,
       employeeDepartment: employees.department,
@@ -184,7 +184,7 @@ export async function getLeaveApplication(leaveId: number) {
       totalDays: leaveApplications.totalDays,
       reason: leaveApplications.reason,
       status: leaveApplications.status,
-      approvedBy: leaveApplications.approvedBy,
+      approvedByUserId: leaveApplications.approvedByUserId,
       approverName: approver.name,
       approvedAt: leaveApplications.approvedAt,
       rejectionReason: leaveApplications.rejectionReason,
@@ -192,8 +192,8 @@ export async function getLeaveApplication(leaveId: number) {
       createdAt: leaveApplications.createdAt,
     })
     .from(leaveApplications)
-    .leftJoin(employees, eq(leaveApplications.employeeId, employees.id))
-    .leftJoin(approver, eq(leaveApplications.approvedBy, approver.id))
+    .leftJoin(employees, eq(leaveApplications.userId, employees.authId))
+    .leftJoin(approver, eq(leaveApplications.approvedByUserId, approver.id))
     .where(
       and(
         eq(leaveApplications.id, leaveId),
@@ -207,7 +207,7 @@ export async function getLeaveApplication(leaveId: number) {
 
 // Apply for leave
 export async function applyForLeave(data: {
-  employeeId: number;
+  userId: string;
   leaveType: string;
   startDate: string;
   endDate: string;
@@ -227,7 +227,7 @@ export async function applyForLeave(data: {
 
   // Verify user can only apply for their own leave
   if (
-    authData.employee.id !== data.employeeId &&
+    authData.userId !== data.userId &&
     authData.role !== "admin" &&
     authData.role !== "hr"
   ) {
@@ -263,7 +263,7 @@ export async function applyForLeave(data: {
       .from(leaveApplications)
       .where(
         and(
-          eq(leaveApplications.employeeId, data.employeeId),
+          eq(leaveApplications.userId, data.userId),
           eq(leaveApplications.organizationId, organization.id),
           or(
             eq(leaveApplications.status, "Pending"),
@@ -299,14 +299,14 @@ export async function applyForLeave(data: {
     if (data.leaveType === "Annual") {
       const currentYear = new Date().getFullYear();
       // Ensure balance exists (initialize if needed)
-      await initializeEmployeeBalance(data.employeeId, currentYear);
+      await initializeEmployeeBalance(data.userId, currentYear);
 
       const balance = await db
         .select()
         .from(leaveBalances)
         .where(
           and(
-            eq(leaveBalances.employeeId, data.employeeId),
+            eq(leaveBalances.userId, data.userId),
             eq(leaveBalances.leaveType, "Annual"),
             eq(leaveBalances.year, currentYear),
           ),
@@ -326,7 +326,7 @@ export async function applyForLeave(data: {
     const [createdLeave] = await db
       .insert(leaveApplications)
       .values({
-        employeeId: data.employeeId,
+        userId: data.userId,
         leaveType: data.leaveType as any,
         startDate: data.startDate,
         endDate: data.endDate,
@@ -338,26 +338,32 @@ export async function applyForLeave(data: {
       .returning();
 
     // Get employee details for notification
-    const employee = await getEmployee(data.employeeId);
+    const employee = await getEmployee(data.userId);
     if (employee) {
       // Notify manager if employee has a manager
       if (employee.managerId) {
-        const startDate = new Date(data.startDate).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
-        const endDate = new Date(data.endDate).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
+        const manager = await getEmployee(employee.managerId);
+        if (manager) {
+          const startDate = new Date(data.startDate).toLocaleDateString(
+            "en-US",
+            {
+              month: "short",
+              day: "numeric",
+            },
+          );
+          const endDate = new Date(data.endDate).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
 
-        await createNotification({
-          user_id: employee.managerId,
-          title: "Leave Application Submitted",
-          message: `${employee.name} applied for ${data.leaveType} leave • ${startDate} - ${endDate} (${totalDays} days)`,
-          notification_type: "approval",
-          reference_id: createdLeave.id,
-        });
+          await createNotification({
+            user_id: manager.authId,
+            title: "Leave Application Submitted",
+            message: `${employee.name} applied for ${data.leaveType} leave • ${startDate} - ${endDate} (${totalDays} days)`,
+            notification_type: "approval",
+            reference_id: createdLeave.id,
+          });
+        }
       }
     }
 
@@ -413,7 +419,7 @@ export async function updateLeaveApplication(
     const processedUpdates: any = { ...updates, updatedAt: new Date() };
 
     if (updates.status === "Approved" && approverId) {
-      processedUpdates.approvedBy = approverId;
+      processedUpdates.approvedByUserId = approverId;
       processedUpdates.approvedAt = new Date();
     }
 
@@ -449,8 +455,21 @@ export async function updateLeaveApplication(
     if (leave) {
       // Notify employee when status changes to Approved or Rejected
       if (updates.status === "Approved" || updates.status === "Rejected") {
-        const approver = approverId ? await getEmployee(approverId) : null;
+        const approver = approverId
+          ? await db
+              .select()
+              .from(employees)
+              .where(
+                and(
+                  eq(employees.id, approverId),
+                  eq(employees.organizationId, organization.id),
+                ),
+              )
+              .limit(1)
+              .then((res) => res[0])
+          : null;
         const approverName = approver?.name || "Manager";
+        const employee = await getEmployee(leave.userId);
 
         const startDate = new Date(leave.startDate).toLocaleDateString(
           "en-US",
@@ -464,21 +483,21 @@ export async function updateLeaveApplication(
           day: "numeric",
         });
 
-        if (updates.status === "Approved") {
+        if (updates.status === "Approved" && employee) {
           await createNotification({
-            user_id: leave.employeeId,
+            user_id: employee.authId,
             title: "Leave Approved",
             message: `${approverName} approved your ${leave.leaveType} leave • ${startDate} - ${endDate} (${leave.totalDays} days)`,
             notification_type: "approval",
             reference_id: leaveId,
           });
-        } else if (updates.status === "Rejected") {
+        } else if (updates.status === "Rejected" && employee) {
           const reasonPreview = updates.rejectionReason
             ? ` • ${updates.rejectionReason.substring(0, 80)}${updates.rejectionReason.length > 80 ? "..." : ""}`
             : "";
 
           await createNotification({
-            user_id: leave.employeeId,
+            user_id: employee.authId,
             title: "Leave Rejected",
             message: `${approverName} rejected your ${leave.leaveType} leave request${reasonPreview}`,
             notification_type: "approval",
@@ -491,7 +510,7 @@ export async function updateLeaveApplication(
       if (updates.status === "Approved" && leave.leaveType === "Annual") {
         const currentYear = new Date().getFullYear();
         // Recalculate balance using global allocation
-        await initializeEmployeeBalance(leave.employeeId, currentYear);
+        await initializeEmployeeBalance(leave.userId, currentYear);
       }
     }
 
@@ -546,9 +565,10 @@ export async function deleteLeaveApplication(leaveId: number) {
       );
 
     // Notify approver if leave was pending and had an approver
-    if (leave && leave.status === "Pending" && leave.approvedBy) {
-      const employee = await getEmployee(leave.employeeId);
-      if (employee) {
+    if (leave && leave.status === "Pending" && leave.approvedByUserId) {
+      const employee = await getEmployee(leave.userId);
+      const manager = await getEmployee(leave.approvedByUserId);
+      if (employee && manager) {
         const startDate = new Date(leave.startDate).toLocaleDateString(
           "en-US",
           {
@@ -562,7 +582,7 @@ export async function deleteLeaveApplication(leaveId: number) {
         });
 
         await createNotification({
-          user_id: leave.approvedBy,
+          user_id: manager.authId,
           title: "Leave Application Cancelled",
           message: `${employee.name} cancelled their ${leave.leaveType} leave request • ${startDate} - ${endDate}`,
           notification_type: "message",
@@ -594,7 +614,7 @@ export async function deleteLeaveApplication(leaveId: number) {
 }
 
 // Get leave balance for an employee
-export async function getLeaveBalance(employeeId: number, year?: number) {
+export async function getLeaveBalance(userId: string, year?: number) {
   await requireAuth();
 
   const organization = await auth.api.getFullOrganization({
@@ -610,7 +630,7 @@ export async function getLeaveBalance(employeeId: number, year?: number) {
     .from(leaveBalances)
     .where(
       and(
-        eq(leaveBalances.employeeId, employeeId),
+        eq(leaveBalances.userId, userId),
         eq(leaveBalances.year, currentYear),
         eq(leaveBalances.organizationId, organization.id),
       ),
@@ -619,7 +639,7 @@ export async function getLeaveBalance(employeeId: number, year?: number) {
 
 // Update leave balance (only if balance exists)
 export async function updateLeaveBalance(
-  employeeId: number,
+  userId: string,
   leaveType: string,
   usedDays: number,
   year: number,
@@ -642,7 +662,7 @@ export async function updateLeaveBalance(
     .from(leaveBalances)
     .where(
       and(
-        eq(leaveBalances.employeeId, employeeId),
+        eq(leaveBalances.userId, userId),
         eq(leaveBalances.leaveType, leaveType as any),
         eq(leaveBalances.year, year),
         eq(leaveBalances.organizationId, organization),
@@ -836,7 +856,7 @@ export async function deleteAnnualLeaveSetting(settingId: number) {
 
 // Recalculate used days from approved leaves
 async function recalculateUsedDays(
-  employeeId: number,
+  userId: string,
   year: number,
   organizationId?: string,
 ) {
@@ -860,7 +880,7 @@ async function recalculateUsedDays(
     .from(leaveApplications)
     .where(
       and(
-        eq(leaveApplications.employeeId, employeeId),
+        eq(leaveApplications.userId, userId),
         eq(leaveApplications.leaveType, "Annual"),
         eq(leaveApplications.status, "Approved"),
         eq(leaveApplications.organizationId, organization),
@@ -897,7 +917,7 @@ async function recalculateAllEmployeeBalances(
 
   const allocatedDays = await getAnnualLeaveAllocation(year);
   const allEmployees = await db
-    .select({ id: employees.id })
+    .select({ id: employees.authId })
     .from(employees)
     .where(eq(employees.organizationId, organization));
 
@@ -910,7 +930,7 @@ async function recalculateAllEmployeeBalances(
       .from(leaveBalances)
       .where(
         and(
-          eq(leaveBalances.employeeId, employee.id),
+          eq(leaveBalances.userId, employee.id),
           eq(leaveBalances.leaveType, "Annual"),
           eq(leaveBalances.year, year),
           eq(leaveBalances.organizationId, organization),
@@ -930,7 +950,7 @@ async function recalculateAllEmployeeBalances(
         .where(eq(leaveBalances.id, balance[0].id));
     } else {
       await db.insert(leaveBalances).values({
-        employeeId: employee.id,
+        userId: employee.id,
         leaveType: "Annual",
         totalDays: allocatedDays,
         usedDays,
@@ -944,7 +964,7 @@ async function recalculateAllEmployeeBalances(
 
 // Initialize or update employee balance (uses global allocation)
 export async function initializeEmployeeBalance(
-  employeeId: number,
+  userId: string,
   year: number,
   organizationId?: string,
 ) {
@@ -961,7 +981,7 @@ export async function initializeEmployeeBalance(
   }
 
   const allocatedDays = await getAnnualLeaveAllocation(year);
-  const usedDays = await recalculateUsedDays(employeeId, year, organization);
+  const usedDays = await recalculateUsedDays(userId, year, organization);
   const remainingDays = allocatedDays - usedDays;
 
   const balance = await db
@@ -969,7 +989,7 @@ export async function initializeEmployeeBalance(
     .from(leaveBalances)
     .where(
       and(
-        eq(leaveBalances.employeeId, employeeId),
+        eq(leaveBalances.userId, userId),
         eq(leaveBalances.leaveType, "Annual"),
         eq(leaveBalances.year, year),
         eq(leaveBalances.organizationId, organization),
@@ -989,7 +1009,7 @@ export async function initializeEmployeeBalance(
       .where(eq(leaveBalances.id, balance[0].id));
   } else {
     await db.insert(leaveBalances).values({
-      employeeId,
+      userId,
       leaveType: "Annual",
       totalDays: allocatedDays,
       usedDays,

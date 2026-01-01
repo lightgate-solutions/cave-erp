@@ -64,7 +64,7 @@ export async function createFolder(data: CreateFoldersProps, pathname: string) {
           .where(
             and(
               eq(documentFolders.name, data.parent),
-              eq(documentFolders.createdBy, user.id),
+              eq(documentFolders.createdBy, user.authId),
               eq(documentFolders.organizationId, organization.id),
             ),
           )
@@ -83,7 +83,7 @@ export async function createFolder(data: CreateFoldersProps, pathname: string) {
         .where(
           and(
             eq(documentFolders.name, data.name),
-            eq(documentFolders.createdBy, user.id),
+            eq(documentFolders.createdBy, user.authId),
             eq(documentFolders.organizationId, organization.id),
             parentIdToUse !== null
               ? eq(documentFolders.parentId, parentIdToUse)
@@ -108,7 +108,7 @@ export async function createFolder(data: CreateFoldersProps, pathname: string) {
         root: parentIdToUse === null,
         departmental: data.departmental,
         department: user.department,
-        createdBy: user.id,
+        createdBy: user.authId,
         organizationId: organization.id,
       });
 
@@ -187,7 +187,7 @@ export async function getSubFolders(id: number) {
         eq(documentFolders.status, "active"),
         eq(documentFolders.organizationId, organization.id),
         or(
-          eq(documentFolders.createdBy, user.id),
+          eq(documentFolders.createdBy, user.authId),
           eq(documentFolders.public, true),
           and(
             eq(documentFolders.departmental, true),
@@ -220,7 +220,7 @@ export async function deleteFolder(folderId: number, pathname: string) {
           .where(
             and(
               eq(documentFolders.id, folderId),
-              eq(documentFolders.createdBy, user.id),
+              eq(documentFolders.createdBy, user.authId),
               eq(documentFolders.organizationId, organizationId),
             ),
           )
@@ -379,7 +379,7 @@ export async function archiveFolder(folderId: number, pathname: string) {
           .where(
             and(
               eq(documentFolders.id, folderId),
-              eq(documentFolders.createdBy, user.id),
+              eq(documentFolders.createdBy, user.authId),
               eq(documentFolders.organizationId, organizationId),
             ),
           )

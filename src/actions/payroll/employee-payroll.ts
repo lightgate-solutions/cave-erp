@@ -31,7 +31,7 @@ export async function getAllEmployeesWithPayroll() {
     // Get all employees
     const allEmployees = await db
       .select({
-        id: employees.id,
+        id: employees.authId,
         name: employees.name,
         staffNumber: employees.staffNumber,
         department: employees.department,
@@ -45,7 +45,7 @@ export async function getAllEmployeesWithPayroll() {
     // Get all active salary assignments for employees
     const activeSalaryAssignments = await db
       .select({
-        employeeId: employeeSalary.employeeId,
+        userId: employeeSalary.userId,
         salaryId: employeeSalary.id,
         structureId: salaryStructure.id,
         structureName: salaryStructure.name,
@@ -67,7 +67,7 @@ export async function getAllEmployeesWithPayroll() {
     // Create lookup map for employee salaries
     const salaryMap = new Map();
     for (const assignment of activeSalaryAssignments) {
-      salaryMap.set(assignment.employeeId, {
+      salaryMap.set(assignment.userId, {
         salaryId: assignment.salaryId,
         structureId: assignment.structureId,
         structureName: assignment.structureName,
@@ -99,7 +99,7 @@ export async function getAllEmployeesWithPayroll() {
  * Calculates the take-home pay for an employee based on their salary structure
  * and applicable allowances and deductions
  */
-export async function calculateEmployeeTakeHomePay(employeeId: number) {
+export async function calculateEmployeeTakeHomePay(userId: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
@@ -112,7 +112,7 @@ export async function calculateEmployeeTakeHomePay(employeeId: number) {
   try {
     const employeeSalaryInfo = await db
       .select({
-        employeeId: employeeSalary.employeeId,
+        userId: employeeSalary.userId,
         salaryStructureId: employeeSalary.salaryStructureId,
         structureName: salaryStructure.name,
         baseSalary: salaryStructure.baseSalary,
@@ -124,7 +124,7 @@ export async function calculateEmployeeTakeHomePay(employeeId: number) {
       )
       .where(
         and(
-          eq(employeeSalary.employeeId, employeeId),
+          eq(employeeSalary.userId, userId),
           isNull(employeeSalary.effectiveTo),
           eq(employeeSalary.organizationId, organization.id),
         ),
@@ -198,7 +198,7 @@ export async function calculateEmployeeTakeHomePay(employeeId: number) {
       .innerJoin(allowances, eq(employeeAllowances.allowanceId, allowances.id))
       .where(
         and(
-          eq(employeeAllowances.employeeId, employeeId),
+          eq(employeeAllowances.userId, userId),
           isNull(employeeAllowances.effectiveTo),
         ),
       );
@@ -214,7 +214,7 @@ export async function calculateEmployeeTakeHomePay(employeeId: number) {
       .from(employeeDeductions)
       .where(
         and(
-          eq(employeeDeductions.employeeId, employeeId),
+          eq(employeeDeductions.userId, userId),
           eq(employeeDeductions.active, true),
           isNull(employeeDeductions.effectiveTo),
         ),

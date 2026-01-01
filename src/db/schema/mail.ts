@@ -8,17 +8,16 @@ import {
   integer,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { employees } from "./hr";
 import { document } from "./documents";
-import { organization } from "./auth";
+import { organization, user } from "./auth";
 
 export const email = pgTable(
   "email",
   {
     id: serial("id").primaryKey(),
-    senderId: integer("sender_id")
+    senderId: text("sender_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     subject: text("subject").notNull(),
     body: text("body").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -48,9 +47,9 @@ export const emailRecipient = pgTable(
     emailId: integer("email_id")
       .notNull()
       .references(() => email.id, { onDelete: "cascade" }),
-    recipientId: integer("recipient_id")
+    recipientId: text("recipient_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     isRead: boolean("is_read").default(false).notNull(),
     isArchived: boolean("is_archived").default(false).notNull(),
     isDeleted: boolean("is_deleted").default(false).notNull(),
@@ -73,9 +72,9 @@ export const emailRecipient = pgTable(
 
 // Relations
 export const emailRelations = relations(email, ({ one, many }) => ({
-  sender: one(employees, {
+  sender: one(user, {
     fields: [email.senderId],
-    references: [employees.id],
+    references: [user.id],
   }),
   recipients: many(emailRecipient),
   attachments: many(emailAttachment),
@@ -111,9 +110,9 @@ export const emailRecipientRelations = relations(emailRecipient, ({ one }) => ({
     fields: [emailRecipient.emailId],
     references: [email.id],
   }),
-  recipient: one(employees, {
+  recipient: one(user, {
     fields: [emailRecipient.recipientId],
-    references: [employees.id],
+    references: [user.id],
   }),
 }));
 

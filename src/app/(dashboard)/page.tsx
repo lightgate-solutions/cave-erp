@@ -81,9 +81,7 @@ export default async function DashboardPage() {
     if (!organization) {
       redirect("/organizations/create");
     }
-    return (
-      <AdminDashboard employeeId={user.id} organizationId={organization.id} />
-    );
+    return <AdminDashboard userId={user.id} organizationId={organization.id} />;
   }
 
   // If user has manager flag and is not admin, show manager dashboard

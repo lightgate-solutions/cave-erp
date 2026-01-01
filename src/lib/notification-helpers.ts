@@ -9,7 +9,7 @@ export type NotificationType = "in_app_message" | "task" | "general";
  * Implements hierarchical logic: parent OFF = all children OFF
  */
 export async function shouldSendEmailNotification(
-  userId: number,
+  userId: string,
   notificationType: NotificationType,
 ): Promise<boolean> {
   try {
@@ -46,9 +46,9 @@ export async function shouldSendEmailNotification(
  * Batch check for multiple users (more efficient for bulk operations)
  */
 export async function filterUsersByEmailPreference(
-  userIds: number[],
+  userIds: string[],
   notificationType: NotificationType,
-): Promise<number[]> {
+): Promise<string[]> {
   try {
     const prefs = await db
       .select({

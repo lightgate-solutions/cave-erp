@@ -15,5 +15,5 @@ export default async function AdminLayout({
     return redirect("/unauthorized");
   }
 
-  return <section>{children}</section>;
+  return redirect("/");
 }

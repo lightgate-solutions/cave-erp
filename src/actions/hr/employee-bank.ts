@@ -10,7 +10,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 const bankDetailsSchema = z.object({
-  employeeId: z.number(),
+  userId: z.string(),
   bankName: z.string().min(2, "Bank name is required"),
   accountName: z.string().min(2, "Account name is required"),
   accountNumber: z.string().min(5, "Valid account number is required"),
@@ -18,7 +18,7 @@ const bankDetailsSchema = z.object({
 
 export type BankDetailsFormValues = z.infer<typeof bankDetailsSchema>;
 
-export async function getEmployeeBankDetails(employeeId: number) {
+export async function getEmployeeBankDetails(userId: string) {
   await requireAuth();
 
   const organization = await auth.api.getFullOrganization({
@@ -31,7 +31,7 @@ export async function getEmployeeBankDetails(employeeId: number) {
   try {
     const bankDetails = await db.query.employeesBank.findFirst({
       where: and(
-        eq(employeesBank.employeeId, employeeId),
+        eq(employeesBank.userId, userId),
         eq(employeesBank.organizationId, organization.id),
       ),
     });
@@ -56,13 +56,13 @@ export async function saveBankDetails(data: BankDetailsFormValues) {
   }
 
   try {
-    const { employeeId, bankName, accountName, accountNumber } =
+    const { userId, bankName, accountName, accountNumber } =
       bankDetailsSchema.parse(data);
 
     // Check if bank details already exist for this employee
     const existingDetails = await db.query.employeesBank.findFirst({
       where: and(
-        eq(employeesBank.employeeId, employeeId),
+        eq(employeesBank.userId, userId),
         eq(employeesBank.organizationId, organization.id),
       ),
     });
@@ -86,7 +86,7 @@ export async function saveBankDetails(data: BankDetailsFormValues) {
     } else {
       // Create new record
       await db.insert(employeesBank).values({
-        employeeId,
+        userId,
         bankName,
         accountName,
         accountNumber,
@@ -94,7 +94,7 @@ export async function saveBankDetails(data: BankDetailsFormValues) {
       });
     }
 
-    revalidateTag(`employee-bank-${employeeId}`);
+    revalidateTag(`employee-bank-${userId}`);
     return { success: true, message: "Bank details saved successfully" };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -108,7 +108,7 @@ export async function saveBankDetails(data: BankDetailsFormValues) {
   }
 }
 
-export async function deleteBankDetails(employeeId: number) {
+export async function deleteBankDetails(userId: string) {
   await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
@@ -126,12 +126,12 @@ export async function deleteBankDetails(employeeId: number) {
       .delete(employeesBank)
       .where(
         and(
-          eq(employeesBank.employeeId, employeeId),
+          eq(employeesBank.userId, userId),
           eq(employeesBank.organizationId, organization.id),
         ),
       );
 
-    revalidateTag(`employee-bank-${employeeId}`);
+    revalidateTag(`employee-bank-${userId}`);
     return { success: true, message: "Bank details deleted successfully" };
   } catch (error) {
     if (error instanceof z.ZodError) {

@@ -29,6 +29,7 @@ export async function GET() {
     const employeeResult = await db
       .select({
         id: employees.id,
+        authId: employees.authId,
         isManager: employees.isManager,
         department: employees.department,
       })
@@ -42,7 +43,7 @@ export async function GET() {
       .limit(1);
 
     const employee = employeeResult[0];
-    if (!employee || !employee.isManager) {
+    if (!employee || !employee.isManager || !employee.authId) {
       return NextResponse.json(
         { error: "Forbidden - Manager access required" },
         { status: 403 },
@@ -51,39 +52,41 @@ export async function GET() {
 
     // Get subordinates (team members)
     const subordinates = await db
-      .select({ id: employees.id })
+      .select({ authId: employees.authId })
       .from(employees)
       .where(
         and(
-          eq(employees.managerId, employee.id),
+          eq(employees.managerId, employee.authId),
           eq(employees.isManager, false),
           eq(employees.organizationId, organization.id),
         ),
       );
 
-    const teamMemberIds = subordinates.map((s) => s.id);
+    const teamMemberIds = subordinates
+      .map((s) => s.authId)
+      .filter((id): id is string => id !== null);
 
     // Get recent documents uploaded by manager, team members, or in manager's department
     // Include manager's own documents, team member documents, and departmental documents
     const whereClause: SQL<unknown> =
       teamMemberIds.length > 0
         ? (or(
-            eq(document.uploadedBy, employee.id), // Include manager's own documents
+            eq(document.uploadedBy, employee.authId), // Include manager's own documents
             inArray(document.uploadedBy, teamMemberIds), // Team member documents
             and(
               eq(document.departmental, true),
               eq(document.department, employee.department || ""),
             ), // Departmental documents
             eq(document.public, true), // Public documents
-          ) ?? eq(document.uploadedBy, employee.id))
+          ) ?? eq(document.uploadedBy, employee.authId))
         : (or(
-            eq(document.uploadedBy, employee.id), // Include manager's own documents
+            eq(document.uploadedBy, employee.authId), // Include manager's own documents
             and(
               eq(document.departmental, true),
               eq(document.department, employee.department || ""),
             ), // Departmental documents
             eq(document.public, true), // Public documents
-          ) ?? eq(document.uploadedBy, employee.id));
+          ) ?? eq(document.uploadedBy, employee.authId));
 
     // First try with currentVersionId > 0, but if no results, try without it
     let recentDocs = await db
@@ -98,7 +101,7 @@ export async function GET() {
         status: document.status,
       })
       .from(document)
-      .leftJoin(employees, eq(document.uploadedBy, employees.id))
+      .leftJoin(employees, eq(document.uploadedBy, employees.authId))
       .leftJoin(
         documentVersions,
         eq(documentVersions.id, document.currentVersionId),
@@ -135,7 +138,7 @@ export async function GET() {
           status: document.status,
         })
         .from(document)
-        .leftJoin(employees, eq(document.uploadedBy, employees.id))
+        .leftJoin(employees, eq(document.uploadedBy, employees.authId))
         .leftJoin(
           documentVersions,
           eq(documentVersions.id, document.currentVersionId),

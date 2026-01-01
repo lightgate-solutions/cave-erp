@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 
 export default async function NotificationsPage() {
   const authData = await requireAuth();
-  const employeeId = authData.employee.id;
+  const userId = authData.userId;
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -16,9 +16,6 @@ export default async function NotificationsPage() {
   }
 
   return (
-    <NotificationsClient
-      employeeId={employeeId}
-      organizationId={organization.id}
-    />
+    <NotificationsClient userId={userId} organizationId={organization.id} />
   );
 }

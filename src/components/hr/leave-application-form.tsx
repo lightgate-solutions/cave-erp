@@ -38,7 +38,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 const leaveApplicationSchema = z.object({
-  employeeId: z.number().min(1, "Employee is required"),
+  userId: z.number().min(1, "Employee is required"),
   leaveType: z.string().min(1, "Leave type is required"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
@@ -48,7 +48,7 @@ const leaveApplicationSchema = z.object({
 type LeaveApplicationFormValues = z.infer<typeof leaveApplicationSchema>;
 
 interface LeaveApplicationFormProps {
-  employeeId?: number;
+  userId?: string;
   leaveToEdit?: {
     id: number;
     leaveType: string;
@@ -61,7 +61,7 @@ interface LeaveApplicationFormProps {
 }
 
 export default function LeaveApplicationForm({
-  employeeId: initialEmployeeId,
+  userId: initialEmployeeId,
   leaveToEdit,
   onSuccess,
   onCancel,
@@ -82,7 +82,7 @@ export default function LeaveApplicationForm({
   const form = useForm<LeaveApplicationFormValues>({
     resolver: zodResolver(leaveApplicationSchema),
     defaultValues: {
-      employeeId: initialEmployeeId || currentEmployee?.id || undefined,
+      userId: initialEmployeeId || currentEmployee?.id || undefined,
       leaveType: leaveToEdit?.leaveType || "",
       startDate: leaveToEdit?.startDate
         ? leaveToEdit.startDate.split("T")[0]
@@ -94,12 +94,8 @@ export default function LeaveApplicationForm({
 
   // Update form when current employee is loaded
   useEffect(() => {
-    if (
-      currentEmployee &&
-      !initialEmployeeId &&
-      !form.getValues("employeeId")
-    ) {
-      form.setValue("employeeId", currentEmployee.id);
+    if (currentEmployee && !initialEmployeeId && !form.getValues("userId")) {
+      form.setValue("userId", currentEmployee.id);
     }
   }, [currentEmployee, initialEmployeeId, form]);
 
@@ -174,7 +170,7 @@ export default function LeaveApplicationForm({
         {!initialEmployeeId && (
           <FormField
             control={form.control}
-            name="employeeId"
+            name="userId"
             render={() => (
               <FormItem>
                 <FormLabel>Employee</FormLabel>

@@ -11,14 +11,14 @@ interface Email {
   body: string;
   createdAt: Date;
   type: string;
-  senderId?: number;
+  senderId?: string;
   senderName?: string;
   senderEmail?: string;
   isRead?: boolean;
   readAt?: Date | null;
   hasBeenOpened?: boolean;
   recipients?: Array<{
-    id: number;
+    authId: string;
     name: string;
     email: string;
     isRead: boolean;

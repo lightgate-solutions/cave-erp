@@ -6,16 +6,16 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 interface NotificationBellProps {
-  employeeId: number;
+  userId: string;
   organizationId: string;
 }
 
 export default function NotificationBell({
-  employeeId,
+  userId,
   organizationId,
 }: NotificationBellProps) {
   const unreadCount = useQuery(api.notifications.getUnreadCount, {
-    userId: employeeId,
+    userId: userId,
     organizationId,
   });
 

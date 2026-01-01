@@ -56,13 +56,13 @@ import LoanReviewDialog from "./loan-review-dialog";
 import LoanDetailsDialog from "./loan-details-dialog";
 
 interface LoanApplicationsTableProps {
-  employeeId?: number;
+  userId?: string;
   isHR?: boolean;
   showFilters?: boolean;
 }
 
 export default function LoanApplicationsTable({
-  employeeId,
+  userId,
   isHR = false,
   showFilters = true,
 }: LoanApplicationsTableProps) {
@@ -88,10 +88,10 @@ export default function LoanApplicationsTable({
   }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["loan-applications", employeeId, filters, debouncedSearch, page],
+    queryKey: ["loan-applications", userId, filters, debouncedSearch, page],
     queryFn: () =>
       getAllLoanApplications({
-        employeeId,
+        userId,
         status: filters.status !== "all" ? filters.status : undefined,
         search: debouncedSearch || undefined,
         page,
@@ -389,7 +389,7 @@ export default function LoanApplicationsTable({
             <DialogDescription>Submit a new loan application</DialogDescription>
           </DialogHeader>
           <LoanApplicationForm
-            employeeId={employeeId}
+            userId={userId}
             onSuccess={() => {
               setShowApplyForm(false);
               queryClient.invalidateQueries({

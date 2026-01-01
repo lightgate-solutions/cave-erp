@@ -107,7 +107,7 @@ export type DocumentType = {
   tags: string[];
   accessRules: {
     accessLevel: string;
-    userId: number | null;
+    userId: string | null;
     name: string | null;
     email: string | null;
     department: string | null;
@@ -249,7 +249,7 @@ function DocumentPage({
     }
   }
 
-  async function handleShareRemove(userId: number) {
+  async function handleShareRemove(userId: string) {
     const res = await removeDocumentShare(doc.id, userId);
     if (res.success) {
       toast.success(res.success.reason);

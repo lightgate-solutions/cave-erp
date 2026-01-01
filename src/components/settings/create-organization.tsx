@@ -79,6 +79,20 @@ export function CreateOrganizationButton() {
       form.reset();
       setOpen(false);
       await authClient.organization.setActive({ organizationId: res.data.id });
+
+      // Create employee record for the organization owner
+      const { createEmployee } = await import("@/actions/hr/employees");
+      await createEmployee({
+        name: userData!.user!.name,
+        email: userData!.user!.email,
+        authId: userData!.user!.id,
+        role: "admin",
+        isManager: true,
+        data: {
+          department: "admin",
+        },
+      });
+
       toast.success("Organization created successfully!");
       setTimeout(() => {
         router.refresh();

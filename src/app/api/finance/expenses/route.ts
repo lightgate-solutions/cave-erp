@@ -104,14 +104,14 @@ export async function POST(request: NextRequest) {
     const session = await auth.api.getSession({ headers: h });
     const authUserId = session?.user?.id;
 
-    let employeeId: number | null = null;
+    let employeeAuthId: string | null = null;
     if (authUserId) {
       const [employee] = await db
-        .select({ id: employees.id })
+        .select({ authId: employees.authId })
         .from(employees)
         .where(eq(employees.authId, authUserId))
         .limit(1);
-      employeeId = employee?.id ?? null;
+      employeeAuthId = employee?.authId ?? null;
     }
 
     const body = await request.json();
@@ -177,9 +177,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Record transaction if user is authenticated
-    if (employeeId) {
+    if (employeeAuthId) {
       await db.insert(balanceTransactions).values({
-        userId: employeeId,
+        userId: employeeAuthId,
         amount: expenseAmount.toString(),
         organizationId: organization.id,
         transactionType: "expense",

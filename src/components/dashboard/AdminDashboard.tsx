@@ -43,10 +43,10 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard({
-  employeeId,
+  userId,
   organizationId,
 }: {
-  employeeId: number;
+  userId: string;
   organizationId: string;
 }) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -312,10 +312,7 @@ export default function AdminDashboard({
           </CardContent>
         </Card>
         <RecentDocuments />
-        <RecentNotifications
-          employeeId={employeeId}
-          organizationId={organizationId}
-        />
+        <RecentNotifications userId={userId} organizationId={organizationId} />
       </div>
 
       {/* Budget & Finance */}

@@ -7,7 +7,7 @@ import { ReplyForwardEmail } from "./reply-forward-email";
 import { Button } from "../ui/button";
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -23,7 +23,7 @@ interface InboxWrapperProps {
     body: string;
     senderName: string;
     senderEmail: string;
-    senderId: number;
+    senderId: string;
     createdAt: Date;
   } | null;
 }

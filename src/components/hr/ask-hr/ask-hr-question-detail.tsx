@@ -377,7 +377,7 @@ export function AskHrQuestionDetail({ questionId }: AskHrQuestionDetailProps) {
       </div>
 
       {/* Redirected info */}
-      {question.redirectedTo && (
+      {question.redirectedToUserId && (
         <Card className="border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-1 text-orange-700 dark:text-orange-400">

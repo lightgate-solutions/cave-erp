@@ -79,7 +79,7 @@ export async function GET() {
         status: document.status,
       })
       .from(document)
-      .leftJoin(employees, eq(document.uploadedBy, employees.id))
+      .leftJoin(employees, eq(document.uploadedBy, employees.authId))
       .leftJoin(
         documentVersions,
         eq(documentVersions.id, document.currentVersionId),

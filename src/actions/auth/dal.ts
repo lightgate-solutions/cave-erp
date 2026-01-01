@@ -31,7 +31,7 @@ export const getUser = cache(async () => {
 
   const [user] = await db
     .select({
-      id: employees.id,
+      id: employees.authId,
       name: employees.name,
       staffNumber: employees.staffNumber,
       role: employees.role,
@@ -41,6 +41,7 @@ export const getUser = cache(async () => {
       managerId: employees.managerId,
       isManager: employees.isManager,
       authId: employees.authId,
+      userId: employees.authId,
     })
     .from(employees)
     .where(
@@ -76,7 +77,7 @@ export const requireAuth = cache(async () => {
 
   const [user] = await db
     .select({
-      id: employees.id,
+      id: employees.authId,
       name: employees.name,
       staffNumber: employees.staffNumber,
       role: employees.role,
@@ -85,6 +86,7 @@ export const requireAuth = cache(async () => {
       department: employees.department,
       managerId: employees.managerId,
       isManager: employees.isManager,
+      userId: employees.authId,
     })
     .from(employees)
     .where(

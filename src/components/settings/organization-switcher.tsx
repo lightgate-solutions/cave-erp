@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/suspicious/noArrayIndexKey: <> */
+/** biome-ignore-all lint/style/noNonNullAssertion: <> */
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -99,9 +100,18 @@ function Switcher({
     },
   });
 
+  const { data: userData, isPending: userPending } = authClient.useSession();
+
   if (orgPending)
     return (
       <div className="h-10 animate-pulse bg-primary  w-full hover:cursor-pointer"></div>
+    );
+
+  if (userPending)
+    return (
+      <p className="flex justify-center items-center w-full h-full ">
+        Loading...
+      </p>
     );
 
   const { isSubmitting } = form.formState;
@@ -131,6 +141,19 @@ function Switcher({
       toast.error(res.error.message || "Failed to create organization");
     } else {
       form.reset();
+
+      // Create employee record for the organization owner
+      const { createEmployee } = await import("@/actions/hr/employees");
+      await createEmployee({
+        name: userData!.user!.name,
+        email: userData!.user!.email,
+        authId: userData!.user!.id,
+        role: "admin",
+        isManager: true,
+        data: {
+          department: "admin",
+        },
+      });
       setOpen(false);
       await authClient.organization.setActive({ organizationId: res.data.id });
     }

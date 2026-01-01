@@ -17,34 +17,37 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = request.nextUrl;
-    const id = searchParams.get("employeeId");
+    // Note: API query parameter is still "employeeId" for backward compatibility
+    const userIdParam = searchParams.get("employeeId");
+    const userId = userIdParam ? Number(userIdParam) : 0;
     const q = searchParams.get("q") || "";
-    if (!id) {
+    if (!userId) {
       return NextResponse.json(
-        { error: "Employee auth ID is required" },
+        { error: "Employee ID is required" },
         { status: 400 },
       );
     }
     const [res] = await db
-      .select()
+      .select({ id: employees.id, authId: employees.authId })
       .from(employees)
       .where(
         and(
-          eq(employees.id, Number(id)),
+          eq(employees.id, userId),
           eq(employees.organizationId, organization.id),
         ),
       )
       .limit(1);
-    const employeeId = res.id;
+    const employeeId = res?.id;
+    const employeeAuthId = res?.authId;
     console.log(employeeId);
-    if (!employeeId) {
+    if (!employeeId || !employeeAuthId) {
       return NextResponse.json(
-        { error: "employeeId is required" },
-        { status: 400 },
+        { error: "Employee not found" },
+        { status: 404 },
       );
     }
     let where: ReturnType<typeof and> | undefined = and(
-      eq(employees.managerId, employeeId),
+      eq(employees.managerId, employeeAuthId),
       eq(employees.organizationId, organization.id),
     );
     if (q) {

@@ -52,7 +52,7 @@ type Props = {
   isOpen?: boolean;
   onOpenChangeAction?: (open: boolean) => void;
   onCompleteAction?: () => void;
-  employeeId: number;
+  userId: string;
   employeeName: string;
   currentStructureId: number | null;
   currentStructureName: string | null;
@@ -63,7 +63,7 @@ export function EmployeeStructureAssignDialog({
   isOpen,
   onOpenChangeAction,
   onCompleteAction,
-  employeeId,
+  userId,
   employeeName,
   currentStructureId,
   currentStructureName,
@@ -189,7 +189,7 @@ export function EmployeeStructureAssignDialog({
     try {
       const result = await assignEmployeeToStructure(
         {
-          employeeId,
+          userId,
           salaryStructureId: selectedStructure.id,
           effectiveFrom: new Date(effectiveDate),
         },

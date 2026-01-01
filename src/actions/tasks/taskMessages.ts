@@ -39,7 +39,7 @@ export const createTaskMessage = async (msg: NewMessage) => {
     if (msg.senderId !== t.assignedBy && msg.senderId !== t.assignedTo) {
       // Check if sender is in additional assignees list
       const extra = await db
-        .select({ employeeId: taskAssignees.employeeId })
+        .select({ userId: taskAssignees.userId })
         .from(taskAssignees)
         .where(
           and(
@@ -47,7 +47,7 @@ export const createTaskMessage = async (msg: NewMessage) => {
             eq(taskAssignees.organizationId, organization.id),
           ),
         );
-      const extraIds = new Set(extra.map((r) => r.employeeId));
+      const extraIds = new Set(extra.map((r) => r.userId));
       if (!extraIds.has(msg.senderId)) {
         return {
           success: null,
@@ -78,7 +78,7 @@ export const createTaskMessage = async (msg: NewMessage) => {
       const emp = await db
         .select({ name: employees.name, email: employees.email })
         .from(employees)
-        .where(eq(employees.id, msg.senderId))
+        .where(eq(employees.authId, msg.senderId))
         .limit(1)
         .then((r) => r[0]);
       senderName = emp?.name ?? null;
@@ -86,7 +86,7 @@ export const createTaskMessage = async (msg: NewMessage) => {
     } catch {}
 
     // Notify all task participants except the sender
-    const participants = new Set<number>();
+    const participants = new Set<string>();
     if (t.assignedBy && t.assignedBy !== msg.senderId) {
       participants.add(t.assignedBy);
     }
@@ -96,7 +96,7 @@ export const createTaskMessage = async (msg: NewMessage) => {
 
     // Also get additional assignees
     const extraAssignees = await db
-      .select({ employeeId: taskAssignees.employeeId })
+      .select({ userId: taskAssignees.userId })
       .from(taskAssignees)
       .where(
         and(
@@ -105,9 +105,9 @@ export const createTaskMessage = async (msg: NewMessage) => {
         ),
       );
 
-    for (const { employeeId } of extraAssignees) {
-      if (employeeId && employeeId !== msg.senderId) {
-        participants.add(employeeId);
+    for (const { userId } of extraAssignees) {
+      if (userId && userId !== msg.senderId) {
+        participants.add(userId);
       }
     }
 
@@ -171,7 +171,7 @@ export const getMessagesForTask = async (
       senderEmail: employees.email,
     })
     .from(taskMessages)
-    .leftJoin(employees, eq(employees.id, taskMessages.senderId))
+    .leftJoin(employees, eq(employees.authId, taskMessages.senderId))
     .where(where);
 
   if (opts?.limit && !opts.afterId) {

@@ -153,7 +153,7 @@ export function DeductionsTable() {
                         ? `${deduction.percentage}% of base salary`
                         : formatCurrency(Number(deduction.amount || 0))}
                     </TableCell>
-                    <TableCell>{deduction.createdBy}</TableCell>
+                    <TableCell>{deduction.createdByUserId}</TableCell>
                     <TableCell>
                       {new Date(deduction.updatedAt).toLocaleDateString()}
                     </TableCell>

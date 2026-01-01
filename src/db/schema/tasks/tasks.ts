@@ -10,8 +10,7 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 import { taskStatusEnum, taskPriorityEnum } from "./enums";
-import { employees } from "../hr";
-import { organization } from "../auth";
+import { organization, user } from "../auth";
 
 export const tasks = pgTable(
   "tasks",
@@ -20,13 +19,13 @@ export const tasks = pgTable(
     title: text("title").notNull(),
     description: text("description"),
 
-    assignedTo: integer("assigned_to")
+    assignedTo: text("assigned_to")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
 
-    assignedBy: integer("assigned_by")
+    assignedBy: text("assigned_by")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
 
     organizationId: text("organization_id")
       .notNull()
@@ -57,14 +56,14 @@ export const tasks = pgTable(
 );
 
 export const taskRelations = relations(tasks, ({ one }) => ({
-  assignedTo: one(employees, {
+  assignedTo: one(user, {
     fields: [tasks.assignedTo],
-    references: [employees.id],
+    references: [user.id],
     relationName: "assignedTo",
   }),
-  assignedBy: one(employees, {
+  assignedBy: one(user, {
     fields: [tasks.assignedBy],
-    references: [employees.id],
+    references: [user.id],
     relationName: "assignedBy",
   }),
 }));

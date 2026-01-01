@@ -10,10 +10,9 @@ import {
   pgEnum,
   unique,
 } from "drizzle-orm/pg-core";
-import { employees } from "./hr";
 import { salaryStructure, employeeDeductions } from "./payroll";
 import { sql } from "drizzle-orm";
-import { organization } from "./auth";
+import { organization, user } from "./auth";
 
 export const loanAmountTypeEnum = pgEnum("loan_amount_type", [
   "fixed",
@@ -58,11 +57,11 @@ export const loanTypes = pgTable(
     minServiceMonths: integer("min_service_months").default(0), // Minimum months of service
     maxActiveLoans: integer("max_active_loans").default(1), // Max concurrent loans of this type
     isActive: boolean("is_active").notNull().default(true),
-    createdBy: integer("created_by")
-      .references(() => employees.id, { onDelete: "no action" })
+    createdByUserId: text("created_by_user_id")
+      .references(() => user.id, { onDelete: "no action" })
       .notNull(),
-    updatedBy: integer("updated_by")
-      .references(() => employees.id, { onDelete: "no action" })
+    updatedByUserId: text("updated_by_user_id")
+      .references(() => user.id, { onDelete: "no action" })
       .notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -106,8 +105,8 @@ export const loanApplications = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     referenceNumber: text("reference_number").notNull().unique(),
-    employeeId: integer("employee_id")
-      .references(() => employees.id, { onDelete: "cascade" })
+    userId: text("user_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     loanTypeId: integer("loan_type_id")
       .references(() => loanTypes.id, { onDelete: "restrict" })
@@ -121,12 +120,15 @@ export const loanApplications = pgTable(
     tenureMonths: integer("tenure_months").notNull(),
     reason: text("reason").notNull(),
     status: loanApplicationStatusEnum("status").notNull().default("pending"),
-    hrReviewedBy: integer("hr_reviewed_by").references(() => employees.id, {
-      onDelete: "set null",
-    }),
+    hrReviewedByUserId: text("hr_reviewed_by_user_id").references(
+      () => user.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     hrReviewedAt: timestamp("hr_reviewed_at"),
     hrRemarks: text("hr_remarks"),
-    disbursedBy: integer("disbursed_by").references(() => employees.id, {
+    disbursedByUserId: text("disbursed_by_user_id").references(() => user.id, {
       onDelete: "set null",
     }),
     disbursedAt: timestamp("disbursed_at"),
@@ -147,14 +149,14 @@ export const loanApplications = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
-    index("loan_app_employee_idx").on(table.employeeId),
+    index("loan_app_user_idx").on(table.userId),
     index("loan_app_type_idx").on(table.loanTypeId),
     index("loan_app_status_idx").on(table.status),
     index("loan_app_reference_idx").on(table.referenceNumber),
-    index("loan_app_hr_reviewed_idx").on(table.hrReviewedBy),
-    index("loan_app_disbursed_idx").on(table.disbursedBy),
+    index("loan_app_hr_reviewed_user_idx").on(table.hrReviewedByUserId),
+    index("loan_app_disbursed_user_idx").on(table.disbursedByUserId),
     index("loan_app_active_idx")
-      .on(table.employeeId, table.status)
+      .on(table.userId, table.status)
       .where(sql`status IN ('active', 'disbursed', 'hr_approved', 'pending')`),
   ],
 );
@@ -169,8 +171,8 @@ export const loanRepayments = pgTable(
     loanApplicationId: integer("loan_application_id")
       .references(() => loanApplications.id, { onDelete: "cascade" })
       .notNull(),
-    employeeId: integer("employee_id")
-      .references(() => employees.id, { onDelete: "cascade" })
+    userId: text("user_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     installmentNumber: integer("installment_number").notNull(),
     dueDate: timestamp("due_date").notNull(),
@@ -192,7 +194,7 @@ export const loanRepayments = pgTable(
   },
   (table) => [
     index("loan_repayment_loan_idx").on(table.loanApplicationId),
-    index("loan_repayment_employee_idx").on(table.employeeId),
+    index("loan_repayment_user_idx").on(table.userId),
     index("loan_repayment_status_idx").on(table.status),
     index("loan_repayment_due_idx").on(table.dueDate),
     unique("unique_loan_installment").on(
@@ -214,7 +216,7 @@ export const loanHistory = pgTable(
       .notNull(),
     action: text("action").notNull(), // e.g., "applied", "hr_approved", "disbursed", "payment_received"
     description: text("description").notNull(),
-    performedBy: integer("performed_by").references(() => employees.id, {
+    performedByUserId: text("performed_by_user_id").references(() => user.id, {
       onDelete: "set null",
     }),
     metadata: text("metadata"), // JSON string for additional data

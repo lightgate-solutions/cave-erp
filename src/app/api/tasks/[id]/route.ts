@@ -30,7 +30,9 @@ export async function GET(
     const { id: idParam } = await params;
     const id = Number(idParam);
     const { searchParams } = _request.nextUrl;
-    const employeeId = Number(searchParams.get("employeeId"));
+    // Note: API query parameter is still "employeeId" for backward compatibility
+    const employeeIdParam = searchParams.get("employeeId");
+    const employeeId = employeeIdParam ? Number(employeeIdParam) : 0;
     const role = searchParams.get("role");
     if (!employeeId) {
       return NextResponse.json(
@@ -38,17 +40,39 @@ export async function GET(
         { status: 400 },
       );
     }
+
+    // Look up employee to get authId (string userId)
+    const employee = await db
+      .select({ id: employees.id, authId: employees.authId })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.id, employeeId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1)
+      .then((res) => res[0]);
+
+    if (!employee?.authId) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 400 },
+      );
+    }
+
+    const userId = employee.authId; // Now it's string (text)
     let task: CreateTask | undefined;
     if (role === "manager") {
-      task = await getTaskByManager(employeeId, id);
+      task = await getTaskByManager(employee.authId, id);
     } else {
-      task = await getTaskForEmployee(employeeId, id);
+      task = await getTaskForEmployee(userId, id);
     }
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
     // Enrich with emails
-    const ids = [task.assignedTo, task.assignedBy].filter(Boolean) as number[];
+    const ids = [task.assignedTo, task.assignedBy].filter(Boolean) as string[];
     // Load assignees for this task
     const assigneesRows = await db
       .select({
@@ -57,7 +81,7 @@ export async function GET(
         name: employees.name,
       })
       .from(taskAssignees)
-      .leftJoin(employees, eq(employees.id, taskAssignees.employeeId))
+      .leftJoin(employees, eq(employees.authId, taskAssignees.userId))
       .where(
         and(
           eq(taskAssignees.taskId, id),
@@ -67,27 +91,27 @@ export async function GET(
     if (ids.length) {
       const rows = await db
         .select({
-          id: employees.id,
+          authId: employees.authId,
           email: employees.email,
           name: employees.name,
         })
         .from(employees)
         .where(
           and(
-            inArray(employees.id, ids),
+            inArray(employees.authId, ids),
             eq(employees.organizationId, organization.id),
           ),
         );
       const map = new Map(
-        rows.map((r) => [r.id, { email: r.email, name: r.name }]),
+        rows.map((r) => [r.authId, { email: r.email, name: r.name }]),
       );
       return NextResponse.json({
         task: {
           ...task,
-          assignedToEmail: map.get(task.assignedTo || -1)?.email ?? null,
-          assignedByEmail: map.get(task.assignedBy || -1)?.email ?? null,
-          assignedToName: map.get(task.assignedTo || -1)?.name ?? null,
-          assignedByName: map.get(task.assignedBy || -1)?.name ?? null,
+          assignedToEmail: map.get(task.assignedTo || "")?.email ?? null,
+          assignedByEmail: map.get(task.assignedBy || "")?.email ?? null,
+          assignedToName: map.get(task.assignedTo || "")?.name ?? null,
+          assignedByName: map.get(task.assignedBy || "")?.name ?? null,
           assignees: assigneesRows.map((r) => ({
             id: r.id,
             email: r.email,
@@ -133,14 +157,38 @@ export async function DELETE(
     const { id: idParam } = await params;
     const id = Number(idParam);
     const { searchParams } = _request.nextUrl;
-    const employeeId = Number(searchParams.get("employeeId"));
+    // Note: API query parameter is still "employeeId" for backward compatibility
+    const employeeIdParam = searchParams.get("employeeId");
+    const employeeId = employeeIdParam ? Number(employeeIdParam) : 0;
     if (!employeeId) {
       return NextResponse.json(
         { error: "Employee ID is required" },
         { status: 400 },
       );
     }
-    const deleted = await deleteTask(employeeId, id);
+
+    // Look up employee to get authId (string userId)
+    const employee = await db
+      .select({ id: employees.id, authId: employees.authId })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.id, employeeId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1)
+      .then((res) => res[0]);
+
+    if (!employee?.authId) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 400 },
+      );
+    }
+
+    const userId = employee.authId; // Now it's string (text)
+    const deleted = await deleteTask(userId, id);
 
     if (!deleted.success) {
       return NextResponse.json(
@@ -186,7 +234,9 @@ export async function PUT(
       }
     }
     const { searchParams } = request.nextUrl;
-    const employeeId = Number(searchParams.get("employeeId"));
+    // Note: API query parameter is still "employeeId" for backward compatibility
+    const employeeIdParam = searchParams.get("employeeId");
+    const employeeId = employeeIdParam ? Number(employeeIdParam) : 0;
     const role = searchParams.get("role");
     if (!employeeId) {
       return NextResponse.json(
@@ -194,7 +244,29 @@ export async function PUT(
         { status: 400 },
       );
     }
-    const updated = await updateTask(employeeId, id, content);
+
+    // Look up employee to get authId (string userId)
+    const employee = await db
+      .select({ id: employees.id, authId: employees.authId })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.id, employeeId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1)
+      .then((res) => res[0]);
+
+    if (!employee?.authId) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 400 },
+      );
+    }
+
+    const userId = employee.authId; // Now it's string (text)
+    const updated = await updateTask(userId, id, content);
     if (!updated.success) {
       return NextResponse.json(
         { error: updated.error?.reason || "Task not found or not updated" },
@@ -205,9 +277,9 @@ export async function PUT(
     // Fetch and return the updated task object so clients can update instantly
     let task: CreateTask | undefined;
     if (role === "manager") {
-      task = await getTaskByManager(employeeId, id);
+      task = await getTaskByManager(employee.authId, id);
     } else if (role === "employee") {
-      task = await getTaskForEmployee(employeeId, id);
+      task = await getTaskForEmployee(userId, id);
     } else {
       // Fallback: return 200 with no task if role missing
       return NextResponse.json({ message: updated.success.reason });
@@ -217,7 +289,7 @@ export async function PUT(
     if (task) {
       const ids = [task.assignedTo, task.assignedBy].filter(
         Boolean,
-      ) as number[];
+      ) as string[];
       const assigneesRows = await db
         .select({
           id: employees.id,
@@ -225,7 +297,7 @@ export async function PUT(
           name: employees.name,
         })
         .from(taskAssignees)
-        .leftJoin(employees, eq(employees.id, taskAssignees.employeeId))
+        .leftJoin(employees, eq(employees.authId, taskAssignees.userId))
         .where(
           and(
             eq(taskAssignees.taskId, id),
@@ -235,27 +307,27 @@ export async function PUT(
       if (ids.length) {
         const rows = await db
           .select({
-            id: employees.id,
+            authId: employees.authId,
             email: employees.email,
             name: employees.name,
           })
           .from(employees)
           .where(
             and(
-              inArray(employees.id, ids),
+              inArray(employees.authId, ids),
               eq(employees.organizationId, organization.id),
             ),
           );
         const map = new Map(
-          rows.map((r) => [r.id, { email: r.email, name: r.name }]),
+          rows.map((r) => [r.authId, { email: r.email, name: r.name }]),
         );
         return NextResponse.json({
           task: {
             ...task,
-            assignedToEmail: map.get(task.assignedTo || -1)?.email ?? null,
-            assignedByEmail: map.get(task.assignedBy || -1)?.email ?? null,
-            assignedToName: map.get(task.assignedTo || -1)?.name ?? null,
-            assignedByName: map.get(task.assignedBy || -1)?.name ?? null,
+            assignedToEmail: map.get(task.assignedTo || "")?.email ?? null,
+            assignedByEmail: map.get(task.assignedBy || "")?.email ?? null,
+            assignedToName: map.get(task.assignedTo || "")?.name ?? null,
+            assignedByName: map.get(task.assignedBy || "")?.name ?? null,
             assignees: assigneesRows.map((r) => ({
               id: r.id,
               email: r.email,
@@ -298,16 +370,17 @@ export async function PATCH(
     const { id: idParam } = await params;
     const id = Number(idParam);
     const body = await request.json();
-    const { employeeId, ...updates } = body;
+    // Note: Request body still uses "employeeId" for backward compatibility
+    const { employeeId: userId, ...updates } = body;
 
-    if (!employeeId) {
+    if (!userId) {
       return NextResponse.json(
         { error: "Employee ID is required" },
         { status: 400 },
       );
     }
 
-    const updated = await updateTask(employeeId, id, updates);
+    const updated = await updateTask(userId, id, updates);
     if (!updated.success) {
       return NextResponse.json(
         { error: updated.error?.reason || "Task not found or not updated" },

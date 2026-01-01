@@ -99,11 +99,7 @@ const data = {
       icon: Users,
       items: [
         {
-          title: "User Management",
-          url: "/hr/admin",
-        },
-        {
-          title: "View Employees",
+          title: "Employees",
           url: "/hr/employees",
         },
         {
@@ -159,19 +155,19 @@ const data = {
 
 export function AppSidebar({
   user,
-  employeeId,
+  userId,
   organizationId,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: User;
-  employeeId: number;
+  userId: string;
   organizationId: string;
 }) {
   const [isManager, setIsManager] = useState<boolean | null>(null);
   const [isHrOrAdmin, setIsHrOrAdmin] = useState<boolean>(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const notifications = useQuery(api.notifications.getUserNotifications, {
-    userId: employeeId,
+    userId: userId,
     organizationId,
   });
   const unreadCount = notifications?.filter((n) => !n.isRead).length;

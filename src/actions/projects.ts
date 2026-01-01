@@ -16,7 +16,7 @@ const projectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(255),
   description: z.string().max(1000).nullable().optional(),
   location: z.string().max(255).nullable().optional(),
-  supervisorId: z.number().int().positive().nullable().optional(),
+  supervisorId: z.string().nullable().optional(),
   budgetPlanned: z.number().nonnegative().optional(),
   budgetActual: z.number().nonnegative().optional(),
 });

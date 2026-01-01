@@ -5,6 +5,9 @@ import { getUser } from "@/actions/auth/dal";
 import { db } from "@/db";
 import { document, documentAccess } from "@/db/schema";
 import { eq, or, and, inArray, isNull } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const user = await getUser();
@@ -12,6 +15,16 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
     });
+  }
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return NextResponse.json(
+      { error: "Organization not found" },
+      { status: 404 },
+    );
   }
 
   const { query } = (await req.json()) as { query: string };
@@ -40,6 +53,7 @@ export async function POST(req: Request) {
       and(
         inArray(document.id, documentIds),
         eq(document.status, "active"),
+        eq(document.organizationId, organization.id),
         or(
           // Public documents
           eq(document.public, true),

@@ -27,7 +27,7 @@ interface Email {
   body: string;
   createdAt: Date;
   type: string;
-  senderId: number;
+  senderId: string;
   senderName: string;
   senderEmail: string;
   isRead?: boolean;
@@ -36,7 +36,7 @@ interface Email {
 }
 
 interface Employee {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;

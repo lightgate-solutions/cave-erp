@@ -11,7 +11,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 const employmentHistorySchema = z.object({
-  employeeId: z.number(),
+  userId: z.string(),
   startDate: z.string().nullable(),
   endDate: z.string().nullable(),
   department: z.string().nullable(),
@@ -24,7 +24,7 @@ export type EmploymentHistoryFormValues = z.infer<
   typeof employmentHistorySchema
 >;
 
-export async function getEmployeeHistory(employeeId: number) {
+export async function getEmployeeHistory(userId: string) {
   await requireAuth();
 
   const organization = await auth.api.getFullOrganization({
@@ -37,7 +37,7 @@ export async function getEmployeeHistory(employeeId: number) {
   try {
     const history = await db.query.employmentHistory.findMany({
       where: and(
-        eq(employmentHistory.employeeId, employeeId),
+        eq(employmentHistory.userId, userId),
         eq(employmentHistory.organizationId, organization.id),
       ),
       orderBy: (history) => [history.startDate],
@@ -61,7 +61,7 @@ export async function addEmploymentHistory(data: EmploymentHistoryFormValues) {
 
   try {
     await db.insert(employmentHistory).values({
-      employeeId: data.employeeId,
+      userId: data.userId,
       startDate: data.startDate
         ? new Date(data.startDate).toDateString()
         : null,

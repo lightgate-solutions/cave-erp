@@ -28,6 +28,7 @@ export async function GET() {
     const employeeResult = await db
       .select({
         id: employees.id,
+        authId: employees.authId,
         isManager: employees.isManager,
       })
       .from(employees)
@@ -40,7 +41,7 @@ export async function GET() {
       .limit(1);
 
     const employee = employeeResult[0];
-    if (!employee || !employee.isManager) {
+    if (!employee || !employee.isManager || !employee.authId) {
       return NextResponse.json(
         { error: "Forbidden - Manager access required" },
         { status: 403 },
@@ -61,7 +62,7 @@ export async function GET() {
       .from(projects)
       .where(
         and(
-          eq(projects.supervisorId, employee.id),
+          eq(projects.supervisorId, employee.authId),
           eq(projects.organizationId, organization.id),
         ),
       )
@@ -81,8 +82,9 @@ export async function GET() {
       .from(employees)
       .where(
         and(
-          eq(employees.managerId, employee.id),
+          eq(employees.managerId, employee.authId),
           eq(employees.isManager, false),
+          eq(employees.organizationId, organization.id),
         ),
       );
 

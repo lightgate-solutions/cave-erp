@@ -58,10 +58,10 @@ const uploadSchema = z.object({
 });
 
 export default function EmployeeDocumentsUpload({
-  employeeId,
+  userId,
   onSuccess,
 }: {
-  employeeId: number;
+  userId: string;
   onSuccess?: () => void;
 }) {
   const [files, setFiles] = useState<FileWithMetadata[]>();
@@ -202,7 +202,7 @@ export default function EmployeeDocumentsUpload({
       const fileSizeMB = (file.file.size / (1024 * 1024)).toFixed(2);
 
       const result = await uploadEmployeeDocumentAction({
-        employeeId,
+        userId,
         documentType: data.documentType,
         documentName: data.documentName,
         filePath: url,

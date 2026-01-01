@@ -51,7 +51,7 @@ export async function getUserPreferences() {
       .from(userPreferences)
       .where(
         and(
-          eq(userPreferences.userId, user.id),
+          eq(userPreferences.userId, user.authId),
           eq(userPreferences.organizationId, organization.id),
         ),
       )
@@ -92,7 +92,7 @@ export async function updateUserPreferences(
       .from(userPreferences)
       .where(
         and(
-          eq(userPreferences.userId, user.id),
+          eq(userPreferences.userId, user.authId),
           eq(userPreferences.organizationId, organization.id),
         ),
       )
@@ -153,7 +153,7 @@ export async function updateUserPreferences(
         })
         .where(
           and(
-            eq(userPreferences.userId, user.id),
+            eq(userPreferences.userId, user.authId),
             eq(userPreferences.organizationId, organization.id),
           ),
         );

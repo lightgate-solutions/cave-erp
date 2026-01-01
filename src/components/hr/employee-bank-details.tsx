@@ -32,19 +32,19 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const formSchema = z.object({
-  employeeId: z.number(),
+  userId: z.string(),
   bankName: z.string().min(2, "Bank name is required"),
   accountName: z.string().min(2, "Account name is required"),
   accountNumber: z.string().min(5, "Valid account number is required"),
 });
 
 type EmployeeBankDetailsProps = {
-  employeeId: number;
+  userId: string;
   employeeName: string;
 };
 
 export default function EmployeeBankDetails({
-  employeeId,
+  userId,
   employeeName,
 }: EmployeeBankDetailsProps) {
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export default function EmployeeBankDetails({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      employeeId: employeeId,
+      userId: userId,
       bankName: "",
       accountName: "",
       accountNumber: "",
@@ -62,20 +62,20 @@ export default function EmployeeBankDetails({
   });
 
   const { data: bankDetails, isLoading } = useQuery({
-    queryKey: ["employee-bank", employeeId],
-    queryFn: () => getEmployeeBankDetails(employeeId),
+    queryKey: ["employee-bank", userId],
+    queryFn: () => getEmployeeBankDetails(userId),
   });
 
   useEffect(() => {
     if (bankDetails) {
       form.reset({
-        employeeId: employeeId,
+        userId: userId,
         bankName: bankDetails.bankName,
         accountName: bankDetails.accountName,
         accountNumber: bankDetails.accountNumber,
       });
     }
-  }, [bankDetails, form, employeeId]);
+  }, [bankDetails, form, userId]);
 
   // Save bank details mutation
   const saveMutation = useMutation({
@@ -85,7 +85,7 @@ export default function EmployeeBankDetails({
         setSuccess(result.message);
         setError(null);
         queryClient.invalidateQueries({
-          queryKey: ["employee-bank", employeeId],
+          queryKey: ["employee-bank", userId],
         });
       } else {
         setError(result.message);
@@ -100,19 +100,19 @@ export default function EmployeeBankDetails({
 
   // Delete bank details mutation
   const deleteMutation = useMutation({
-    mutationFn: () => deleteBankDetails(employeeId),
+    mutationFn: () => deleteBankDetails(userId),
     onSuccess: (result) => {
       if (result.success) {
         setSuccess(result.message);
         setError(null);
         form.reset({
-          employeeId: employeeId,
+          userId: userId,
           bankName: "",
           accountName: "",
           accountNumber: "",
         });
         queryClient.invalidateQueries({
-          queryKey: ["employee-bank", employeeId],
+          queryKey: ["employee-bank", userId],
         });
       } else {
         setError(result.message);
@@ -170,7 +170,7 @@ export default function EmployeeBankDetails({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <input
               type="hidden"
-              {...form.register("employeeId", { valueAsNumber: true })}
+              {...form.register("userId", { valueAsNumber: true })}
             />
 
             <FormField

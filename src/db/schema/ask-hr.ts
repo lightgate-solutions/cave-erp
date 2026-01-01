@@ -9,8 +9,7 @@ import {
   serial,
   boolean,
 } from "drizzle-orm/pg-core";
-import { employees } from "./hr";
-import { organization } from "./auth";
+import { organization, user } from "./auth";
 
 // Enums for Ask HR module
 export const askHrStatusEnum = pgEnum("ask_hr_status", [
@@ -37,9 +36,9 @@ export const askHrQuestions = pgTable(
   "ask_hr_questions",
   {
     id: serial("id").primaryKey(),
-    employeeId: integer("employee_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     organizationId: text("organization_id")
       .notNull()
@@ -52,15 +51,17 @@ export const askHrQuestions = pgTable(
       .default(false),
     category: askHrCategoryEnum("category").notNull(),
     status: askHrStatusEnum("status").notNull().default("Open"),
-    redirectedTo: integer("redirected_to").references(() => employees.id),
+    redirectedToUserId: text("redirected_to_user_id").references(() => user.id),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
-    index("ask_hr_questions_employee_idx").on(table.employeeId),
+    index("ask_hr_questions_user_idx").on(table.userId),
     index("ask_hr_questions_status_idx").on(table.status),
     index("ask_hr_questions_category_idx").on(table.category),
-    index("ask_hr_questions_redirected_to_idx").on(table.redirectedTo),
+    index("ask_hr_questions_redirected_to_user_idx").on(
+      table.redirectedToUserId,
+    ),
   ],
 );
 
@@ -72,9 +73,9 @@ export const askHrResponses = pgTable(
     questionId: integer("question_id")
       .notNull()
       .references(() => askHrQuestions.id, { onDelete: "cascade" }),
-    respondentId: integer("respondent_id")
+    respondentUserId: text("respondent_user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -85,7 +86,7 @@ export const askHrResponses = pgTable(
   },
   (table) => [
     index("ask_hr_responses_question_idx").on(table.questionId),
-    index("ask_hr_responses_respondent_idx").on(table.respondentId),
+    index("ask_hr_responses_respondent_user_idx").on(table.respondentUserId),
   ],
 );
 
@@ -93,13 +94,13 @@ export const askHrResponses = pgTable(
 export const askHrQuestionsRelations = relations(
   askHrQuestions,
   ({ one, many }) => ({
-    employee: one(employees, {
-      fields: [askHrQuestions.employeeId],
-      references: [employees.id],
+    user: one(user, {
+      fields: [askHrQuestions.userId],
+      references: [user.id],
     }),
-    redirectedToEmployee: one(employees, {
-      fields: [askHrQuestions.redirectedTo],
-      references: [employees.id],
+    redirectedToUser: one(user, {
+      fields: [askHrQuestions.redirectedToUserId],
+      references: [user.id],
     }),
     responses: many(askHrResponses),
   }),
@@ -110,8 +111,8 @@ export const askHrResponsesRelations = relations(askHrResponses, ({ one }) => ({
     fields: [askHrResponses.questionId],
     references: [askHrQuestions.id],
   }),
-  respondent: one(employees, {
-    fields: [askHrResponses.respondentId],
-    references: [employees.id],
+  respondent: one(user, {
+    fields: [askHrResponses.respondentUserId],
+    references: [user.id],
   }),
 }));

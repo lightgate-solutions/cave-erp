@@ -317,7 +317,7 @@ async function fetchDataset(
           completedAt: loanApplications.completedAt,
         })
         .from(loanApplications)
-        .leftJoin(employees, eq(loanApplications.employeeId, employees.id))
+        .leftJoin(employees, eq(loanApplications.userId, employees.authId))
         .leftJoin(loanTypes, eq(loanApplications.loanTypeId, loanTypes.id));
 
       const conditions = [];
@@ -432,7 +432,7 @@ async function fetchDataset(
           paidAt: loanRepayments.paidAt,
         })
         .from(loanRepayments)
-        .leftJoin(employees, eq(loanRepayments.employeeId, employees.id));
+        .leftJoin(employees, eq(loanRepayments.userId, employees.authId));
 
       const conditions = [];
       if (dateFilters.start && dateFilters.end) {
@@ -486,8 +486,14 @@ async function fetchDataset(
           approvedAt: payrun.approvedAt,
         })
         .from(payrun)
-        .leftJoin(generatedByUser, eq(payrun.generatedBy, generatedByUser.id))
-        .leftJoin(approvedByUser, eq(payrun.approvedBy, approvedByUser.id));
+        .leftJoin(
+          generatedByUser,
+          eq(payrun.generatedByUserId, generatedByUser.id),
+        )
+        .leftJoin(
+          approvedByUser,
+          eq(payrun.approvedByUserId, approvedByUser.id),
+        );
 
       const conditions = [];
       if (dateFilters.start && dateFilters.end) {
@@ -546,7 +552,7 @@ async function fetchDataset(
         })
         .from(payrunItems)
         .leftJoin(payrun, eq(payrunItems.payrunId, payrun.id))
-        .leftJoin(employees, eq(payrunItems.employeeId, employees.id));
+        .leftJoin(employees, eq(payrunItems.userId, employees.authId));
 
       const conditions = [];
       if (dateFilters.start && dateFilters.end) {
@@ -603,7 +609,7 @@ async function fetchDataset(
           createdAt: newsArticles.createdAt,
         })
         .from(newsArticles)
-        .leftJoin(employees, eq(newsArticles.authorId, employees.id));
+        .leftJoin(employees, eq(newsArticles.authorId, employees.authId));
 
       const conditions = [];
       if (dateFilters.start && dateFilters.end) {
@@ -976,7 +982,7 @@ async function fetchDataset(
           createdAt: attendance.createdAt,
         })
         .from(attendance)
-        .leftJoin(employees, eq(attendance.employeeId, employees.id));
+        .leftJoin(employees, eq(attendance.userId, employees.authId));
 
       const conditions = [];
       if (dateFilters.start && dateFilters.end) {
@@ -1026,8 +1032,11 @@ async function fetchDataset(
           appliedAt: leaveApplications.appliedAt,
         })
         .from(leaveApplications)
-        .leftJoin(employees, eq(leaveApplications.employeeId, employees.id))
-        .leftJoin(approver, eq(leaveApplications.approvedBy, approver.id));
+        .leftJoin(employees, eq(leaveApplications.userId, employees.authId))
+        .leftJoin(
+          approver,
+          eq(leaveApplications.approvedByUserId, approver.id),
+        );
 
       const conditions = [];
       if (dateFilters.start && dateFilters.end) {
@@ -1072,7 +1081,7 @@ async function fetchDataset(
           createdAt: leaveBalances.createdAt,
         })
         .from(leaveBalances)
-        .leftJoin(employees, eq(leaveBalances.employeeId, employees.id))
+        .leftJoin(employees, eq(leaveBalances.userId, employees.authId))
         .orderBy(desc(leaveBalances.createdAt));
 
       return {
@@ -1198,7 +1207,7 @@ async function fetchDataset(
           createdAt: askHrQuestions.createdAt,
         })
         .from(askHrQuestions)
-        .leftJoin(employees, eq(askHrQuestions.employeeId, employees.id));
+        .leftJoin(employees, eq(askHrQuestions.userId, employees.authId));
 
       const conditions = [];
       if (dateFilters.start && dateFilters.end) {
@@ -1243,7 +1252,7 @@ async function fetchDataset(
           createdAt: employeesBank.createdAt,
         })
         .from(employeesBank)
-        .leftJoin(employees, eq(employeesBank.employeeId, employees.id))
+        .leftJoin(employees, eq(employeesBank.userId, employees.authId))
         .orderBy(desc(employeesBank.createdAt));
 
       return {
@@ -1275,8 +1284,11 @@ async function fetchDataset(
           createdAt: employeesDocuments.createdAt,
         })
         .from(employeesDocuments)
-        .leftJoin(employees, eq(employeesDocuments.employeeId, employees.id))
-        .leftJoin(uploader, eq(employeesDocuments.uploadedBy, uploader.id));
+        .leftJoin(employees, eq(employeesDocuments.userId, employees.authId))
+        .leftJoin(
+          uploader,
+          eq(employeesDocuments.uploadedByUserId, uploader.id),
+        );
 
       const conditions = [];
       if (dateFilters.start && dateFilters.end) {

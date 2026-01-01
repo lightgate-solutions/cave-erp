@@ -31,7 +31,7 @@ import { TaskViewDialog } from "../dialogs/task-view-dialog";
 interface TaskCardProps {
   task: BoardTask;
   onStatusChange: (taskId: number, newStatus: StatusType) => void;
-  employeeId: number;
+  userId: string;
   role: "employee" | "manager" | "admin";
 }
 
@@ -46,7 +46,7 @@ const statusIcons: Record<StatusType, React.FC> = {
 export function TaskCard({
   task,
   onStatusChange,
-  employeeId,
+  userId,
   role,
 }: TaskCardProps) {
   const [showViewDialog, setShowViewDialog] = useState(false);
@@ -208,7 +208,7 @@ export function TaskCard({
         onOpenChange={setShowViewDialog}
         task={task}
         onStatusChange={onStatusChange}
-        employeeId={employeeId}
+        userId={userId}
         role={role}
       />
     </>

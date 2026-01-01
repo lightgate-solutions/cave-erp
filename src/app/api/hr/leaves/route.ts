@@ -3,6 +3,9 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { db } from "@/db";
+import { employees } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,6 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
+    // Note: API query parameter is still "employeeId" for backward compatibility
     const employeeIdParam = searchParams.get("employeeId");
     const employeeId = employeeIdParam ? Number(employeeIdParam) : undefined;
     const status = searchParams.get("status") || undefined;
@@ -34,8 +38,24 @@ export async function GET(request: NextRequest) {
     const limitParam = searchParams.get("limit");
     const limit = limitParam ? Number(limitParam) : 10;
 
+    // If employeeId is provided, look up authId
+    let userId: string | undefined;
+    if (employeeId) {
+      const [employeeRecord] = await db
+        .select({ authId: employees.authId })
+        .from(employees)
+        .where(
+          and(
+            eq(employees.id, employeeId),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
+        .limit(1);
+      userId = employeeRecord?.authId || undefined;
+    }
+
     const result = await getAllLeaveApplications({
-      employeeId,
+      userId,
       status,
       leaveType,
       startDate,
@@ -73,6 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    // Note: Request body still uses "employeeId" for backward compatibility
     const { employeeId, leaveType, startDate, endDate, reason } = body;
 
     if (!employeeId || !leaveType || !startDate || !endDate || !reason) {
@@ -82,8 +103,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Look up employee to get authId
+    const [employeeRecord] = await db
+      .select({ authId: employees.authId })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.id, Number(employeeId)),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1);
+
+    if (!employeeRecord?.authId) {
+      return NextResponse.json(
+        { error: "Employee not found or access denied" },
+        { status: 404 },
+      );
+    }
+
     const result = await applyForLeave({
-      employeeId,
+      userId: employeeRecord.authId,
       leaveType,
       startDate,
       endDate,

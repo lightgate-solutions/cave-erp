@@ -29,7 +29,7 @@ interface SentEmail {
   type: string;
   hasBeenOpened: boolean;
   recipients: Array<{
-    id: number;
+    authId: string;
     name: string;
     email: string;
     isRead: boolean;
@@ -38,7 +38,7 @@ interface SentEmail {
 }
 
 interface Employee {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -236,7 +236,7 @@ export default function SentPage() {
                             <span className="font-medium text-sm">To:</span>
                             {email.recipients.slice(0, 2).map((recipient) => (
                               <Badge
-                                key={recipient.id}
+                                key={recipient.authId}
                                 variant="secondary"
                                 className="text-xs"
                               >

@@ -52,7 +52,7 @@ export default async function RootLayout({
         <SidebarProvider>
           <AppSidebar
             user={session.user}
-            employeeId={authData.employee.id}
+            userId={authData.userId}
             organizationId={organization.id}
           />
           <SidebarInset>
@@ -62,7 +62,7 @@ export default async function RootLayout({
                 <div className=" flex gap-4 justify-center items-center">
                   <ThemeToggle />
                   <NotificationBell
-                    employeeId={authData.employee.id}
+                    userId={authData.userId}
                     organizationId={organization.id}
                   />
                 </div>
@@ -75,7 +75,7 @@ export default async function RootLayout({
 
         {/* Attendance Sign-In Pop-up - Global */}
         <AttendanceSignInPopup
-          currentEmployeeId={authData.employee.id}
+          currentEmployeeId={authData.userId}
           hasSignedInToday={hasSignedInToday}
           isLoading={false}
         />

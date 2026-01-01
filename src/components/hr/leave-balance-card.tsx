@@ -14,19 +14,19 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
 export default function LeaveBalanceCard({
-  employeeId,
+  userId,
   year,
 }: {
-  employeeId: number;
+  userId: string;
   year?: number;
 }) {
   const currentYear = year || new Date().getFullYear();
 
   const { data: balances = [], isLoading } = useQuery({
-    queryKey: ["leave-balances", employeeId, currentYear],
+    queryKey: ["leave-balances", userId, currentYear],
     queryFn: async () => {
       const params = new URLSearchParams();
-      params.append("employeeId", employeeId.toString());
+      params.append("userId", userId.toString());
       if (year) params.append("year", year.toString());
 
       const response = await fetch(

@@ -22,12 +22,12 @@ function isWithinTimeRange(
 }
 
 // Sign In
-export async function signIn(employeeId: number) {
+export async function signIn(userId: string) {
   const authData = await requireAuth();
 
   // Verify user can only sign in for themselves unless admin/hr (though usually attendance is personal)
   if (
-    authData.employee.id !== employeeId &&
+    authData.userId !== userId &&
     authData.role !== "admin" &&
     authData.role !== "hr"
   ) {
@@ -65,7 +65,7 @@ export async function signIn(employeeId: number) {
       .from(attendance)
       .where(
         and(
-          eq(attendance.employeeId, employeeId),
+          eq(attendance.userId, userId),
           eq(attendance.date, today),
           eq(attendance.organizationId, organization.id),
         ),
@@ -80,7 +80,7 @@ export async function signIn(employeeId: number) {
     }
 
     await db.insert(attendance).values({
-      employeeId,
+      userId,
       date: today,
       signInTime: now,
       status: "Approved",
@@ -107,11 +107,11 @@ export async function signIn(employeeId: number) {
 }
 
 // Sign Out
-export async function signOut(employeeId: number) {
+export async function signOut(userId: string) {
   const authData = await requireAuth();
 
   if (
-    authData.employee.id !== employeeId &&
+    authData.userId !== userId &&
     authData.role !== "admin" &&
     authData.role !== "hr"
   ) {
@@ -149,7 +149,7 @@ export async function signOut(employeeId: number) {
       .from(attendance)
       .where(
         and(
-          eq(attendance.employeeId, employeeId),
+          eq(attendance.userId, userId),
           eq(attendance.date, today),
           eq(attendance.organizationId, organization.id),
         ),
@@ -228,12 +228,6 @@ export async function rejectAttendance(attendanceId: number, reason: string) {
         eq(attendance.id, attendanceId),
         eq(attendance.organizationId, organization.id),
       ),
-      with: {
-        employee: true, // Assuming relation exists, but I defined it as 'attendance' in employees, not 'employee' in attendance in schema... wait.
-        // In schema `attendance` table has `employeeId`.
-        // I didn't define the `employee` relation in `attendance` table in `relations`.
-        // I should probably have done that. But I can just query employees table.
-      },
     });
 
     if (!record) {
@@ -249,8 +243,8 @@ export async function rejectAttendance(attendanceId: number, reason: string) {
       isAuthorized = true;
     } else {
       // Check if manager
-      const employee = await getEmployee(record.employeeId);
-      if (employee && employee.managerId === authData.employee.id) {
+      const employee = await getEmployee(record.userId);
+      if (employee && employee.managerId === authData.userId) {
         isAuthorized = true;
       }
     }
@@ -267,7 +261,7 @@ export async function rejectAttendance(attendanceId: number, reason: string) {
       .set({
         status: "Rejected",
         rejectionReason: reason,
-        rejectedBy: authData.employee.id,
+        rejectedByUserId: authData.userId,
         updatedAt: new Date(),
       })
       .where(
@@ -277,14 +271,22 @@ export async function rejectAttendance(attendanceId: number, reason: string) {
         ),
       );
 
-    // Notify employee
-    await createNotification({
-      user_id: record.employeeId,
-      title: "Attendance Rejected",
-      message: `Your attendance for ${record.date} was rejected. Reason: ${reason}`,
-      notification_type: "approval",
-      reference_id: attendanceId,
-    });
+    // Notify employee - map userId to employee ID for notifications
+    const empRecord = await db
+      .select({ id: employees.id, authId: employees.authId })
+      .from(employees)
+      .where(eq(employees.authId, record.userId))
+      .limit(1);
+
+    if (empRecord.length > 0) {
+      await createNotification({
+        user_id: empRecord[0].authId,
+        title: "Attendance Rejected",
+        message: `Your attendance for ${record.date} was rejected. Reason: ${reason}`,
+        notification_type: "approval",
+        reference_id: attendanceId,
+      });
+    }
 
     revalidatePath("/hr/attendance");
     return {
@@ -307,12 +309,12 @@ export async function rejectAttendance(attendanceId: number, reason: string) {
 
 // Get Attendance Records
 export async function getAttendanceRecords(filters?: {
-  employeeId?: number;
+  userId?: string;
   date?: string;
   startDate?: string;
   endDate?: string;
   status?: string;
-  managerId?: number; // Add managerId filter
+  managerId?: string; // Add managerId filter (now string)
   page?: number;
   limit?: number;
 }) {
@@ -333,8 +335,8 @@ export async function getAttendanceRecords(filters?: {
 
   const conditions: any[] = [eq(attendance.organizationId, organization.id)];
 
-  if (filters?.employeeId) {
-    conditions.push(eq(attendance.employeeId, filters.employeeId));
+  if (filters?.userId) {
+    conditions.push(eq(attendance.userId, filters.userId));
   }
   if (filters?.date) {
     conditions.push(eq(attendance.date, filters.date));
@@ -362,7 +364,7 @@ export async function getAttendanceRecords(filters?: {
   const totalResult = await db
     .select({ count: count() })
     .from(attendance)
-    .leftJoin(employees, eq(attendance.employeeId, employees.id)) // Need join for manager filter
+    .leftJoin(employees, eq(attendance.userId, employees.authId)) // Need join for manager filter
     .where(whereClause);
 
   const total = totalResult[0]?.count || 0;
@@ -370,7 +372,7 @@ export async function getAttendanceRecords(filters?: {
   const result = await db
     .select({
       id: attendance.id,
-      employeeId: attendance.employeeId,
+      userId: attendance.userId,
       employeeName: employees.name,
       employeeEmail: employees.email,
       employeeDepartment: employees.department,
@@ -379,10 +381,10 @@ export async function getAttendanceRecords(filters?: {
       signOutTime: attendance.signOutTime,
       status: attendance.status,
       rejectionReason: attendance.rejectionReason,
-      rejectedBy: attendance.rejectedBy,
+      rejectedByUserId: attendance.rejectedByUserId,
     })
     .from(attendance)
-    .leftJoin(employees, eq(attendance.employeeId, employees.id))
+    .leftJoin(employees, eq(attendance.userId, employees.authId))
     .where(whereClause)
     .orderBy(desc(attendance.date), desc(attendance.signInTime))
     .limit(limit)
@@ -415,7 +417,7 @@ export async function getMyTodayAttendance() {
     .from(attendance)
     .where(
       and(
-        eq(attendance.employeeId, authData.employee.id),
+        eq(attendance.userId, authData.userId),
         eq(attendance.date, today),
         eq(attendance.organizationId, organization.id),
       ),

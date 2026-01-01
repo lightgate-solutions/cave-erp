@@ -13,7 +13,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 // Get all allowances for a specific employee
-export async function getEmployeeAllowances(employeeId: number) {
+export async function getEmployeeAllowances(userId: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
@@ -27,7 +27,7 @@ export async function getEmployeeAllowances(employeeId: number) {
     const result = await db
       .select({
         id: employeeAllowances.id,
-        employeeId: employeeAllowances.employeeId,
+        userId: employeeAllowances.userId,
         allowanceId: employeeAllowances.allowanceId,
         effectiveFrom: employeeAllowances.effectiveFrom,
         effectiveTo: employeeAllowances.effectiveTo,
@@ -46,7 +46,7 @@ export async function getEmployeeAllowances(employeeId: number) {
       )
       .where(
         and(
-          eq(employeeAllowances.employeeId, employeeId),
+          eq(employeeAllowances.userId, userId),
           eq(employeeAllowances.organizationId, organization.id),
         ),
       )
@@ -59,7 +59,7 @@ export async function getEmployeeAllowances(employeeId: number) {
 }
 
 // Get active allowances for a specific employee
-export async function getActiveEmployeeAllowances(employeeId: number) {
+export async function getActiveEmployeeAllowances(userId: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
@@ -73,7 +73,7 @@ export async function getActiveEmployeeAllowances(employeeId: number) {
     const result = await db
       .select({
         id: employeeAllowances.id,
-        employeeId: employeeAllowances.employeeId,
+        userId: employeeAllowances.userId,
         allowanceId: employeeAllowances.allowanceId,
         effectiveFrom: employeeAllowances.effectiveFrom,
         allowanceName: allowancesSchema.name,
@@ -91,7 +91,7 @@ export async function getActiveEmployeeAllowances(employeeId: number) {
       )
       .where(
         and(
-          eq(employeeAllowances.employeeId, employeeId),
+          eq(employeeAllowances.userId, userId),
           isNull(employeeAllowances.effectiveTo),
           eq(employeeAllowances.organizationId, organization.id),
         ),
@@ -105,7 +105,7 @@ export async function getActiveEmployeeAllowances(employeeId: number) {
 }
 
 // Get allowances that can be assigned to an employee
-export async function getAvailableAllowancesForEmployee(employeeId: number) {
+export async function getAvailableAllowancesForEmployee(userId: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
@@ -135,7 +135,7 @@ export async function getAvailableAllowancesForEmployee(employeeId: number) {
           sql`${allowancesSchema.id} NOT IN (
             SELECT ${employeeAllowances.allowanceId}
             FROM ${employeeAllowances}
-            WHERE ${employeeAllowances.employeeId} = ${employeeId}
+            WHERE ${employeeAllowances.userId} = ${userId}
             AND ${employeeAllowances.effectiveTo} IS NULL
             AND ${employeeAllowances.organizationId} = ${organization.id}
           )`,
@@ -151,7 +151,7 @@ export async function getAvailableAllowancesForEmployee(employeeId: number) {
 
 // Add allowance to employee
 export async function addAllowanceToEmployee(
-  employeeId: number,
+  userId: string,
   allowanceId: number,
   effectiveFrom: Date = new Date(),
   pathname: string,
@@ -171,7 +171,7 @@ export async function addAllowanceToEmployee(
       const employee = await tx
         .select({ id: employees.id, name: employees.name })
         .from(employees)
-        .where(eq(employees.id, employeeId))
+        .where(eq(employees.authId, userId))
         .limit(1);
 
       if (employee.length === 0) {
@@ -206,7 +206,7 @@ export async function addAllowanceToEmployee(
         .from(employeeAllowances)
         .where(
           and(
-            eq(employeeAllowances.employeeId, employeeId),
+            eq(employeeAllowances.userId, userId),
             eq(employeeAllowances.allowanceId, allowanceId),
             isNull(employeeAllowances.effectiveTo),
             eq(employeeAllowances.organizationId, organization.id),
@@ -225,7 +225,7 @@ export async function addAllowanceToEmployee(
 
       // Add the allowance to the employee
       await tx.insert(employeeAllowances).values({
-        employeeId,
+        userId,
         allowanceId,
         organizationId: organization.id,
         effectiveFrom,
@@ -277,7 +277,7 @@ export async function removeAllowanceFromEmployee(
       const relationship = await tx
         .select({
           id: employeeAllowances.id,
-          employeeId: employeeAllowances.employeeId,
+          userId: employeeAllowances.userId,
           allowanceId: employeeAllowances.allowanceId,
         })
         .from(employeeAllowances)
@@ -300,7 +300,7 @@ export async function removeAllowanceFromEmployee(
       const employee = await tx
         .select({ name: employees.name })
         .from(employees)
-        .where(eq(employees.id, relationship[0].employeeId))
+        .where(eq(employees.authId, relationship[0].userId))
         .limit(1);
 
       const allowance = await tx

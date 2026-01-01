@@ -24,7 +24,7 @@ import {
 } from "@/lib/attendance-utils";
 
 interface AttendanceSignInPopupProps {
-  currentEmployeeId: number;
+  currentEmployeeId: string;
   hasSignedInToday: boolean;
   isLoading?: boolean;
 }

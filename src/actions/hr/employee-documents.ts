@@ -9,7 +9,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 interface UploadEmployeeDocumentProps {
-  employeeId: number;
+  userId: string;
   documentType: string;
   documentName: string;
   filePath: string;
@@ -37,25 +37,25 @@ export async function uploadEmployeeDocumentAction(
         .from(employees)
         .where(
           and(
-            eq(employees.id, data.employeeId),
+            eq(employees.authId, data.userId),
             eq(employees.organizationId, organization.id),
           ),
         )
         .limit(1);
 
       if (!employee) {
-        throw new Error(`Employee with id ${data.employeeId} not found`);
+        throw new Error(`Employee with userId ${data.userId} not found`);
       }
 
       // Insert the document
       await tx.insert(employeesDocuments).values({
-        employeeId: data.employeeId,
+        userId: data.userId,
         documentType: data.documentType,
         documentName: data.documentName,
         filePath: data.filePath,
         fileSize: data.fileSize,
         mimeType: data.mimeType,
-        uploadedBy: user.id,
+        uploadedByUserId: user.authId,
         department: employee.department,
         organizationId: organization.id,
       });
@@ -86,7 +86,7 @@ export async function uploadEmployeeDocumentAction(
   }
 }
 
-export async function getEmployeeDocuments(employeeId: number) {
+export async function getEmployeeDocuments(userId: string) {
   try {
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -104,7 +104,7 @@ export async function getEmployeeDocuments(employeeId: number) {
       .from(employeesDocuments)
       .where(
         and(
-          eq(employeesDocuments.employeeId, employeeId),
+          eq(employeesDocuments.userId, userId),
           eq(employeesDocuments.organizationId, organization.id),
         ),
       )

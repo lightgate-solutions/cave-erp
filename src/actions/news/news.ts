@@ -21,7 +21,7 @@ export type NewsArticle = {
   title: string;
   content: string;
   excerpt: string | null;
-  authorId: number;
+  authorId: string;
   authorName: string;
   status: "draft" | "published" | "archived";
   commentsEnabled: boolean;
@@ -92,7 +92,7 @@ export async function createNewsArticle(data: CreateNewsInput) {
         title: data.title,
         content: data.content,
         excerpt: data.excerpt || null,
-        authorId: employee.id,
+        authorId: employee.userId,
         status: data.status,
         commentsEnabled: data.commentsEnabled,
         isPinned: data.isPinned,
@@ -115,18 +115,18 @@ export async function createNewsArticle(data: CreateNewsInput) {
 
     if (data.status === "published") {
       const allEmployees = await db
-        .select({ id: employees.id })
+        .select({ authId: employees.authId })
         .from(employees)
         .where(
           and(
             eq(employees.organizationId, organization.id),
-            sql`${employees.id} != ${employee.id}`,
+            sql`${employees.authId} != ${employee.userId}`,
           ),
         );
 
       for (const emp of allEmployees) {
         await createNotification({
-          user_id: emp.id,
+          user_id: emp.authId,
           title: "New News Article",
           message: `${employee.name} published: "${article.title}"`,
           notification_type: "message",
@@ -225,18 +225,18 @@ export async function updateNewsArticle(data: UpdateNewsInput) {
 
     if (!wasPublished && isNowPublished) {
       const allEmployees = await db
-        .select({ id: employees.id })
+        .select({ authId: employees.authId })
         .from(employees)
         .where(
           and(
             eq(employees.organizationId, organization.id),
-            sql`${employees.id} != ${employee.id}`,
+            sql`${employees.authId} != ${employee.userId}`,
           ),
         );
 
       for (const emp of allEmployees) {
         await createNotification({
-          user_id: emp.id,
+          user_id: emp.authId,
           title: "New News Article",
           message: `${employee.name} published: "${data.title}"`,
           notification_type: "message",
@@ -325,7 +325,7 @@ export async function getPublishedNews() {
       updatedAt: newsArticles.updatedAt,
     })
     .from(newsArticles)
-    .innerJoin(employees, eq(newsArticles.authorId, employees.id))
+    .innerJoin(employees, eq(newsArticles.authorId, employees.authId))
     .where(
       and(
         eq(newsArticles.status, "published"),
@@ -414,7 +414,7 @@ export async function getAllNews() {
       updatedAt: newsArticles.updatedAt,
     })
     .from(newsArticles)
-    .innerJoin(employees, eq(newsArticles.authorId, employees.id))
+    .innerJoin(employees, eq(newsArticles.authorId, employees.authId))
     .where(eq(newsArticles.organizationId, organization.id))
     .orderBy(desc(newsArticles.createdAt));
 
@@ -499,7 +499,7 @@ export async function getNewsArticle(id: string) {
       updatedAt: newsArticles.updatedAt,
     })
     .from(newsArticles)
-    .innerJoin(employees, eq(newsArticles.authorId, employees.id))
+    .innerJoin(employees, eq(newsArticles.authorId, employees.authId))
     .where(
       and(
         eq(newsArticles.id, id),
@@ -583,7 +583,7 @@ export async function getNewsComments(articleId: string) {
       createdAt: newsComments.createdAt,
     })
     .from(newsComments)
-    .innerJoin(employees, eq(newsComments.userId, employees.id))
+    .innerJoin(employees, eq(newsComments.userId, employees.authId))
     .where(
       and(
         eq(newsComments.articleId, articleId),
@@ -633,7 +633,7 @@ export async function addNewsComment(articleId: string, content: string) {
     await db.insert(newsComments).values({
       organizationId: organization.id,
       articleId,
-      userId: user.id,
+      userId: user.authId,
       content,
     });
 
@@ -675,7 +675,7 @@ export async function deleteNewsComment(commentId: string) {
   }
 
   const isHROrAdmin = user.role === "admin" || user.role === "hr";
-  if (comment.userId !== user.id && !isHROrAdmin) {
+  if (comment.userId !== user.authId && !isHROrAdmin) {
     return {
       success: null,
       error: { reason: "Not authorized to delete this comment" },

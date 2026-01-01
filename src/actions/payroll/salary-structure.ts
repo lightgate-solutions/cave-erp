@@ -58,8 +58,8 @@ export async function createSalaryStructure(
         active: true,
         organizationId: organization.id,
         employeeCount: 0,
-        createdBy: user.id,
-        updatedBy: user.id,
+        createdByUserId: user.authId,
+        updatedByUserId: user.authId,
       });
 
       revalidatePath(pathname);
@@ -107,7 +107,7 @@ export async function getAllSalaryStructures() {
         description: salaryStructure.description,
         active: salaryStructure.active,
         employeeCount: salaryStructure.employeeCount,
-        createdById: salaryStructure.createdBy,
+        createdById: salaryStructure.createdByUserId,
         updatedAt: salaryStructure.updatedAt,
       })
       .from(salaryStructure)
@@ -120,24 +120,24 @@ export async function getAllSalaryStructures() {
       creatorIds.length > 0
         ? await db
             .select({
-              id: employees.id,
+              authId: employees.authId,
               name: employees.name,
             })
             .from(employees)
-            .where(inArray(employees.id, creatorIds))
+            .where(inArray(employees.authId, creatorIds))
         : [];
 
     const creatorsMap = creators.reduce(
       (map, creator) => {
-        map[creator.id] = creator.name;
+        map[creator.authId] = creator.name;
         return map;
       },
-      {} as Record<number, string>,
+      {} as Record<string, string>,
     );
 
     return structures.map((structure) => ({
       ...structure,
-      createdBy: creatorsMap[structure.createdById] || "Unknown",
+      createdByUserId: creatorsMap[structure.createdById] || "Unknown",
     }));
   } catch (_error) {
     return [];
@@ -163,7 +163,7 @@ export async function getSalaryStructure(id: number) {
         description: salaryStructure.description,
         active: salaryStructure.active,
         employeeCount: salaryStructure.employeeCount,
-        createdById: salaryStructure.createdBy,
+        createdById: salaryStructure.createdByUserId,
         updatedAt: salaryStructure.updatedAt,
       })
       .from(salaryStructure)
@@ -182,12 +182,12 @@ export async function getSalaryStructure(id: number) {
     const creator = await db
       .select({ name: employees.name })
       .from(employees)
-      .where(eq(employees.id, structure[0].createdById))
+      .where(eq(employees.authId, structure[0].createdById))
       .limit(1);
 
     return {
       ...structure[0],
-      createdBy: creator.length > 0 ? creator[0].name : "Unknown",
+      createdByUserId: creator.length > 0 ? creator[0].name : "Unknown",
     };
   } catch (_error) {
     return null;
@@ -259,7 +259,7 @@ export async function updateSalaryStructure(
           ...(data.name && { name: data.name.trim() }),
           ...(data.baseSalary && { baseSalary: data.baseSalary.toString() }),
           ...(data.description && { description: data.description.trim() }),
-          updatedBy: user.id,
+          updatedByUserId: user.authId,
           updatedAt: new Date(),
         })
         .where(eq(salaryStructure.id, id));
@@ -343,7 +343,7 @@ export async function toggleSalaryStructureStatus(
         .update(salaryStructure)
         .set({
           active,
-          updatedBy: user.id,
+          updatedByUserId: user.authId,
           updatedAt: new Date(),
         })
         .where(eq(salaryStructure.id, id));

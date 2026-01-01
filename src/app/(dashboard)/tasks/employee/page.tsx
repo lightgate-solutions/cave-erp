@@ -10,5 +10,5 @@ export default async function EmployeeTasksPage() {
     redirect("/login");
   }
 
-  return <TaskBoardContainer employeeId={user.id} role="employee" />;
+  return <TaskBoardContainer userId={user.id} role="employee" />;
 }

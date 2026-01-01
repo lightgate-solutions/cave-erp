@@ -50,7 +50,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 
 interface AttendanceRecord {
   id: number;
-  employeeId: number;
+  userId: string;
   employeeName: string | null;
   employeeEmail: string | null;
   employeeDepartment: string | null;
@@ -59,7 +59,7 @@ interface AttendanceRecord {
   signOutTime: Date | null;
   status: "Approved" | "Rejected" | string;
   rejectionReason: string | null;
-  rejectedBy: number | null;
+  rejectedByUserId: string | null;
 }
 
 interface AttendanceClientProps {
@@ -72,8 +72,8 @@ interface AttendanceClientProps {
     totalPages: number;
   } | null;
   isManagerOrHR: boolean;
-  currentEmployeeId: number;
-  managerIdFilter?: number;
+  currentEmployeeId: string;
+  managerIdFilter?: string;
 }
 
 export default function AttendanceClient({

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         userEmail: employees.email,
       })
       .from(balanceTransactions)
-      .leftJoin(employees, eq(employees.id, balanceTransactions.userId))
+      .leftJoin(employees, eq(employees.authId, balanceTransactions.userId))
       .where(
         and(where, eq(balanceTransactions.organizationId, organization.id)),
       )

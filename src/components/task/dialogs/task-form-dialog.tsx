@@ -28,7 +28,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultStatus?: StatusType;
-  employeeId: number;
+  userId: string;
 }
 
 const TaskSchema = z.object({
@@ -39,8 +39,8 @@ const TaskSchema = z.object({
     .enum(["Backlog", "Todo", "In Progress", "Review", "Completed"])
     .optional(),
   dueDate: z.preprocess((v) => (v instanceof Date ? v : undefined), z.date()),
-  assignees: z.array(z.number()).min(1, "Select at least one employee"),
-  assignedBy: z.number().optional(),
+  assignees: z.array(z.string()).min(1, "Select at least one employee"),
+  assignedBy: z.string().optional(),
   attachments: z
     .array(z.object({ url: z.string(), name: z.string() }))
     .optional(),
@@ -58,7 +58,7 @@ export function TaskFormDialog({
   open,
   onOpenChange,
   defaultStatus = "Todo",
-  employeeId,
+  userId,
 }: Props) {
   const [date, setDate] = useState<Date | undefined>();
   const [info, setInfo] = useState({
@@ -67,12 +67,12 @@ export function TaskFormDialog({
     priority: "Medium" as TaskInput["priority"],
     status: defaultStatus as TaskInput["status"],
     dueDate: undefined as Date | undefined,
-    assignees: [] as number[],
+    assignees: [] as string[],
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [assignees, setAssignees] = useState<number[]>([]);
+  const [assignees, setAssignees] = useState<string[]>([]);
   const [subordinates, setSubordinates] = useState<
-    Array<{ id: number; name: string; email: string; department: string }>
+    Array<{ id: string; name: string; email: string; department: string }>
   >([]);
   const [loading, setLoading] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -80,18 +80,18 @@ export function TaskFormDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchSubordinates = useCallback(async () => {
-    if (!employeeId) return;
+    if (!userId) return;
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/hr/employees/subordinates?employeeId=${employeeId}`,
+        `/api/hr/employees/subordinates?userId=${userId}`,
       );
       const data = await response.json();
       setSubordinates(data.subordinates || []);
     } finally {
       setLoading(false);
     }
-  }, [employeeId]);
+  }, [userId]);
 
   useEffect(() => {
     if (open) {
@@ -103,7 +103,7 @@ export function TaskFormDialog({
     setInfo((prev) => ({ ...prev, status: defaultStatus }));
   }, [defaultStatus]);
 
-  const addAssignee = (id: number) => {
+  const addAssignee = (id: string) => {
     setAssignees((prev) => {
       if (prev.includes(id)) return prev;
       const next = [...prev, id];
@@ -113,7 +113,7 @@ export function TaskFormDialog({
     });
   };
 
-  const removeAssignee = (id: number) => {
+  const removeAssignee = (id: string) => {
     setAssignees((prev) => {
       const next = prev.filter((x) => x !== id);
       setInfo((pi) => ({ ...pi, assignees: next }));
@@ -190,7 +190,7 @@ export function TaskFormDialog({
       const payload: Partial<TaskInput> = {
         ...info,
         dueDate: info.dueDate,
-        assignedBy: employeeId,
+        assignedBy: userId,
         attachments: attachments.length > 0 ? attachments : undefined,
       };
 
@@ -412,7 +412,7 @@ export function TaskFormDialog({
             {errors.assignees && (
               <p className="text-sm text-red-500">{errors.assignees}</p>
             )}
-            <Select onValueChange={(val) => addAssignee(Number(val))}>
+            <Select onValueChange={(val) => addAssignee(val)}>
               <SelectTrigger>
                 <SelectValue
                   placeholder={loading ? "Loading..." : "Add employee"}
@@ -420,7 +420,7 @@ export function TaskFormDialog({
               </SelectTrigger>
               <SelectContent>
                 {subordinates.map((s) => (
-                  <SelectItem key={s.id} value={String(s.id)}>
+                  <SelectItem key={s.id} value={s.id}>
                     {s.name} ({s.email})
                   </SelectItem>
                 ))}

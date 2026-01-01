@@ -20,6 +20,7 @@ export default async function LoanTypesPage() {
   const [employee] = await db
     .select({
       id: employees.id,
+      userId: employees.authId,
       role: employees.role,
       department: employees.department,
     })
@@ -55,7 +56,7 @@ export default async function LoanTypesPage() {
         </div>
       </div>
 
-      <LoanTypesTable employeeId={employee.id} />
+      <LoanTypesTable userId={employee.userId} />
     </div>
   );
 }

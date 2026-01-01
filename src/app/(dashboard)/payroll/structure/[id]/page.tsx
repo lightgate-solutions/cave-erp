@@ -209,7 +209,7 @@ export default async function StructureDetailPage(props: {
               <h3 className="text-sm font-medium text-muted-foreground mb-1">
                 Created By
               </h3>
-              <p className="font-semibold">{structure.createdBy}</p>
+              <p className="font-semibold">{structure.createdById}</p>
             </div>
           </div>
           <div className="mt-6">

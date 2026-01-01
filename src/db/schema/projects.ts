@@ -8,8 +8,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { employees } from "./hr";
-import { organization } from "./auth";
+import { organization, user } from "./auth";
 
 // Define enum ONCE at module scope so Drizzle emits CREATE TYPE before using it
 export const projectStatusEnum = pgEnum("project_status", [
@@ -29,7 +28,7 @@ export const projects = pgTable(
     status: projectStatusEnum("status").default("pending").notNull(),
     budgetPlanned: integer("budget_planned").default(0).notNull(),
     budgetActual: integer("budget_actual").default(0).notNull(),
-    supervisorId: integer("supervisor_id").references(() => employees.id, {
+    supervisorId: text("supervisor_id").references(() => user.id, {
       onDelete: "set null",
     }),
     organizationId: text("organization_id")
@@ -45,9 +44,9 @@ export const projects = pgTable(
 );
 
 export const projectsRelations = relations(projects, ({ one }) => ({
-  supervisor: one(employees, {
+  supervisor: one(user, {
     fields: [projects.supervisorId],
-    references: [employees.id],
+    references: [user.id],
   }),
 }));
 

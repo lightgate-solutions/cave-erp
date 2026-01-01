@@ -8,8 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { tasks } from "./tasks";
-import { employees } from "../hr";
-import { organization } from "../auth";
+import { organization, user } from "../auth";
 
 export const taskMessages = pgTable(
   "task_messages",
@@ -18,9 +17,9 @@ export const taskMessages = pgTable(
     taskId: integer("task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
-    senderId: integer("sender_id")
+    senderId: text("sender_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -35,8 +34,8 @@ export const taskMessagesRelations = relations(taskMessages, ({ one }) => ({
     fields: [taskMessages.taskId],
     references: [tasks.id],
   }),
-  sender: one(employees, {
+  sender: one(user, {
     fields: [taskMessages.senderId],
-    references: [employees.id],
+    references: [user.id],
   }),
 }));

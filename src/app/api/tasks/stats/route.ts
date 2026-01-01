@@ -25,7 +25,11 @@ export async function GET(request: NextRequest) {
 
     // Resolve employee to determine scope (employee vs manager)
     const me = await db
-      .select({ id: employees.id, isManager: employees.isManager })
+      .select({
+        id: employees.id,
+        authId: employees.authId,
+        isManager: employees.isManager,
+      })
       .from(employees)
       .where(
         and(
@@ -43,11 +47,11 @@ export async function GET(request: NextRequest) {
         : me?.isManager
           ? and(
               eq(tasks.organizationId, organization.id),
-              eq(tasks.assignedBy, me.id),
+              eq(tasks.assignedBy, me.authId),
             )
           : and(
               eq(tasks.organizationId, organization.id),
-              eq(tasks.assignedTo, me?.id ?? -1),
+              eq(tasks.assignedTo, me?.authId ?? ""),
             );
 
     // active: not Completed

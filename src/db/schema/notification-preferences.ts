@@ -1,20 +1,12 @@
-import {
-  pgTable,
-  uuid,
-  boolean,
-  serial,
-  text,
-  index,
-} from "drizzle-orm/pg-core";
-import { employees } from "./hr";
-import { organization } from "./auth";
+import { pgTable, uuid, boolean, text, index } from "drizzle-orm/pg-core";
+import { organization, user } from "./auth";
 
 export const notification_preferences = pgTable(
   "notification_preferences",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    user_id: serial("user_id")
-      .references(() => employees.id)
+    user_id: text("user_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     organizationId: text("organization_id")
       .notNull()

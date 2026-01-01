@@ -62,12 +62,12 @@ export async function POST(
     }
 
     const emp = await db
-      .select()
+      .select({ authId: employees.authId })
       .from(employees)
       .where(eq(employees.authId, authUserId))
       .limit(1)
       .then((r) => r[0]);
-    if (!emp) {
+    if (!emp?.authId) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 403 },
@@ -76,13 +76,13 @@ export async function POST(
 
     const payload: {
       taskId: number;
-      submittedBy: number;
+      submittedBy: string;
       submissionNote?: string;
       organizationId: string;
       submittedFiles?: { fileUrl: string; fileName: string }[];
     } = {
       taskId,
-      submittedBy: emp.id,
+      submittedBy: emp.authId,
       submissionNote,
       submittedFiles,
       organizationId: organization.id,

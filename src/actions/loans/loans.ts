@@ -210,8 +210,8 @@ export async function createLoanType(data: {
         interestRate: data.interestRate || "0",
         minServiceMonths: data.minServiceMonths || 0,
         maxActiveLoans: data.maxActiveLoans || 1,
-        createdBy: currentUser.id,
-        updatedBy: currentUser.id,
+        createdByUserId: currentUser.authId,
+        updatedByUserId: currentUser.authId,
       })
       .returning();
 
@@ -281,7 +281,7 @@ export async function updateLoanType(
       .update(loanTypes)
       .set({
         ...data,
-        updatedBy: currentUser.id,
+        updatedByUserId: currentUser.authId,
         updatedAt: new Date(),
       })
       .where(
@@ -373,7 +373,7 @@ export async function deleteLoanType(loanTypeId: number) {
 // ==================== LOAN APPLICATIONS ====================
 
 // Get eligible loan types for an employee
-export async function getEligibleLoanTypes(employeeId: number) {
+export async function getEligibleLoanTypes(userId: string) {
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
@@ -392,7 +392,7 @@ export async function getEligibleLoanTypes(employeeId: number) {
     )
     .where(
       and(
-        eq(employeeSalary.employeeId, employeeId),
+        eq(employeeSalary.userId, userId),
         isNull(employeeSalary.effectiveTo),
         eq(employeeSalary.organizationId, organization.id),
       ),
@@ -441,7 +441,7 @@ export async function getEligibleLoanTypes(employeeId: number) {
 
 // Calculate maximum eligible amount for a loan type
 export async function calculateMaxEligibleAmount(
-  employeeId: number,
+  userId: string,
   loanTypeId: number,
 ) {
   const organization = await auth.api.getFullOrganization({
@@ -482,7 +482,7 @@ export async function calculateMaxEligibleAmount(
     )
     .where(
       and(
-        eq(employeeSalary.employeeId, employeeId),
+        eq(employeeSalary.userId, userId),
         isNull(employeeSalary.effectiveTo),
         eq(employeeSalary.organizationId, organization.id),
       ),
@@ -546,13 +546,10 @@ export async function applyForLoan(data: {
       return { success: null, error: { reason: "Organization not found" } };
     }
 
-    const employeeId = currentUser.id;
+    const userId = currentUser.authId;
 
     // Validate eligibility
-    const eligible = await calculateMaxEligibleAmount(
-      employeeId,
-      data.loanTypeId,
-    );
+    const eligible = await calculateMaxEligibleAmount(userId, data.loanTypeId);
     if (eligible.error) {
       return { success: null, error: { reason: eligible.error } };
     }
@@ -587,7 +584,7 @@ export async function applyForLoan(data: {
         .from(loanApplications)
         .where(
           and(
-            eq(loanApplications.employeeId, employeeId),
+            eq(loanApplications.userId, userId),
             eq(loanApplications.loanTypeId, data.loanTypeId),
             eq(loanApplications.organizationId, organization.id),
             inArray(loanApplications.status, [
@@ -611,7 +608,7 @@ export async function applyForLoan(data: {
         .insert(loanApplications)
         .values({
           referenceNumber,
-          employeeId,
+          userId,
           organizationId: organization.id,
           loanTypeId: data.loanTypeId,
           requestedAmount: data.requestedAmount,
@@ -628,7 +625,7 @@ export async function applyForLoan(data: {
         organizationId: organization.id,
         action: "applied",
         description: `Loan application submitted for ${requestedAmount}`,
-        performedBy: employeeId,
+        performedByUserId: userId,
       });
 
       return newApplication;
@@ -650,7 +647,7 @@ export async function applyForLoan(data: {
 
 // Get all loan applications
 export async function getAllLoanApplications(filters?: {
-  employeeId?: number;
+  userId?: string;
   status?: string;
   loanTypeId?: number;
   search?: string;
@@ -670,8 +667,8 @@ export async function getAllLoanApplications(filters?: {
     eq(loanApplications.organizationId, organization.id),
   ];
 
-  if (filters?.employeeId) {
-    conditions.push(eq(loanApplications.employeeId, filters.employeeId));
+  if (filters?.userId) {
+    conditions.push(eq(loanApplications.userId, filters.userId));
   }
   if (filters?.status) {
     conditions.push(eq(loanApplications.status, filters.status as any));
@@ -697,7 +694,7 @@ export async function getAllLoanApplications(filters?: {
   const totalResult = await db
     .select({ count: count() })
     .from(loanApplications)
-    .leftJoin(employees, eq(loanApplications.employeeId, employees.id))
+    .leftJoin(employees, eq(loanApplications.userId, employees.authId))
     .where(whereClause);
 
   const total = totalResult[0]?.count || 0;
@@ -706,7 +703,7 @@ export async function getAllLoanApplications(filters?: {
     .select({
       id: loanApplications.id,
       referenceNumber: loanApplications.referenceNumber,
-      employeeId: loanApplications.employeeId,
+      userId: loanApplications.userId,
       employeeName: employees.name,
       employeeEmail: employees.email,
       employeeDepartment: employees.department,
@@ -718,11 +715,11 @@ export async function getAllLoanApplications(filters?: {
       tenureMonths: loanApplications.tenureMonths,
       reason: loanApplications.reason,
       status: loanApplications.status,
-      hrReviewedBy: loanApplications.hrReviewedBy,
+      hrReviewedByUserId: loanApplications.hrReviewedByUserId,
       hrReviewerName: hrReviewer.name,
       hrReviewedAt: loanApplications.hrReviewedAt,
       hrRemarks: loanApplications.hrRemarks,
-      disbursedBy: loanApplications.disbursedBy,
+      disbursedByUserId: loanApplications.disbursedByUserId,
       disburserName: disburser.name,
       disbursedAt: loanApplications.disbursedAt,
       totalRepaid: loanApplications.totalRepaid,
@@ -731,10 +728,13 @@ export async function getAllLoanApplications(filters?: {
       createdAt: loanApplications.createdAt,
     })
     .from(loanApplications)
-    .leftJoin(employees, eq(loanApplications.employeeId, employees.id))
+    .leftJoin(employees, eq(loanApplications.userId, employees.authId))
     .leftJoin(loanTypes, eq(loanApplications.loanTypeId, loanTypes.id))
-    .leftJoin(hrReviewer, eq(loanApplications.hrReviewedBy, hrReviewer.id))
-    .leftJoin(disburser, eq(loanApplications.disbursedBy, disburser.id))
+    .leftJoin(
+      hrReviewer,
+      eq(loanApplications.hrReviewedByUserId, hrReviewer.id),
+    )
+    .leftJoin(disburser, eq(loanApplications.disbursedByUserId, disburser.id))
     .where(whereClause)
     .orderBy(desc(loanApplications.createdAt))
     .limit(limit)
@@ -763,7 +763,7 @@ export async function getLoanApplicationById(applicationId: number) {
     .select({
       id: loanApplications.id,
       referenceNumber: loanApplications.referenceNumber,
-      employeeId: loanApplications.employeeId,
+      userId: loanApplications.userId,
       employeeName: employees.name,
       employeeEmail: employees.email,
       employeeDepartment: employees.department,
@@ -776,11 +776,11 @@ export async function getLoanApplicationById(applicationId: number) {
       tenureMonths: loanApplications.tenureMonths,
       reason: loanApplications.reason,
       status: loanApplications.status,
-      hrReviewedBy: loanApplications.hrReviewedBy,
+      hrReviewedByUserId: loanApplications.hrReviewedByUserId,
       hrReviewerName: hrReviewer.name,
       hrReviewedAt: loanApplications.hrReviewedAt,
       hrRemarks: loanApplications.hrRemarks,
-      disbursedBy: loanApplications.disbursedBy,
+      disbursedByUserId: loanApplications.disbursedByUserId,
       disburserName: disburser.name,
       disbursedAt: loanApplications.disbursedAt,
       disbursementRemarks: loanApplications.disbursementRemarks,
@@ -792,10 +792,13 @@ export async function getLoanApplicationById(applicationId: number) {
       createdAt: loanApplications.createdAt,
     })
     .from(loanApplications)
-    .leftJoin(employees, eq(loanApplications.employeeId, employees.id))
+    .leftJoin(employees, eq(loanApplications.userId, employees.authId))
     .leftJoin(loanTypes, eq(loanApplications.loanTypeId, loanTypes.id))
-    .leftJoin(hrReviewer, eq(loanApplications.hrReviewedBy, hrReviewer.id))
-    .leftJoin(disburser, eq(loanApplications.disbursedBy, disburser.id))
+    .leftJoin(
+      hrReviewer,
+      eq(loanApplications.hrReviewedByUserId, hrReviewer.id),
+    )
+    .leftJoin(disburser, eq(loanApplications.disbursedByUserId, disburser.id))
     .where(
       and(
         eq(loanApplications.id, applicationId),
@@ -810,7 +813,7 @@ export async function getLoanApplicationById(applicationId: number) {
   const [bankDetails] = await db
     .select()
     .from(employeesBank)
-    .where(eq(employeesBank.employeeId, application.employeeId))
+    .where(eq(employeesBank.userId, application.userId))
     .limit(1);
 
   // Get employee salary info
@@ -827,7 +830,7 @@ export async function getLoanApplicationById(applicationId: number) {
     )
     .where(
       and(
-        eq(employeeSalary.employeeId, application.employeeId),
+        eq(employeeSalary.userId, application.userId),
         isNull(employeeSalary.effectiveTo),
       ),
     )
@@ -839,12 +842,12 @@ export async function getLoanApplicationById(applicationId: number) {
       id: loanHistory.id,
       action: loanHistory.action,
       description: loanHistory.description,
-      performedBy: loanHistory.performedBy,
+      performedByUserId: loanHistory.performedByUserId,
       performerName: employees.name,
       createdAt: loanHistory.createdAt,
     })
     .from(loanHistory)
-    .leftJoin(employees, eq(loanHistory.performedBy, employees.id))
+    .leftJoin(employees, eq(loanHistory.performedByUserId, employees.authId))
     .where(eq(loanHistory.loanApplicationId, applicationId))
     .orderBy(desc(loanHistory.createdAt));
 
@@ -958,7 +961,7 @@ export async function hrReviewLoan(data: {
           status: "hr_approved",
           approvedAmount,
           monthlyDeduction: String(monthlyDeduction),
-          hrReviewedBy: currentUser.id,
+          hrReviewedByUserId: currentUser.authId,
           hrReviewedAt: new Date(),
           hrRemarks: data.remarks,
           remainingBalance: approvedAmount,
@@ -971,14 +974,14 @@ export async function hrReviewLoan(data: {
         organizationId: organization.id,
         action: "hr_approved",
         description: `Loan approved by HR for ${approvedAmount}`,
-        performedBy: currentUser.id,
+        performedByUserId: currentUser.authId,
       });
     } else {
       await db
         .update(loanApplications)
         .set({
           status: "hr_rejected",
-          hrReviewedBy: currentUser.id,
+          hrReviewedByUserId: currentUser.authId,
           hrReviewedAt: new Date(),
           hrRemarks: data.remarks,
           updatedAt: new Date(),
@@ -990,7 +993,7 @@ export async function hrReviewLoan(data: {
         organizationId: organization.id,
         action: "hr_rejected",
         description: `Loan rejected by HR: ${data.remarks || "No reason provided"}`,
-        performedBy: currentUser.id,
+        performedByUserId: currentUser.authId,
       });
     }
 
@@ -1074,7 +1077,7 @@ export async function disburseLoan(data: {
         .insert(employeeDeductions)
         .values({
           name: `Loan: ${application.referenceNumber}`,
-          employeeId: application.employeeId,
+          userId: application.userId,
           organizationId: organization.id,
           salaryStructureId: application.salaryInfo?.salaryStructureId || 0,
           type: "loan",
@@ -1091,7 +1094,7 @@ export async function disburseLoan(data: {
         .update(loanApplications)
         .set({
           status: "active",
-          disbursedBy: currentUser.id,
+          disbursedByUserId: currentUser.authId,
           disbursedAt: new Date(),
           disbursementRemarks: data.remarks,
           employeeDeductionId: deduction.id,
@@ -1115,7 +1118,7 @@ export async function disburseLoan(data: {
         repaymentSchedule.push({
           loanApplicationId: data.applicationId,
           organizationId: organization.id,
-          employeeId: application.employeeId,
+          userId: application.userId,
           installmentNumber: i,
           dueDate,
           expectedAmount: String(monthlyRepayment),
@@ -1134,7 +1137,7 @@ export async function disburseLoan(data: {
         organizationId: organization.id,
         action: "disbursed",
         description: `Loan disbursed: ${approvedAmount}. Interest: ${totalInterest.toFixed(2)} (${interestRate}%). Total repayment: ${totalRepayment.toFixed(2)}. Monthly: ${monthlyRepayment.toFixed(2)}`,
-        performedBy: currentUser.id,
+        performedByUserId: currentUser.authId,
       });
     });
 
@@ -1153,7 +1156,7 @@ export async function disburseLoan(data: {
 }
 
 // Get employee loan history
-export async function getEmployeeLoanHistory(employeeId: number) {
+export async function getEmployeeLoanHistory(userId: string) {
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
@@ -1176,7 +1179,7 @@ export async function getEmployeeLoanHistory(employeeId: number) {
     .leftJoin(loanTypes, eq(loanApplications.loanTypeId, loanTypes.id))
     .where(
       and(
-        eq(loanApplications.employeeId, employeeId),
+        eq(loanApplications.userId, userId),
         eq(loanApplications.organizationId, organization.id),
       ),
     )
@@ -1220,7 +1223,7 @@ export async function cancelLoanApplication(
     }
 
     // Only the applicant or HR/admin can cancel
-    const isOwner = application.employeeId === currentUser.id;
+    const isOwner = application.userId === currentUser.authId;
     const isHROrAdmin =
       currentUser.department === "HR" || currentUser.role === "admin";
     if (!isOwner && !isHROrAdmin) {
@@ -1252,7 +1255,7 @@ export async function cancelLoanApplication(
       organizationId: organization.id,
       action: "cancelled",
       description: reason || "Application cancelled",
-      performedBy: currentUser.id,
+      performedByUserId: currentUser.authId,
     });
 
     revalidatePath("/hr/loans");
@@ -1404,7 +1407,7 @@ export async function checkAndCompleteLoan(applicationId: number) {
       organizationId: organization.id,
       action: "completed",
       description: "Loan fully repaid and marked as completed",
-      performedBy: null,
+      performedByUserId: null,
     });
 
     revalidatePath("/hr/loans");
@@ -1507,7 +1510,7 @@ export async function makeEarlyRepayment(data: {
     }
 
     // Only the loan owner can make early repayment
-    if (application.employeeId !== currentUser.id) {
+    if (application.userId !== currentUser.authId) {
       return {
         success: null,
         error: { reason: "You can only make payments on your own loans" },
@@ -1616,7 +1619,7 @@ export async function makeEarlyRepayment(data: {
         organizationId: organization.id,
         action: "early_repayment",
         description: `Early repayment of ${paymentAmount}. ${data.remarks || ""} Remaining balance: ${newRemainingBalance}`,
-        performedBy: currentUser.id,
+        performedByUserId: currentUser.authId,
       });
     });
 

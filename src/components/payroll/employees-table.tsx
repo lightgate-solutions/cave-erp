@@ -48,7 +48,7 @@ import { EmployeeDeductionDialog } from "../payroll/employee-deduction-dialog";
 export function EmployeesTable() {
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-  const [showPayDetails, setShowPayDetails] = useState<number | null>(null);
+  const [showPayDetails, setShowPayDetails] = useState<string | null>(null);
   const [takeHomeDetails, setTakeHomeDetails] = useState<any | null>(null);
   const [isCalculatingPay, setIsCalculatingPay] = useState(false);
   const [allowanceDialogOpen, setAllowanceDialogOpen] = useState(false);
@@ -73,18 +73,18 @@ export function EmployeesTable() {
     setIsAssignDialogOpen(true);
   };
 
-  const handleViewTakeHome = async (employeeId: number) => {
-    if (showPayDetails === employeeId) {
+  const handleViewTakeHome = async (userId: string) => {
+    if (showPayDetails === userId) {
       setShowPayDetails(null);
       setTakeHomeDetails(null);
       return;
     }
 
     setIsCalculatingPay(true);
-    setShowPayDetails(employeeId);
+    setShowPayDetails(userId);
 
     try {
-      const details = await calculateEmployeeTakeHomePay(employeeId);
+      const details = await calculateEmployeeTakeHomePay(userId);
       setTakeHomeDetails(details);
     } catch (_error) {
       toast.error("Failed to calculate take-home pay");
@@ -212,7 +212,7 @@ export function EmployeesTable() {
                                       Salary History
                                     </div>
                                   }
-                                  employeeId={employee.id}
+                                  userId={employee.id}
                                   employeeName={employee.name}
                                 />
                               </DropdownMenuItem>
@@ -416,7 +416,7 @@ export function EmployeesTable() {
         <EmployeeStructureAssignDialog
           isOpen={isAssignDialogOpen}
           onOpenChangeAction={setIsAssignDialogOpen}
-          employeeId={selectedEmployee.id}
+          userId={selectedEmployee.id}
           employeeName={selectedEmployee.name}
           currentStructureId={selectedEmployee.structureId}
           currentStructureName={selectedEmployee.structureName}
@@ -430,7 +430,7 @@ export function EmployeesTable() {
         onOpenChangeAction={(open) => {
           if (!open) setAllowanceDialogOpen(false);
         }}
-        employeeId={selectedEmployee?.id}
+        userId={selectedEmployee?.id}
         employeeName={selectedEmployee?.name}
       />
 
@@ -440,7 +440,7 @@ export function EmployeesTable() {
         onOpenChangeAction={(open) => {
           if (!open) setDeductionDialogOpen(false);
         }}
-        employeeId={selectedEmployee?.id}
+        userId={selectedEmployee?.id}
         employeeName={selectedEmployee?.name}
       />
     </div>

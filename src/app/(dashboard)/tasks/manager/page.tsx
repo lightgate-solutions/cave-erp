@@ -74,7 +74,7 @@ const ManagerReviewPage = async () => {
         email: employees.email,
       })
       .from(taskAssignees)
-      .leftJoin(employees, eq(employees.id, taskAssignees.employeeId))
+      .leftJoin(employees, eq(employees.authId, taskAssignees.userId))
       .where(inArray(taskAssignees.taskId, taskIds));
 
     for (const r of assigneesRows) {
@@ -163,7 +163,7 @@ const ManagerReviewPage = async () => {
               <TableCell>{formatDate(task.dueDate)}</TableCell>
               <TableCell>{formatDate(task.createdAt)}</TableCell>
               <TableCell className="text-right">
-                <TaskReviewActions taskId={task.id} employeeId={employee.id} />
+                <TaskReviewActions taskId={task.id} userId={employee.id} />
               </TableCell>
             </TableRow>
           ))}

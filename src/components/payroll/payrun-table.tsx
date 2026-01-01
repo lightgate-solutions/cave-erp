@@ -73,9 +73,9 @@ interface Payrun {
   totalDeductions: string;
   totalNetPay: string;
   status: PayrunStatus | null;
-  generatedBy: number;
+  generatedByUserId: string;
   generatedByName: string | null;
-  approvedBy: number | null;
+  approvedByUserId: string | null;
   approvedAt: Date | null;
   createdAt: Date | null;
 }

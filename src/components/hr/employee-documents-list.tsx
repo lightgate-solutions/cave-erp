@@ -34,13 +34,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 type EmployeeDocument = {
   id: number;
-  employeeId: number;
+  userId: string;
   documentType: string;
   documentName: string;
   filePath: string;
   fileSize: string;
   mimeType: string | null;
-  uploadedBy: number | null;
+  uploadedByUserId: string | null;
   department: string;
   createdAt: Date;
   updatedAt: Date;
@@ -75,18 +75,14 @@ function getMimeTypeBadgeVariant(
   return "outline";
 }
 
-export default function EmployeeDocumentsList({
-  employeeId,
-}: {
-  employeeId: number;
-}) {
+export default function EmployeeDocumentsList({ userId }: { userId: string }) {
   const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchDocuments = async () => {
     setLoading(true);
-    const result = await getEmployeeDocuments(employeeId);
+    const result = await getEmployeeDocuments(userId);
     setLoading(false);
 
     if (result.success && result.data) {
@@ -98,7 +94,7 @@ export default function EmployeeDocumentsList({
 
   useEffect(() => {
     fetchDocuments();
-  }, [employeeId]);
+  }, [userId]);
 
   const handleDelete = async (documentId: number) => {
     setDeletingId(documentId);

@@ -14,7 +14,7 @@ import {
 import { tasks } from "./tasks/tasks";
 import { taskSubmissions } from "./tasks/taskSubmissions";
 import { taskReviews } from "./tasks/tasksReviews";
-import { organization } from "./auth";
+import { organization, user } from "./auth";
 
 export const employmentTypeEnum = pgEnum("employment_type", [
   "Full-time",
@@ -62,14 +62,16 @@ export const employees = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    authId: text("auth_id").notNull().default(""),
+    authId: text("auth_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     email: text("email").notNull().unique(),
     phone: text("phone"),
     staffNumber: text("staff_number"),
     role: text("role").notNull(),
     isManager: boolean("is_manager").notNull().default(false),
     department: text("department").notNull(),
-    managerId: integer("manager_id"),
+    managerId: text("manager_id").references(() => user.id),
     organizationsCount: integer("organizations_count").default(0),
     dateOfBirth: date("date_of_birth"),
     address: text("address"),
@@ -88,9 +90,9 @@ export const employees = pgTable(
 
 export const employeesDocuments = pgTable("employees_documents", {
   id: serial("id").primaryKey(),
-  employeeId: integer("employee_id")
+  userId: text("user_id")
     .notNull()
-    .references(() => employees.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
   documentType: text("document_type").notNull(),
   documentName: text("document_name").notNull(),
   filePath: text("file_path").notNull(),
@@ -99,7 +101,7 @@ export const employeesDocuments = pgTable("employees_documents", {
     .references(() => organization.id, { onDelete: "cascade" }),
   fileSize: numeric("file_size", { scale: 2, precision: 10 }).notNull(),
   mimeType: text("mime_type"),
-  uploadedBy: integer("uploaded_by").references(() => employees.id),
+  uploadedByUserId: text("uploaded_by_user_id").references(() => user.id),
   department: text("department").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -107,9 +109,9 @@ export const employeesDocuments = pgTable("employees_documents", {
 
 export const employeesBank = pgTable("employees_bank", {
   id: serial("id").primaryKey(),
-  employeeId: integer("employee_id")
+  userId: text("user_id")
     .notNull()
-    .references(() => employees.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
   bankName: text("bank_name").notNull(),
   accountName: text("account_name").notNull(),
   organizationId: text("organization_id")
@@ -124,9 +126,9 @@ export const employmentHistory = pgTable(
   "employment_history",
   {
     id: serial("id").primaryKey(),
-    employeeId: integer("employee_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     startDate: date("start_date"),
     organizationId: text("organization_id")
       .notNull()
@@ -138,7 +140,7 @@ export const employmentHistory = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
-    index("history_employee_idx").on(table.employeeId),
+    index("history_user_idx").on(table.userId),
     index("employment_history_active_idx")
       .on(table.endDate)
       .where(sql`end_date IS NULL`),
@@ -178,9 +180,9 @@ export const leaveApplications = pgTable(
   "leave_applications",
   {
     id: serial("id").primaryKey(),
-    employeeId: integer("employee_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     leaveType: leaveTypeEnum("leave_type").notNull(),
     startDate: date("start_date").notNull(),
     organizationId: text("organization_id")
@@ -190,7 +192,7 @@ export const leaveApplications = pgTable(
     totalDays: integer("total_days").notNull(),
     reason: text("reason").notNull(),
     status: leaveStatusEnum("status").notNull().default("Pending"),
-    approvedBy: integer("approved_by").references(() => employees.id),
+    approvedByUserId: text("approved_by_user_id").references(() => user.id),
     approvedAt: timestamp("approved_at"),
     rejectionReason: text("rejection_reason"),
     appliedAt: timestamp("applied_at").notNull().defaultNow(),
@@ -198,7 +200,7 @@ export const leaveApplications = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
-    index("leave_applications_employee_idx").on(table.employeeId),
+    index("leave_applications_user_idx").on(table.userId),
     index("leave_applications_status_idx").on(table.status),
     index("leave_applications_dates_idx").on(table.startDate, table.endDate),
   ],
@@ -209,9 +211,9 @@ export const leaveBalances = pgTable(
   "leave_balances",
   {
     id: serial("id").primaryKey(),
-    employeeId: integer("employee_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     leaveType: leaveTypeEnum("leave_type").notNull(),
     totalDays: integer("total_days").notNull().default(0),
     usedDays: integer("used_days").notNull().default(0),
@@ -224,7 +226,7 @@ export const leaveBalances = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
-    index("leave_balances_employee_idx").on(table.employeeId),
+    index("leave_balances_user_idx").on(table.userId),
     index("leave_balances_type_year_idx").on(table.leaveType, table.year),
   ],
 );
@@ -233,9 +235,9 @@ export const attendance = pgTable(
   "attendance",
   {
     id: serial("id").primaryKey(),
-    employeeId: integer("employee_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     date: date("date").notNull(),
     signInTime: timestamp("sign_in_time"),
     signOutTime: timestamp("sign_out_time"),
@@ -244,19 +246,17 @@ export const attendance = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     status: attendanceStatusEnum("status").default("Approved").notNull(),
     rejectionReason: text("rejection_reason"),
-    rejectedBy: integer("rejected_by").references(() => employees.id),
+    rejectedByUserId: text("rejected_by_user_id").references(() => user.id),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => [
-    index("attendance_employee_date_idx").on(table.employeeId, table.date),
-  ],
+  (table) => [index("attendance_user_date_idx").on(table.userId, table.date)],
 );
 
 export const employeeRelations = relations(employees, ({ one, many }) => ({
-  manager: one(employees, {
+  manager: one(user, {
     fields: [employees.managerId],
-    references: [employees.id],
+    references: [user.id],
   }),
 
   tasksAssigned: many(tasks, {
@@ -280,8 +280,8 @@ export const employeeRelations = relations(employees, ({ one, many }) => ({
 }));
 
 export const attendanceRelations = relations(attendance, ({ one }) => ({
-  employee: one(employees, {
-    fields: [attendance.employeeId],
-    references: [employees.id],
+  user: one(user, {
+    fields: [attendance.userId],
+    references: [user.id],
   }),
 }));

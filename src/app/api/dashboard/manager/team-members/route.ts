@@ -31,6 +31,7 @@ export async function GET() {
     const employeeResult = await db
       .select({
         id: employees.id,
+        authId: employees.authId,
         isManager: employees.isManager,
       })
       .from(employees)
@@ -43,7 +44,7 @@ export async function GET() {
       .limit(1);
 
     const employee = employeeResult[0];
-    if (!employee || !employee.isManager) {
+    if (!employee || !employee.isManager || !employee.authId) {
       return NextResponse.json(
         { error: "Forbidden - Manager access required" },
         { status: 403 },
@@ -54,6 +55,7 @@ export async function GET() {
     const subordinates = await db
       .select({
         id: employees.id,
+        authId: employees.authId,
         name: employees.name,
         email: employees.email,
         department: employees.department,
@@ -62,14 +64,16 @@ export async function GET() {
       .from(employees)
       .where(
         and(
-          eq(employees.managerId, employee.id),
+          eq(employees.managerId, employee.authId),
           eq(employees.isManager, false),
           eq(employees.organizationId, organization.id),
         ),
       );
 
     // Get task counts for each team member
-    const teamMemberIds = subordinates.map((s) => s.id);
+    const teamMemberIds = subordinates
+      .map((s) => s.authId)
+      .filter((id): id is string => id !== null);
 
     if (teamMemberIds.length === 0) {
       return NextResponse.json({ teamMembers: [] });
@@ -83,7 +87,7 @@ export async function GET() {
     // Get task stats for each team member (filtered by organization)
     const taskStats = await db
       .select({
-        employeeId: tasks.assignedTo,
+        userId: tasks.assignedTo,
         tasksCompleted: sql<number>`COUNT(*) FILTER (WHERE ${tasks.status} = 'Completed' AND ${tasks.createdAt} >= ${thirtyDaysAgo})`,
         totalCompleted: sql<number>`COUNT(*) FILTER (WHERE ${tasks.status} = 'Completed')`,
       })
@@ -91,7 +95,7 @@ export async function GET() {
       .where(
         and(
           inArray(tasks.assignedTo, teamMemberIds),
-          eq(tasks.assignedBy, employee.id),
+          eq(tasks.assignedBy, employee.authId),
           eq(tasks.organizationId, organization.id),
         ),
       )
@@ -99,45 +103,49 @@ export async function GET() {
 
     // Calculate performance for each team member
     const taskMap = new Map<
-      number,
+      string,
       { tasksCompleted: number; totalCompleted: number }
     >();
 
     for (const row of taskStats) {
-      taskMap.set(Number(row.employeeId), {
-        tasksCompleted: Number(row.tasksCompleted || 0),
-        totalCompleted: Number(row.totalCompleted || 0),
-      });
+      if (row.userId) {
+        taskMap.set(row.userId, {
+          tasksCompleted: Number(row.tasksCompleted || 0),
+          totalCompleted: Number(row.totalCompleted || 0),
+        });
+      }
     }
 
     // Get total tasks assigned to each member to calculate performance (filtered by organization)
     const totalTasksByMember = await db
       .select({
-        employeeId: tasks.assignedTo,
+        userId: tasks.assignedTo,
         totalTasks: sql<number>`COUNT(*)`,
       })
       .from(tasks)
       .where(
         and(
           inArray(tasks.assignedTo, teamMemberIds),
-          eq(tasks.assignedBy, employee.id),
+          eq(tasks.assignedBy, employee.authId),
           eq(tasks.organizationId, organization.id),
         ),
       )
       .groupBy(tasks.assignedTo);
 
-    const totalTasksMap = new Map<number, number>();
+    const totalTasksMap = new Map<string, number>();
     for (const row of totalTasksByMember) {
-      totalTasksMap.set(Number(row.employeeId), Number(row.totalTasks || 0));
+      if (row.userId) {
+        totalTasksMap.set(row.userId, Number(row.totalTasks || 0));
+      }
     }
 
     // Format team members with performance
     const teamMembers = subordinates.map((member) => {
-      const stats = taskMap.get(member.id) || {
+      const stats = taskMap.get(member.authId || "") || {
         tasksCompleted: 0,
         totalCompleted: 0,
       };
-      const totalTasks = totalTasksMap.get(member.id) || 0;
+      const totalTasks = totalTasksMap.get(member.authId || "") || 0;
 
       // Calculate performance as percentage based on completion rate
       // Use a weighted calculation: (completed in 30 days / total tasks assigned) * 100

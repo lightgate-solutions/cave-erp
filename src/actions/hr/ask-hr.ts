@@ -50,11 +50,11 @@ const responseSchema = z.object({
 });
 
 const redirectSchema = z.object({
-  employeeId: z.number().int().positive("Valid employee is required"),
+  userId: z.string().min(1, "Valid employee is required"),
 });
 
 export async function getAskHrQuestions(filters?: {
-  employeeId?: number;
+  userId?: string;
   category?: string;
   status?: string;
   search?: string;
@@ -111,24 +111,24 @@ export async function getAskHrQuestions(filters?: {
       // 2. Questions redirected to them
       // 3. Public questions
       if (filters?.onlyMine) {
-        conditions.push(eq(askHrQuestions.employeeId, currentUser.id));
+        conditions.push(eq(askHrQuestions.userId, currentUser.authId));
       } else {
         conditions.push(
           or(
-            eq(askHrQuestions.employeeId, currentUser.id),
-            eq(askHrQuestions.redirectedTo, currentUser.id),
+            eq(askHrQuestions.userId, currentUser.authId),
+            eq(askHrQuestions.redirectedToUserId, currentUser.authId),
             eq(askHrQuestions.isPublic, true),
           ),
         );
       }
     } else if (filters?.onlyMine) {
       // HR/admin requesting only their questions
-      conditions.push(eq(askHrQuestions.employeeId, currentUser.id));
+      conditions.push(eq(askHrQuestions.userId, currentUser.authId));
     }
 
     // Other filters
-    if (filters?.employeeId) {
-      conditions.push(eq(askHrQuestions.employeeId, filters.employeeId));
+    if (filters?.userId) {
+      conditions.push(eq(askHrQuestions.userId, filters.userId));
     }
     if (filters?.category) {
       conditions.push(eq(askHrQuestions.category, filters.category as any));
@@ -139,7 +139,7 @@ export async function getAskHrQuestions(filters?: {
 
     // Redirected questions filter
     if (filters?.includeRedirected) {
-      conditions.push(not(isNull(askHrQuestions.redirectedTo)));
+      conditions.push(not(isNull(askHrQuestions.redirectedToUserId)));
     }
 
     // Search by title or content
@@ -164,13 +164,10 @@ export async function getAskHrQuestions(filters?: {
     const totalResult = await db
       .select({ count: count() })
       .from(askHrQuestions)
-      .leftJoin(
-        questionAuthor,
-        eq(askHrQuestions.employeeId, questionAuthor.id),
-      )
+      .leftJoin(questionAuthor, eq(askHrQuestions.userId, questionAuthor.id))
       .leftJoin(
         redirectEmployee,
-        eq(askHrQuestions.redirectedTo, redirectEmployee.id),
+        eq(askHrQuestions.redirectedToUserId, redirectEmployee.id),
       )
       .where(whereClause);
 
@@ -190,24 +187,21 @@ export async function getAskHrQuestions(filters?: {
         createdAt: askHrQuestions.createdAt,
         updatedAt: askHrQuestions.updatedAt,
         // Author information
-        authorId: askHrQuestions.employeeId,
+        authorId: askHrQuestions.userId,
         authorName: questionAuthor.name,
         authorEmail: questionAuthor.email,
         authorDepartment: questionAuthor.department,
         // Redirected information
-        redirectedTo: askHrQuestions.redirectedTo,
+        redirectedToUserId: askHrQuestions.redirectedToUserId,
         redirectedName: redirectEmployee.name,
         redirectedEmail: redirectEmployee.email,
         redirectedDepartment: redirectEmployee.department,
       })
       .from(askHrQuestions)
-      .leftJoin(
-        questionAuthor,
-        eq(askHrQuestions.employeeId, questionAuthor.id),
-      )
+      .leftJoin(questionAuthor, eq(askHrQuestions.userId, questionAuthor.id))
       .leftJoin(
         redirectEmployee,
-        eq(askHrQuestions.redirectedTo, redirectEmployee.id),
+        eq(askHrQuestions.redirectedToUserId, redirectEmployee.id),
       )
       .where(whereClause)
       .orderBy(desc(askHrQuestions.createdAt))
@@ -265,24 +259,21 @@ export async function getAskHrQuestion(questionId: number) {
         createdAt: askHrQuestions.createdAt,
         updatedAt: askHrQuestions.updatedAt,
         // Author information
-        authorId: askHrQuestions.employeeId,
+        authorId: askHrQuestions.userId,
         authorName: questionAuthor.name,
         authorEmail: questionAuthor.email,
         authorDepartment: questionAuthor.department,
         // Redirected information
-        redirectedTo: askHrQuestions.redirectedTo,
+        redirectedToUserId: askHrQuestions.redirectedToUserId,
         redirectedName: redirectEmployee.name,
         redirectedEmail: redirectEmployee.email,
         redirectedDepartment: redirectEmployee.department,
       })
       .from(askHrQuestions)
-      .leftJoin(
-        questionAuthor,
-        eq(askHrQuestions.employeeId, questionAuthor.id),
-      )
+      .leftJoin(questionAuthor, eq(askHrQuestions.userId, questionAuthor.id))
       .leftJoin(
         redirectEmployee,
-        eq(askHrQuestions.redirectedTo, redirectEmployee.id),
+        eq(askHrQuestions.redirectedToUserId, redirectEmployee.id),
       )
       .where(
         and(
@@ -300,8 +291,8 @@ export async function getAskHrQuestion(questionId: number) {
 
     const isHrAdmin =
       currentUser.department === "HR" || currentUser.role === "admin";
-    const isOwner = question.authorId === currentUser.id;
-    const isRedirected = question.redirectedTo === currentUser.id;
+    const isOwner = question.authorId === currentUser.authId;
+    const isRedirected = question.redirectedToUserId === currentUser.authId;
     const isPublic = question.isPublic;
 
     if (!isHrAdmin && !isOwner && !isRedirected && !isPublic) {
@@ -315,13 +306,16 @@ export async function getAskHrQuestion(questionId: number) {
         response: askHrResponses.response,
         isInternal: askHrResponses.isInternal,
         createdAt: askHrResponses.createdAt,
-        respondentId: askHrResponses.respondentId,
+        respondentUserId: askHrResponses.respondentUserId,
         respondentName: employees.name,
         respondentEmail: employees.email,
         respondentDepartment: employees.department,
       })
       .from(askHrResponses)
-      .leftJoin(employees, eq(askHrResponses.respondentId, employees.id))
+      .leftJoin(
+        employees,
+        eq(askHrResponses.respondentUserId, employees.authId),
+      )
       .where(eq(askHrResponses.questionId, questionId))
       .orderBy(askHrResponses.createdAt);
 
@@ -382,7 +376,7 @@ export async function submitAskHrQuestion(
     const [question] = await db
       .insert(askHrQuestions)
       .values({
-        employeeId: currentUser.id,
+        userId: currentUser.authId,
         organizationId: organization.id,
         title: validated.data.title,
         question: validated.data.question,
@@ -479,7 +473,7 @@ export async function respondToAskHrQuestion(
     // Check if user can respond (HR/admin or redirected user)
     const isHrAdmin =
       currentUser.department === "HR" || currentUser.role === "admin";
-    const isRedirected = question.redirectedTo === currentUser.id;
+    const isRedirected = question.redirectedToUserId === currentUser.authId;
 
     if (!isHrAdmin && !isRedirected) {
       return {
@@ -503,7 +497,7 @@ export async function respondToAskHrQuestion(
       // Insert the response
       await tx.insert(askHrResponses).values({
         questionId,
-        respondentId: currentUser.id,
+        respondentUserId: currentUser.authId,
         organizationId: organization.id,
         response: validated.data.response,
         isInternal: validated.data.isInternal,
@@ -522,7 +516,7 @@ export async function respondToAskHrQuestion(
         // Notify the question author if it's not an internal note
         if (!data.isInternal) {
           await createNotification({
-            user_id: question.employeeId,
+            user_id: question.userId,
             title: "HR Question Answered",
             message: `Your question "${question.title}" has received a response`,
             notification_type: "message",
@@ -619,7 +613,7 @@ export async function redirectAskHrQuestion(
     const targetEmployee = await db
       .select()
       .from(employees)
-      .where(eq(employees.id, validated.data.employeeId))
+      .where(eq(employees.authId, validated.data.userId))
       .limit(1)
       .then((rows) => rows[0]);
 
@@ -636,7 +630,7 @@ export async function redirectAskHrQuestion(
       await tx
         .update(askHrQuestions)
         .set({
-          redirectedTo: validated.data.employeeId,
+          redirectedToUserId: validated.data.userId,
           status: "Redirected",
           updatedAt: new Date(),
         })
@@ -645,7 +639,7 @@ export async function redirectAskHrQuestion(
       // Add a system note about the redirection
       await tx.insert(askHrResponses).values({
         questionId,
-        respondentId: currentUser.id,
+        respondentUserId: currentUser.authId,
         organizationId: organization.id,
         response: `This question has been redirected to ${targetEmployee.name} (${targetEmployee.department})`,
         isInternal: false,
@@ -656,7 +650,7 @@ export async function redirectAskHrQuestion(
 
     // Notify the redirected employee
     await createNotification({
-      user_id: validated.data.employeeId,
+      user_id: validated.data.userId,
       title: "HR Question Redirected to You",
       message: `A HR question has been redirected to you: "${question.title}"`,
       notification_type: "message",
@@ -752,7 +746,7 @@ export async function updateAskHrQuestionStatus(
       if (status === "In Progress") {
         await tx.insert(askHrResponses).values({
           questionId,
-          respondentId: currentUser.id,
+          respondentUserId: currentUser.authId,
           organizationId: organization.id,
           response: "HR is now working on this question",
           isInternal: false,
@@ -763,7 +757,7 @@ export async function updateAskHrQuestionStatus(
       if (status === "Closed") {
         await tx.insert(askHrResponses).values({
           questionId,
-          respondentId: currentUser.id,
+          respondentUserId: currentUser.authId,
           organizationId: organization.id,
           response: "This question has been marked as closed",
           isInternal: false,
@@ -775,7 +769,7 @@ export async function updateAskHrQuestionStatus(
     if (status === "In Progress") {
       // Notify the author
       await createNotification({
-        user_id: question.employeeId,
+        user_id: question.userId,
         title: "HR Question Update",
         message: `Your question "${question.title}" is now being processed`,
         notification_type: "message",
@@ -786,7 +780,7 @@ export async function updateAskHrQuestionStatus(
     if (status === "Closed") {
       // Notify the author
       await createNotification({
-        user_id: question.employeeId,
+        user_id: question.userId,
         title: "HR Question Closed",
         message: `Your question "${question.title}" has been closed`,
         notification_type: "message",
@@ -827,6 +821,7 @@ async function notifyHrDepartment(
   const hrEmployees = await db
     .select({
       id: employees.id,
+      authId: employees.authId,
     })
     .from(employees)
     .where(
@@ -839,7 +834,7 @@ async function notifyHrDepartment(
   // Create notifications for each HR employee
   for (const employee of hrEmployees) {
     await createNotification({
-      user_id: employee.id,
+      user_id: employee.authId,
       title,
       message,
       notification_type: "message",
@@ -920,7 +915,7 @@ export async function updateQuestionVisibility(
     if (!isHrAdmin) {
       // Check if user is the author
       const question = await db
-        .select({ employeeId: askHrQuestions.employeeId })
+        .select({ userId: askHrQuestions.userId })
         .from(askHrQuestions)
         .where(
           and(
@@ -931,7 +926,7 @@ export async function updateQuestionVisibility(
         .limit(1)
         .then((rows) => rows[0]);
 
-      if (!question || question.employeeId !== currentUser.id) {
+      if (!question || question.userId !== currentUser.authId) {
         return {
           success: null,
           error: {

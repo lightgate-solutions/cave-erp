@@ -22,6 +22,7 @@ export default async function LoansPage() {
   const [employee] = await db
     .select({
       id: employees.id,
+      userId: employees.authId,
       role: employees.role,
       department: employees.department,
     })
@@ -68,7 +69,7 @@ export default async function LoansPage() {
       </div>
 
       <LoanApplicationsTable
-        employeeId={employee.id}
+        userId={employee.userId}
         isHR={canManageLoans}
         showFilters={true}
       />

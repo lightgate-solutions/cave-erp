@@ -28,7 +28,7 @@ import type { User as EmployeeUser } from "@/types/user";
 
 interface UserPreferences {
   id?: number;
-  userId?: number;
+  userId?: string;
   theme?: "light" | "dark" | "system";
   language?: "en" | "fr" | "es" | "de";
   dateFormat?: "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD" | "DD MMM YYYY";

@@ -18,7 +18,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -55,7 +55,7 @@ export default function RootLayout({
     subject: string;
     body: string;
     senderName: string;
-    senderId: number;
+    senderId: string;
     senderEmail: string;
     createdAt: Date;
   } | null>(null);

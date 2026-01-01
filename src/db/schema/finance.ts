@@ -1,15 +1,13 @@
 import { relations } from "drizzle-orm";
 import {
   index,
-  integer,
   pgTable,
   serial,
   text,
   timestamp,
   numeric,
 } from "drizzle-orm/pg-core";
-import { employees } from "./hr";
-import { organization } from "./auth";
+import { organization, user } from "./auth";
 
 export const companyBalance = pgTable("company_balance", {
   id: serial("id").primaryKey(),
@@ -48,9 +46,9 @@ export const balanceTransactions = pgTable(
   "balance_transactions",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -77,9 +75,9 @@ export const balanceTransactions = pgTable(
 export const balanceTransactionsRelations = relations(
   balanceTransactions,
   ({ one }) => ({
-    user: one(employees, {
+    user: one(user, {
       fields: [balanceTransactions.userId],
-      references: [employees.id],
+      references: [user.id],
     }),
   }),
 );

@@ -13,12 +13,12 @@ import {
 import { useRef } from "react";
 
 interface EmployeeDocumentsProps {
-  employeeId: number;
+  userId: string;
   employeeName: string;
 }
 
 export default function EmployeeDocuments({
-  employeeId,
+  userId,
   employeeName,
 }: EmployeeDocumentsProps) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -41,13 +41,13 @@ export default function EmployeeDocuments({
             </CardDescription>
           </div>
           <EmployeeDocumentsUpload
-            employeeId={employeeId}
+            userId={userId}
             onSuccess={handleUploadSuccess}
           />
         </CardHeader>
         <CardContent>
           <div ref={listRef}>
-            <EmployeeDocumentsList employeeId={employeeId} />
+            <EmployeeDocumentsList userId={userId} />
           </div>
         </CardContent>
       </Card>

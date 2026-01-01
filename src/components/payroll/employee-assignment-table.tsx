@@ -28,6 +28,7 @@ import { EmployeeSalaryHistory } from "@/components/payroll/employee-salary-hist
 
 type EmployeeProps = {
   id: number;
+  userId: string;
   name: string;
   staffNumber: string | null;
   department: string | null;
@@ -148,7 +149,7 @@ export function EmployeeAssignmentTable({
                             <Clock className="h-4 w-4" />
                           </Button>
                         }
-                        employeeId={employee.id}
+                        userId={employee.userId}
                         employeeName={employee.name}
                       />
 

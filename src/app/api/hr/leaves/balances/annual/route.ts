@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const balances = await db
       .select({
         id: leaveBalances.id,
-        employeeId: leaveBalances.employeeId,
+        userId: leaveBalances.userId,
         employeeName: employees.name,
         employeeEmail: employees.email,
         totalDays: leaveBalances.totalDays,
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         year: leaveBalances.year,
       })
       .from(leaveBalances)
-      .leftJoin(employees, eq(leaveBalances.employeeId, employees.id))
+      .leftJoin(employees, eq(leaveBalances.userId, employees.authId))
       .where(
         and(
           eq(leaveBalances.leaveType, "Annual"),

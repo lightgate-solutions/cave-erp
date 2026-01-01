@@ -18,7 +18,7 @@ import { createNotification } from "../notification/notification";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
-type CreateTaskWithAssignees = CreateTask & { assignees?: number[] };
+type CreateTaskWithAssignees = CreateTask & { assignees?: string[] };
 
 export async function createTask(taskData: CreateTaskWithAssignees) {
   try {
@@ -55,13 +55,13 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
     if (created?.id && assignees.length) {
       const rows = assignees.map((empId) => ({
         taskId: created.id,
-        employeeId: empId,
+        userId: empId,
         organizationId: organization.id,
       }));
       await db.insert(taskAssignees).values(rows);
 
       // Notify all assignees about the new task
-      for (const employeeId of assignees) {
+      for (const userId of assignees) {
         const dueDate = taskData.dueDate
           ? new Date(taskData.dueDate).toLocaleDateString("en-US", {
               month: "short",
@@ -83,7 +83,7 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
         const message = `${manager.name} assigned you "${taskData.title}"${dueDate ? ` • Due ${dueDate}` : ""}${context}`;
 
         await createNotification({
-          user_id: employeeId,
+          user_id: userId,
           title: "New Task Assignment",
           message,
           notification_type: "message",
@@ -112,11 +112,11 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
 }
 
 export async function updateTask(
-  employeeId: number,
+  userId: string,
   taskId: number,
   updates: Partial<CreateTask>,
 ) {
-  const employee = await getEmployee(employeeId);
+  const employee = await getEmployee(userId);
   if (!employee) {
     return {
       success: null,
@@ -168,7 +168,7 @@ export async function updateTask(
       };
     }
     // Ensure employee has access to this task (either directly assigned or via assignees table)
-    const currentTask = await getTaskForEmployee(employeeId, taskId);
+    const currentTask = await getTaskForEmployee(userId, taskId);
     if (!currentTask) {
       return {
         success: null,
@@ -177,7 +177,7 @@ export async function updateTask(
     }
   } else {
     // Manager path: ensure the task belongs to this manager
-    const taskOwned = await getTaskByManager(employeeId, taskId);
+    const taskOwned = await getTaskByManager(userId, taskId);
     if (!taskOwned) {
       return {
         success: null,
@@ -238,7 +238,7 @@ export async function updateTask(
       if (hasSignificantChanges) {
         // Get all assignees
         const assigneesList = await db
-          .select({ employeeId: taskAssignees.employeeId })
+          .select({ userId: taskAssignees.userId })
           .from(taskAssignees)
           .where(
             and(
@@ -247,9 +247,7 @@ export async function updateTask(
             ),
           );
 
-        const assigneeIds = assigneesList
-          .map((a) => a.employeeId)
-          .filter(Boolean);
+        const assigneeIds = assigneesList.map((a) => a.userId).filter(Boolean);
         if (currentTask.assignedTo) assigneeIds.push(currentTask.assignedTo);
 
         // Notify each assignee
@@ -305,9 +303,9 @@ export async function updateTask(
   }
 }
 
-export async function deleteTask(employeeId: number, taskId: number) {
+export async function deleteTask(userId: string, taskId: number) {
   try {
-    const manager = await getEmployee(employeeId);
+    const manager = await getEmployee(userId);
     if (!manager || !manager.isManager) {
       return {
         success: null,
@@ -338,7 +336,7 @@ export async function deleteTask(employeeId: number, taskId: number) {
     if (task) {
       // Get all assignees to notify them
       const assigneesList = await db
-        .select({ employeeId: taskAssignees.employeeId })
+        .select({ userId: taskAssignees.userId })
         .from(taskAssignees)
         .where(
           and(
@@ -347,9 +345,7 @@ export async function deleteTask(employeeId: number, taskId: number) {
           ),
         );
 
-      const assigneeIds = assigneesList
-        .map((a) => a.employeeId)
-        .filter(Boolean);
+      const assigneeIds = assigneesList.map((a) => a.userId).filter(Boolean);
       if (task.assignedTo) assigneeIds.push(task.assignedTo);
 
       // Delete the task
@@ -427,7 +423,7 @@ export async function getTasksForEmployee(
   return rows;
 }
 
-export async function getTaskForEmployee(employeeId: number, taskId: number) {
+export async function getTaskForEmployee(userId: string, taskId: number) {
   // A task is visible to an employee if either it's directly assignedTo them
   // or they appear in task_assignees for that task.
   const organization = await auth.api.getFullOrganization({
@@ -442,7 +438,7 @@ export async function getTaskForEmployee(employeeId: number, taskId: number) {
     .from(taskAssignees)
     .where(
       and(
-        eq(taskAssignees.employeeId, employeeId),
+        eq(taskAssignees.userId, userId),
         eq(taskAssignees.organizationId, organization.id),
       ),
     );
@@ -455,14 +451,14 @@ export async function getTaskForEmployee(employeeId: number, taskId: number) {
       and(
         eq(tasks.id, taskId),
         eq(tasks.organizationId, organization.id),
-        or(eq(tasks.assignedTo, employeeId), inArray(tasks.id, taskIds)),
+        or(eq(tasks.assignedTo, userId), inArray(tasks.id, taskIds)),
       ),
     )
     .limit(1)
     .then((res) => res[0]);
 }
 
-export async function getTaskByManager(managerId: number, taskId: number) {
+export async function getTaskByManager(managerId: string, taskId: number) {
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
@@ -485,7 +481,7 @@ export async function getTaskByManager(managerId: number, taskId: number) {
 }
 
 // Returns all tasks created by a given manager
-export async function getTasksByManager(managerId: number) {
+export async function getTasksByManager(managerId: string) {
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });

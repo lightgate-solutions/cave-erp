@@ -5,14 +5,11 @@ import { TaskHeader } from "./header/task-header";
 import { TaskBoard } from "./board/task-board";
 
 interface TaskBoardContainerProps {
-  employeeId: number;
+  userId: string;
   role: "employee" | "manager" | "admin";
 }
 
-export function TaskBoardContainer({
-  employeeId,
-  role,
-}: TaskBoardContainerProps) {
+export function TaskBoardContainer({ userId, role }: TaskBoardContainerProps) {
   const [priority, setPriority] = useState("all");
   const [assignee, setAssignee] = useState("all");
   const [search, setSearch] = useState("");
@@ -20,7 +17,7 @@ export function TaskBoardContainer({
   return (
     <div className="flex-1 flex flex-col overflow-hidden h-[calc(100vh-5rem)]">
       <TaskHeader
-        employeeId={employeeId}
+        userId={userId}
         role={role}
         priority={priority}
         assignee={assignee}
@@ -31,7 +28,7 @@ export function TaskBoardContainer({
       />
       <main className="w-full h-full overflow-x-auto">
         <TaskBoard
-          employeeId={employeeId}
+          userId={userId}
           role={role}
           priority={priority}
           assignee={assignee}

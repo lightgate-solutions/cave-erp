@@ -77,7 +77,7 @@ export async function generatePayrun(
 
       let payrunName = "";
       let employeePayrollData: Array<{
-        employeeId: number;
+        userId: string;
         employeeName: string;
         baseSalary: number;
         allowances: Array<{
@@ -173,7 +173,7 @@ export async function generatePayrun(
           totalDeductions: totalDeductionsAmount.toFixed(2),
           totalNetPay: totalNetPay.toFixed(2),
           status: "draft",
-          generatedBy: user.id,
+          generatedByUserId: user.authId,
         })
         .returning({ id: payrun.id });
 
@@ -184,7 +184,7 @@ export async function generatePayrun(
           .values({
             type: type === "salary" ? "salary" : "allowance",
             payrunId: newPayrun.id,
-            employeeId: empData.employeeId,
+            userId: empData.userId,
             organizationId: organization.id,
             baseSalary: empData.baseSalary.toFixed(2),
             totalAllowances: empData.totalAllowances.toFixed(2),
@@ -200,7 +200,7 @@ export async function generatePayrun(
         // Create detail records
         const detailRecords: Array<{
           payrunItemId: number;
-          employeeId: number;
+          userId: string;
           detailType:
             | "base_salary"
             | "allowance"
@@ -222,7 +222,7 @@ export async function generatePayrun(
         if (type === "salary" && empData.baseSalary > 0) {
           detailRecords.push({
             payrunItemId: payrunItem.id,
-            employeeId: empData.employeeId,
+            userId: empData.userId,
             detailType: "base_salary",
             description: "Base Salary",
             amount: empData.baseSalary.toFixed(2),
@@ -233,7 +233,7 @@ export async function generatePayrun(
         for (const allowance of empData.allowances) {
           detailRecords.push({
             payrunItemId: payrunItem.id,
-            employeeId: empData.employeeId,
+            userId: empData.userId,
             detailType: "allowance",
             description: allowance.name,
             allowanceId: allowance.allowanceId || null,
@@ -245,7 +245,7 @@ export async function generatePayrun(
           if (allowance.taxAmount > 0) {
             detailRecords.push({
               payrunItemId: payrunItem.id,
-              employeeId: empData.employeeId,
+              userId: empData.userId,
               detailType: "tax",
               description: `Tax on ${allowance.name}`,
               allowanceId: allowance.allowanceId || null,
@@ -258,7 +258,7 @@ export async function generatePayrun(
         for (const deduction of empData.deductions) {
           detailRecords.push({
             payrunItemId: payrunItem.id,
-            employeeId: empData.employeeId,
+            userId: empData.userId,
             detailType: "deduction",
             description: deduction.name,
             deductionId: deduction.deductionId || null,
@@ -271,7 +271,7 @@ export async function generatePayrun(
         for (const loan of empData.loans) {
           detailRecords.push({
             payrunItemId: payrunItem.id,
-            employeeId: empData.employeeId,
+            userId: empData.userId,
             detailType: "loan",
             description: loan.name,
             loanApplicationId: loan.loanApplicationId,
@@ -317,13 +317,13 @@ async function calculateSalaryPayrun(
   // Get all employees with active salary structures
   const employeesWithSalary = await tx
     .select({
-      employeeId: employeeSalary.employeeId,
+      userId: employeeSalary.userId,
       employeeName: employees.name,
       salaryStructureId: employeeSalary.salaryStructureId,
       baseSalary: salaryStructure.baseSalary,
     })
     .from(employeeSalary)
-    .innerJoin(employees, eq(employeeSalary.employeeId, employees.id))
+    .innerJoin(employees, eq(employeeSalary.userId, employees.authId))
     .innerJoin(
       salaryStructure,
       eq(employeeSalary.salaryStructureId, salaryStructure.id),
@@ -388,7 +388,7 @@ async function calculateSalaryPayrun(
       .from(employeeDeductions)
       .where(
         and(
-          eq(employeeDeductions.employeeId, emp.employeeId),
+          eq(employeeDeductions.userId, emp.userId),
           eq(employeeDeductions.active, true),
           isNull(employeeDeductions.effectiveTo),
           not(eq(employeeDeductions.type, "loan")),
@@ -405,7 +405,7 @@ async function calculateSalaryPayrun(
       .from(loanApplications)
       .where(
         and(
-          eq(loanApplications.employeeId, emp.employeeId),
+          eq(loanApplications.userId, emp.userId),
           eq(loanApplications.status, "active"),
         ),
       );
@@ -476,7 +476,7 @@ async function calculateSalaryPayrun(
     const netPay = grossPay - totalTaxes - totalDeductions - totalLoans;
 
     result.push({
-      employeeId: emp.employeeId,
+      userId: emp.userId,
       employeeName: emp.employeeName,
       baseSalary: baseSalaryNumber,
       allowances: calculatedAllowances,
@@ -520,17 +520,17 @@ async function calculateAllowancePayrun(
   // Get employees who have this allowance assigned (either through salary structure or directly)
   const employeesWithAllowance = await tx
     .select({
-      employeeId: employees.id,
+      userId: employees.authId,
       employeeName: employees.name,
       baseSalary: salaryStructure.baseSalary,
       employeeAllowanceId: employeeAllowances.id,
     })
     .from(employeeAllowances)
-    .innerJoin(employees, eq(employeeAllowances.employeeId, employees.id))
+    .innerJoin(employees, eq(employeeAllowances.userId, employees.authId))
     .leftJoin(
       employeeSalary,
       and(
-        eq(employeeSalary.employeeId, employees.id),
+        eq(employeeSalary.userId, employees.authId),
         isNull(employeeSalary.effectiveTo),
       ),
     )
@@ -549,7 +549,7 @@ async function calculateAllowancePayrun(
   // Also get employees who have this allowance through their salary structure
   const employeesFromStructure = await tx
     .select({
-      employeeId: employees.id,
+      userId: employees.authId,
       employeeName: employees.name,
       baseSalary: salaryStructure.baseSalary,
     })
@@ -558,7 +558,7 @@ async function calculateAllowancePayrun(
       employeeSalary,
       eq(salaryAllowances.salaryStructureId, employeeSalary.salaryStructureId),
     )
-    .innerJoin(employees, eq(employeeSalary.employeeId, employees.id))
+    .innerJoin(employees, eq(employeeSalary.userId, employees.authId))
     .innerJoin(
       salaryStructure,
       eq(employeeSalary.salaryStructureId, salaryStructure.id),
@@ -575,8 +575,8 @@ async function calculateAllowancePayrun(
   // Merge and deduplicate employees
   const employeeMap = new Map();
   for (const emp of [...employeesWithAllowance, ...employeesFromStructure]) {
-    if (!employeeMap.has(emp.employeeId)) {
-      employeeMap.set(emp.employeeId, emp);
+    if (!employeeMap.has(emp.userId)) {
+      employeeMap.set(emp.userId, emp);
     }
   }
 
@@ -594,7 +594,7 @@ async function calculateAllowancePayrun(
         : 0;
 
     result.push({
-      employeeId: emp.employeeId,
+      userId: emp.userId,
       employeeName: emp.employeeName,
       baseSalary: 0, // Not included in allowance-only payrun
       allowances: [
@@ -664,15 +664,15 @@ export async function getPayruns() {
         totalDeductions: payrun.totalDeductions,
         totalNetPay: payrun.totalNetPay,
         status: payrun.status,
-        generatedBy: payrun.generatedBy,
+        generatedByUserId: payrun.generatedByUserId,
         generatedByName: employees.name,
-        approvedBy: payrun.approvedBy,
+        approvedByUserId: payrun.approvedByUserId,
         approvedAt: payrun.approvedAt,
         createdAt: payrun.createdAt,
       })
       .from(payrun)
       .leftJoin(allowances, eq(payrun.allowanceId, allowances.id))
-      .leftJoin(employees, eq(payrun.generatedBy, employees.id))
+      .leftJoin(employees, eq(payrun.generatedByUserId, employees.authId))
       .where(eq(payrun.organizationId, organization.id))
       .orderBy(desc(payrun.createdAt));
 
@@ -708,15 +708,15 @@ export async function getPayrunById(id: number) {
         totalDeductions: payrun.totalDeductions,
         totalNetPay: payrun.totalNetPay,
         status: payrun.status,
-        generatedBy: payrun.generatedBy,
+        generatedByUserId: payrun.generatedByUserId,
         generatedByName: employees.name,
-        approvedBy: payrun.approvedBy,
+        approvedByUserId: payrun.approvedByUserId,
         approvedAt: payrun.approvedAt,
         createdAt: payrun.createdAt,
       })
       .from(payrun)
       .leftJoin(allowances, eq(payrun.allowanceId, allowances.id))
-      .leftJoin(employees, eq(payrun.generatedBy, employees.id))
+      .leftJoin(employees, eq(payrun.generatedByUserId, employees.authId))
       .where(and(eq(payrun.id, id), eq(payrun.organizationId, organization.id)))
       .limit(1);
 
@@ -728,7 +728,7 @@ export async function getPayrunById(id: number) {
     const items = await db
       .select({
         id: payrunItems.id,
-        employeeId: payrunItems.employeeId,
+        userId: payrunItems.userId,
         employeeName: employees.name,
         staffNumber: employees.staffNumber,
         department: employees.department,
@@ -741,7 +741,7 @@ export async function getPayrunById(id: number) {
         status: payrunItems.status,
       })
       .from(payrunItems)
-      .innerJoin(employees, eq(payrunItems.employeeId, employees.id))
+      .innerJoin(employees, eq(payrunItems.userId, employees.authId))
       .where(eq(payrunItems.payrunId, id));
 
     // Get details for each item
@@ -808,7 +808,7 @@ export async function approvePayrun(id: number, pathname: string) {
       .update(payrun)
       .set({
         status: "approved",
-        approvedBy: user.id,
+        approvedByUserId: user.authId,
         approvedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -868,7 +868,7 @@ export async function completePayrun(id: number, pathname: string) {
       .update(payrun)
       .set({
         status: "paid",
-        completedBy: user.id,
+        completedByUserId: user.authId,
         completedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -1093,7 +1093,7 @@ export async function getApprovedPayruns() {
       })
       .from(payrun)
       .leftJoin(allowances, eq(payrun.allowanceId, allowances.id))
-      .leftJoin(employees, eq(payrun.generatedBy, employees.id))
+      .leftJoin(employees, eq(payrun.generatedByUserId, employees.authId))
       .where(
         and(
           or(eq(payrun.status, "approved"), eq(payrun.status, "paid")),

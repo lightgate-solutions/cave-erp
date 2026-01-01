@@ -73,14 +73,13 @@ export async function unbanUser(userId: string) {
       .limit(1)
       .then((r) => r[0]);
 
-    if (employee?.id) {
+    if (employee?.authId) {
       await createNotification({
-        user_id: employee.id,
+        user_id: employee.authId,
         title: "Account Unbanned",
         message:
           "Your account has been unbanned. You can now access the system again.",
         notification_type: "message",
-        reference_id: employee.id,
       });
     }
 
@@ -224,9 +223,7 @@ export async function createUser(data: {
       userData.data?.managerId === null ||
       userData.data?.managerId === ""
         ? null
-        : typeof userData.data?.managerId === "string"
-          ? parseInt(userData.data.managerId, 10)
-          : Number(userData.data.managerId);
+        : String(userData.data.managerId);
 
     const dobValue = userData.data?.dateOfBirth
       ? typeof userData.data.dateOfBirth === "string"
@@ -261,7 +258,7 @@ export async function createUser(data: {
 
       await tx.insert(documentFolders).values({
         name: "personal",
-        createdBy: emp.id,
+        createdBy: emp.authId,
         department: emp.department,
         root: true,
         public: false,
@@ -271,7 +268,7 @@ export async function createUser(data: {
 
       // Initialize notification preferences with defaults
       await tx.insert(notification_preferences).values({
-        user_id: emp.id,
+        user_id: emp.authId,
         email_notifications: true,
         in_app_notifications: true,
         email_on_in_app_message: true,
@@ -336,13 +333,12 @@ export async function updateUserRole(userId: string, role: string) {
       .limit(1)
       .then((r) => r[0]);
 
-    if (employee?.id) {
+    if (employee?.authId) {
       await createNotification({
-        user_id: employee.id,
+        user_id: employee.authId,
         title: "Role Updated",
         message: `Your account role has been changed to: ${role}`,
         notification_type: "message",
-        reference_id: employee.id,
       });
     }
 

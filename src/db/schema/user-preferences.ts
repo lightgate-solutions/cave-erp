@@ -4,11 +4,9 @@ import {
   timestamp,
   serial,
   pgEnum,
-  integer,
   index,
 } from "drizzle-orm/pg-core";
-import { employees } from "./hr";
-import { organization } from "./auth";
+import { organization, user } from "./auth";
 
 export const themeEnum = pgEnum("theme", ["light", "dark", "system"]);
 
@@ -38,8 +36,8 @@ export const userPreferences = pgTable(
   "user_preferences",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id")
-      .references(() => employees.id, { onDelete: "cascade" })
+    userId: text("user_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull()
       .unique(),
 

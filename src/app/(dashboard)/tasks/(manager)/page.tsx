@@ -11,7 +11,7 @@ export default async function ManagerTasksPage() {
 
   return (
     <TaskBoardContainer
-      employeeId={user.id}
+      userId={user.id}
       role={user.isManager ? "manager" : "employee"}
     />
   );

@@ -16,13 +16,10 @@ import { Check, X } from "lucide-react";
 
 interface TaskReviewActionsProps {
   taskId: number;
-  employeeId: number;
+  userId: string;
 }
 
-export function TaskReviewActions({
-  taskId,
-  employeeId,
-}: TaskReviewActionsProps) {
+export function TaskReviewActions({ taskId, userId }: TaskReviewActionsProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -32,7 +29,7 @@ export function TaskReviewActions({
     try {
       setLoading(true);
       const res = await fetch(
-        `/api/tasks/${taskId}?employeeId=${employeeId}&role=manager`,
+        `/api/tasks/${taskId}?userId=${userId}&role=manager`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -46,7 +43,7 @@ export function TaskReviewActions({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            senderId: employeeId,
+            senderId: userId,
             content: "Task approved and marked as completed.",
           }),
         });
@@ -67,7 +64,7 @@ export function TaskReviewActions({
     try {
       setLoading(true);
       const res = await fetch(
-        `/api/tasks/${taskId}?employeeId=${employeeId}&role=manager`,
+        `/api/tasks/${taskId}?userId=${userId}&role=manager`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -81,7 +78,7 @@ export function TaskReviewActions({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            senderId: employeeId,
+            senderId: userId,
             content: `Task returned for revision: ${rejectComment.trim()}`,
           }),
         });

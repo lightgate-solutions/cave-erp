@@ -14,7 +14,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 // Get all deductions for a specific employee
-export async function getEmployeeDeductions(employeeId: number) {
+export async function getEmployeeDeductions(userId: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
@@ -28,7 +28,7 @@ export async function getEmployeeDeductions(employeeId: number) {
     const result = await db
       .select({
         id: employeeDeductions.id,
-        employeeId: employeeDeductions.employeeId,
+        userId: employeeDeductions.userId,
         name: employeeDeductions.name,
         salaryStructureId: employeeDeductions.salaryStructureId,
         structureName: salaryStructure.name,
@@ -47,7 +47,7 @@ export async function getEmployeeDeductions(employeeId: number) {
       )
       .where(
         and(
-          eq(employeeDeductions.employeeId, employeeId),
+          eq(employeeDeductions.userId, userId),
           eq(employeeDeductions.organizationId, organization.id),
         ),
       )
@@ -60,7 +60,7 @@ export async function getEmployeeDeductions(employeeId: number) {
 }
 
 // Get active deductions for a specific employee
-export async function getActiveEmployeeDeductions(employeeId: number) {
+export async function getActiveEmployeeDeductions(userId: string) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
   if (user.role !== "admin") throw new Error("Access Restricted");
@@ -74,7 +74,7 @@ export async function getActiveEmployeeDeductions(employeeId: number) {
     const result = await db
       .select({
         id: employeeDeductions.id,
-        employeeId: employeeDeductions.employeeId,
+        userId: employeeDeductions.userId,
         name: employeeDeductions.name,
         salaryStructureId: employeeDeductions.salaryStructureId,
         structureName: salaryStructure.name,
@@ -92,7 +92,7 @@ export async function getActiveEmployeeDeductions(employeeId: number) {
       )
       .where(
         and(
-          eq(employeeDeductions.employeeId, employeeId),
+          eq(employeeDeductions.userId, userId),
           eq(employeeDeductions.active, true),
           eq(employeeDeductions.organizationId, organization.id),
         ),
@@ -138,7 +138,7 @@ export async function getDeductionTypes() {
 // Add deduction to employee
 export async function addDeductionToEmployee(
   data: {
-    employeeId: number;
+    userId: string;
     salaryStructureId: number;
     name: string;
     amount?: number;
@@ -164,7 +164,7 @@ export async function addDeductionToEmployee(
       const employee = await tx
         .select({ id: employees.id, name: employees.name })
         .from(employees)
-        .where(eq(employees.id, data.employeeId))
+        .where(eq(employees.authId, data.userId))
         .limit(1);
 
       if (employee.length === 0) {
@@ -216,7 +216,7 @@ export async function addDeductionToEmployee(
       // Add the deduction to the employee
       await tx.insert(employeeDeductions).values({
         name: data.name.trim(),
-        employeeId: data.employeeId,
+        userId: data.userId,
         salaryStructureId: data.salaryStructureId,
         organizationId: organization.id,
         amount: data.amount?.toString(),
@@ -281,7 +281,7 @@ export async function updateEmployeeDeduction(
       const deduction = await tx
         .select({
           id: employeeDeductions.id,
-          employeeId: employeeDeductions.employeeId,
+          userId: employeeDeductions.userId,
           name: employeeDeductions.name,
         })
         .from(employeeDeductions)
@@ -304,7 +304,7 @@ export async function updateEmployeeDeduction(
       const employee = await tx
         .select({ name: employees.name })
         .from(employees)
-        .where(eq(employees.id, deduction[0].employeeId))
+        .where(eq(employees.authId, deduction[0].userId))
         .limit(1);
 
       // Update the deduction
@@ -366,7 +366,7 @@ export async function deactivateEmployeeDeduction(
       const deduction = await tx
         .select({
           id: employeeDeductions.id,
-          employeeId: employeeDeductions.employeeId,
+          userId: employeeDeductions.userId,
           name: employeeDeductions.name,
         })
         .from(employeeDeductions)
@@ -389,7 +389,7 @@ export async function deactivateEmployeeDeduction(
       const employee = await tx
         .select({ name: employees.name })
         .from(employees)
-        .where(eq(employees.id, deduction[0].employeeId))
+        .where(eq(employees.authId, deduction[0].userId))
         .limit(1);
 
       // Deactivate the deduction

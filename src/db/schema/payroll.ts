@@ -10,9 +10,8 @@ import {
   pgEnum,
   unique,
 } from "drizzle-orm/pg-core";
-import { employees } from "./hr";
 import { sql } from "drizzle-orm";
-import { organization } from "./auth";
+import { organization, user } from "./auth";
 
 export const allowanceTypeEnum = pgEnum("allowance_type", [
   "one-time",
@@ -77,11 +76,11 @@ export const salaryStructure = pgTable(
     description: text("description").notNull(),
     active: boolean("active").default(true).notNull(),
     employeeCount: integer("employee_count").notNull().default(0),
-    createdBy: integer("created_by")
-      .references(() => employees.id, { onDelete: "no action" })
+    createdByUserId: text("created_by_user_id")
+      .references(() => user.id, { onDelete: "no action" })
       .notNull(),
-    updatedBy: integer("updated_by")
-      .references(() => employees.id, { onDelete: "no action" })
+    updatedByUserId: text("updated_by_user_id")
+      .references(() => user.id, { onDelete: "no action" })
       .notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -103,11 +102,11 @@ export const allowances = pgTable(
     taxable: boolean("taxable").notNull().default(false),
     taxPercentage: numeric("tax_percentage", { precision: 5, scale: 2 }),
     description: text("description"),
-    createdBy: integer("created_by")
-      .references(() => employees.id, { onDelete: "no action" })
+    createdByUserId: text("created_by_user_id")
+      .references(() => user.id, { onDelete: "no action" })
       .notNull(),
-    updatedBy: integer("updated_by")
-      .references(() => employees.id, { onDelete: "no action" })
+    updatedByUserId: text("updated_by_user_id")
+      .references(() => user.id, { onDelete: "no action" })
       .notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -142,8 +141,8 @@ export const employeeAllowances = pgTable(
   "employee_allowances",
   {
     id: serial("id").primaryKey(),
-    employeeId: integer("employee_id")
-      .references(() => employees.id, { onDelete: "cascade" })
+    userId: text("user_id")
+      .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     allowanceId: integer("allowance_id")
       .references(() => allowances.id, {
@@ -159,9 +158,9 @@ export const employeeAllowances = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
-    index("employee_allowance_id_idx").on(table.employeeId),
+    index("employee_allowance_id_idx").on(table.userId),
     index("employee_allowance_active_idx")
-      .on(table.employeeId, table.allowanceId)
+      .on(table.userId, table.allowanceId)
       .where(sql`effective_to IS NULL`),
   ],
 );
@@ -175,11 +174,11 @@ export const deductions = pgTable("deductions", {
   organizationId: text("organization_id")
     .notNull()
     .references(() => organization.id, { onDelete: "cascade" }),
-  createdBy: integer("created_by")
-    .references(() => employees.id, { onDelete: "no action" })
+  createdByUserId: text("created_by_user_id")
+    .references(() => user.id, { onDelete: "no action" })
     .notNull(),
-  updatedBy: integer("updated_by")
-    .references(() => employees.id, { onDelete: "no action" })
+  updatedByUserId: text("updated_by_user_id")
+    .references(() => user.id, { onDelete: "no action" })
     .notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -218,9 +217,9 @@ export const employeeDeductions = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    employeeId: integer("employee_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     salaryStructureId: integer("salary_structure_id")
       .notNull()
       .references(() => salaryStructure.id, { onDelete: "cascade" }),
@@ -235,7 +234,7 @@ export const employeeDeductions = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (employee) => [index("emp_deduction_employee_idx").on(employee.employeeId)],
+  (table) => [index("emp_deduction_user_idx").on(table.userId)],
 );
 
 export const employeeSalary = pgTable(
@@ -245,9 +244,9 @@ export const employeeSalary = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    employeeId: integer("employee_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     salaryStructureId: integer("salary_structure_id")
       .notNull()
       .references(() => salaryStructure.id, { onDelete: "restrict" }),
@@ -258,9 +257,9 @@ export const employeeSalary = pgTable(
   },
   (table) => [
     index("employee_salary_active_idx")
-      .on(table.employeeId)
+      .on(table.userId)
       .where(sql`effective_to IS NULL`),
-    index("employee_salary_employee_idx").on(table.employeeId),
+    index("employee_salary_user_idx").on(table.userId),
   ],
 );
 
@@ -290,12 +289,12 @@ export const payrun = pgTable(
       .notNull()
       .default("0"),
     status: payrollRunStatusEnum("status").default("draft"),
-    generatedBy: integer("generated_by")
-      .references(() => employees.id, { onDelete: "no action" })
+    generatedByUserId: text("generated_by_user_id")
+      .references(() => user.id, { onDelete: "no action" })
       .notNull(),
-    approvedBy: integer("approved_by").references(() => employees.id),
+    approvedByUserId: text("approved_by_user_id").references(() => user.id),
     approvedAt: timestamp("approved_at"),
-    completedBy: integer("completed_by").references(() => employees.id),
+    completedByUserId: text("completed_by_user_id").references(() => user.id),
     completedAt: timestamp("completed_at"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
@@ -325,9 +324,9 @@ export const payrunItems = pgTable(
     payrunId: integer("payrun_id")
       .notNull()
       .references(() => payrun.id, { onDelete: "cascade" }),
-    employeeId: integer("employee_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     baseSalary: numeric("base_salary", { precision: 15, scale: 2 })
       .notNull()
       .default("0"),
@@ -355,8 +354,8 @@ export const payrunItems = pgTable(
     updatedAt: timestamp("updated_at").defaultNow(),
   },
   (table) => [
-    unique("unique_payrun_item").on(table.payrunId, table.employeeId),
-    index("payrun_items_employee_idx").on(table.employeeId),
+    unique("unique_payrun_item").on(table.payrunId, table.userId),
+    index("payrun_items_user_idx").on(table.userId),
     index("payrun_items_run_idx").on(table.payrunId),
     index("payroll_items_status_idx").on(table.status),
   ],
@@ -372,9 +371,9 @@ export const payrunItemDetails = pgTable(
     payrunItemId: integer("payrun_item_id")
       .notNull()
       .references(() => payrunItems.id, { onDelete: "cascade" }),
-    employeeId: integer("employee_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     detailType: payrollDetailTypeEnum("detail_type").notNull(),
     description: text("description").notNull(),
     allowanceId: integer("allowance_id").references(() => allowances.id, {
@@ -400,7 +399,7 @@ export const payrunItemDetails = pgTable(
   },
   (table) => [
     index("payroll_item_details_payroll_item_idx").on(table.payrunItemId),
-    index("payroll_item_details_employee_idx").on(table.employeeId),
+    index("payroll_item_details_user_idx").on(table.userId),
     index("payroll_item_details_type_idx").on(table.detailType),
     index("payroll_item_details_allowance_idx").on(table.allowanceId),
     index("payroll_item_details_deduction_idx").on(table.deductionId),
@@ -415,9 +414,9 @@ export const payslips = pgTable("payslips", {
   payrollItemId: integer("payroll_item_id")
     .notNull()
     .references(() => payrunItems.id, { onDelete: "cascade" }),
-  employeeId: integer("employee_id")
+  userId: text("user_id")
     .notNull()
-    .references(() => employees.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
   filePath: text("file_path"),
   generatedAt: timestamp("generated_at").defaultNow(),
 });

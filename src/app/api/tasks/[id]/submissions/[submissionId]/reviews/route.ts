@@ -113,7 +113,7 @@ export async function POST(
     const res = await createSubmissionReview({
       submissionId,
       taskId,
-      reviewedBy: emp.id,
+      reviewedBy: emp.authId,
       status,
       reviewNote,
     });

@@ -25,7 +25,7 @@ export const reviewTask = async (reviewData: NewReview) => {
   }
 
   // Verify the user is the one doing the review
-  if (authData.employee.id !== reviewData.reviewedBy) {
+  if (authData.userId !== reviewData.reviewedBy) {
     return {
       success: null,
       error: { reason: "You can only review as yourself" },
