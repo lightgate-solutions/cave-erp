@@ -6,12 +6,21 @@ import {
   getOrgOwnerPlan,
 } from "@/lib/plan-utils";
 import { db } from "@/db";
-import { subscriptions, organization, invitation } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import {
+  subscriptions,
+  organization,
+  invitation,
+  member,
+  employees,
+  documentFolders,
+  user,
+  notification_preferences,
+} from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 import type { PlanId } from "@/lib/plans";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { createEmployee } from "./hr/employees";
+import { generateId } from "better-auth";
 
 export async function validateOrganizationCreation() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -117,40 +126,122 @@ export async function acceptInvitationAndCreateEmployee(invitationId: string) {
       };
     }
 
-    // Accept the invitation using Better Auth
-    await auth.api.acceptInvitation({
-      headers: await headers(),
-      body: { invitationId },
-    });
-
-    // Create employee record with the department from invitation
-    const result = await createEmployee({
-      name: session.user.name,
-      email: session.user.email,
-      authId: session.user.id,
-      role: "user",
-      data: {
-        department: inviteDetails.department,
-      },
-      isManager: false,
-    });
-
-    if (result.error) {
+    // Check if invitation is still pending
+    if (inviteDetails.status !== "pending") {
       return {
         success: false,
-        error: result.error.reason,
+        error: "Invitation has already been processed",
       };
     }
 
+    // Check if invitation has expired
+    if (inviteDetails.expiresAt < new Date()) {
+      return {
+        success: false,
+        error: "Invitation has expired",
+      };
+    }
+
+    // Perform all operations in a single atomic transaction
+    // This ensures either ALL operations succeed or ALL fail together
+    const result = await db.transaction(async (tx) => {
+      // 1. Create employee record with the department from invitation
+      const [emp] = await tx
+        .insert(employees)
+        .values({
+          name: session.user.name,
+          email: session.user.email,
+          authId: session.user.id,
+          phone: "",
+          staffNumber: "",
+          role: "user",
+          isManager: false,
+          status: "active",
+          department: inviteDetails.department as
+            | "hr"
+            | "admin"
+            | "finance"
+            | "operations",
+          managerId: null,
+          dateOfBirth: null,
+          documentCount: 0,
+          address: null,
+          maritalStatus: null,
+          employmentType: null,
+          organizationId: inviteDetails.organizationId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      // 2. Create personal document folder for the employee
+      await tx.insert(documentFolders).values({
+        name: "personal",
+        createdBy: emp.authId,
+        department: emp.department,
+        root: true,
+        status: "active",
+        public: false,
+        departmental: false,
+        organizationId: inviteDetails.organizationId,
+      });
+
+      // 3. Update user role
+      await tx
+        .update(user)
+        .set({ role: "user" })
+        .where(eq(user.id, session.user.id));
+
+      // 4. Create notification preferences
+      await tx.insert(notification_preferences).values({
+        user_id: emp.authId,
+        email_notifications: true,
+        in_app_notifications: true,
+        email_on_in_app_message: true,
+        email_on_task_notification: false,
+        email_on_general_notification: false,
+        notify_on_message: true,
+        organizationId: inviteDetails.organizationId,
+      });
+
+      // 5. Create member record (this is what Better Auth does internally)
+      await tx.insert(member).values({
+        id: generateId(),
+        organizationId: inviteDetails.organizationId,
+        userId: session.user.id,
+        role: inviteDetails.role || "member",
+        createdAt: new Date(),
+      });
+
+      // 6. Update invitation status to accepted
+      await tx
+        .update(invitation)
+        .set({ status: "accepted" })
+        .where(eq(invitation.id, invitationId));
+
+      // 7. Increment organization members count
+      await tx
+        .update(organization)
+        .set({
+          membersCount: sql`COALESCE(${organization.membersCount}, 0) + 1`,
+        })
+        .where(eq(organization.id, inviteDetails.organizationId));
+
+      return { organizationId: inviteDetails.organizationId };
+    });
+
     return {
       success: true,
-      organizationId: inviteDetails.organizationId,
+      organizationId: result.organizationId,
     };
   } catch (error) {
     console.error("Error accepting invitation and creating employee:", error);
     return {
       success: false,
-      error: "Failed to accept invitation",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to accept invitation and create employee record",
     };
   }
 }

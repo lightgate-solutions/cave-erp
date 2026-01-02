@@ -24,12 +24,21 @@ export function InviteInformation({
         };
       }
 
+      // Set active organization
       await authClient.organization.setActive({
         organizationId: invitation.organizationId,
       });
 
+      // Refresh the router to update server-side session
+      router.refresh();
+
       toast.success("Joined organization successfully");
-      router.push("/");
+
+      // Use a small delay to ensure session is refreshed before redirect
+      setTimeout(() => {
+        router.push("/");
+      }, 500);
+
       return { error: null };
     } catch (error) {
       const message =

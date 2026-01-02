@@ -25,14 +25,20 @@ export function InviteActions({
         return;
       }
 
+      // Set active organization
       await authClient.organization.setActive({
         organizationId: orgId,
       });
 
+      // Refresh the router to update server-side session
+      router.refresh();
+
       toast.success("Joined organization successfully");
+
+      // Use a small delay to ensure session is refreshed before redirect
       setTimeout(() => {
         router.push("/");
-      }, 1000);
+      }, 500);
     } catch (_err) {
       toast.error("Failed to accept invite");
     }
