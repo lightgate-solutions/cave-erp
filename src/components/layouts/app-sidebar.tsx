@@ -275,12 +275,16 @@ export function AppSidebar({
       icon: Newspaper,
       isActive: false,
       module: MODULES.NEWS_VIEW,
-      items: canAccessModule(userContext, MODULES.NEWS_MANAGE)
-        ? [
-            { title: "View News", url: "/news" },
-            { title: "Manage News", url: "/news/manage" },
-          ]
-        : [{ title: "View News", url: "/news" }],
+      // Only add items (dropdown) for HR and admin users who can manage news
+      // Non-admin users will see just "News" as a direct link
+      ...(canAccessModule(userContext, MODULES.NEWS_MANAGE)
+        ? {
+            items: [
+              { title: "News", url: "/news" },
+              { title: "Manage News", url: "/news/manage" },
+            ],
+          }
+        : {}),
     };
 
     const allItems: Array<{

@@ -30,6 +30,7 @@ export async function GET() {
     const employeeResult = await db
       .select({
         id: employees.id,
+        authId: employees.authId,
         department: employees.department,
       })
       .from(employees)
@@ -52,7 +53,7 @@ export async function GET() {
     // Build visibility condition for documents
     // Users can see documents they uploaded, public documents, departmental documents, or documents they have access to
     const visibilityCondition = sql`(
-      ${document.uploadedBy} = ${employee.id}
+      ${document.uploadedBy} = ${employee.authId}
       OR ${document.public} = true
       OR (${document.departmental} = true AND ${document.department} = ${employee.department ?? ""})
       OR EXISTS (

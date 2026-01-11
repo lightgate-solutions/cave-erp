@@ -28,10 +28,16 @@ const validTabs = [
   "danger",
 ] as const;
 
+const adminOnlyTabs = ["organizations", "members", "billing"] as const;
+
 type ValidTab = (typeof validTabs)[number];
 
 function isValidTab(tab: string): tab is ValidTab {
   return validTabs.includes(tab as ValidTab);
+}
+
+function isAdminOnlyTab(tab: string): boolean {
+  return adminOnlyTabs.includes(tab as (typeof adminOnlyTabs)[number]);
 }
 
 export default async function Page({
@@ -47,6 +53,13 @@ export default async function Page({
 
   if (!isValidTab(tab)) {
     notFound();
+  }
+
+  const isAdmin = session.user.role === "admin";
+
+  // Redirect non-admin users trying to access admin-only tabs
+  if (isAdminOnlyTab(tab) && !isAdmin) {
+    redirect("/settings/profile");
   }
 
   return (
@@ -82,27 +95,31 @@ export default async function Page({
           >
             <Link href="/settings/accounts">Accounts</Link>
           </TabsTrigger>
-          <TabsTrigger
-            value="organizations"
-            asChild
-            className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:-mb-0.5 data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
-          >
-            <Link href="/settings/organizations">Organizations</Link>
-          </TabsTrigger>
-          <TabsTrigger
-            value="members"
-            asChild
-            className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:-mb-0.5 data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
-          >
-            <Link href="/settings/members">Members</Link>
-          </TabsTrigger>
-          <TabsTrigger
-            value="billing"
-            asChild
-            className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:-mb-0.5 data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
-          >
-            <Link href="/settings/billing">Billing</Link>
-          </TabsTrigger>
+          {isAdmin && (
+            <>
+              <TabsTrigger
+                value="organizations"
+                asChild
+                className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:-mb-0.5 data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
+              >
+                <Link href="/settings/organizations">Organizations</Link>
+              </TabsTrigger>
+              <TabsTrigger
+                value="members"
+                asChild
+                className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:-mb-0.5 data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
+              >
+                <Link href="/settings/members">Members</Link>
+              </TabsTrigger>
+              <TabsTrigger
+                value="billing"
+                asChild
+                className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:-mb-0.5 data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
+              >
+                <Link href="/settings/billing">Billing</Link>
+              </TabsTrigger>
+            </>
+          )}
           <TabsTrigger
             value="danger"
             asChild
@@ -137,20 +154,24 @@ export default async function Page({
           </LoadingSuspense>
         </TabsContent>
 
-        <TabsContent value="organizations" className="space-y-4">
-          <CreateOrganizationButton />
-          <InvitesCard />
-        </TabsContent>
+        {isAdmin && (
+          <>
+            <TabsContent value="organizations" className="space-y-4">
+              <CreateOrganizationButton />
+              <InvitesCard />
+            </TabsContent>
 
-        <TabsContent value="members">
-          <MembersTable />
-        </TabsContent>
+            <TabsContent value="members">
+              <MembersTable />
+            </TabsContent>
 
-        <TabsContent value="billing">
-          <LoadingSuspense>
-            <BillingsTab user={session.user} />
-          </LoadingSuspense>
-        </TabsContent>
+            <TabsContent value="billing">
+              <LoadingSuspense>
+                <BillingsTab user={session.user} />
+              </LoadingSuspense>
+            </TabsContent>
+          </>
+        )}
 
         <TabsContent value="danger">
           <Card>

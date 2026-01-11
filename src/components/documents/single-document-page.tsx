@@ -79,7 +79,7 @@ import {
   DialogTrigger,
 } from "../ui/dialog";
 import { Dropzone, type FileWithMetadata } from "../ui/dropzone";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { uploadNewDocumentVersion } from "@/actions/documents/upload";
 import { Spinner } from "../ui/spinner";
 import { Progress } from "../ui/progress";
@@ -170,7 +170,7 @@ function DocumentPage({
   );
   const [deptUpdating, setDeptUpdating] = useState(false);
 
-  async function loadComments() {
+  const loadComments = useCallback(async () => {
     try {
       setCommentsLoading(true);
       const res = await getDocumentComments(doc.id);
@@ -182,9 +182,9 @@ function DocumentPage({
     } finally {
       setCommentsLoading(false);
     }
-  }
+  }, [doc.id]);
 
-  async function loadVersions() {
+  const loadVersions = useCallback(async () => {
     try {
       setVersionsLoading(true);
       const res = await getDocumentVersions(doc.id);
@@ -196,9 +196,9 @@ function DocumentPage({
     } finally {
       setVersionsLoading(false);
     }
-  }
+  }, [doc.id]);
 
-  async function loadLogs() {
+  const loadLogs = useCallback(async () => {
     try {
       setLogsLoading(true);
       const res = await getDocumentLogs(doc.id);
@@ -210,7 +210,7 @@ function DocumentPage({
     } finally {
       setLogsLoading(false);
     }
-  }
+  }, [doc.id]);
 
   async function loadMyAccess() {
     const res = await getMyDocumentAccess(doc.id);
@@ -225,7 +225,7 @@ function DocumentPage({
     loadMyAccess();
   }, []);
 
-  async function loadShares() {
+  const loadShares = useCallback(async () => {
     try {
       setSharesLoading(true);
       const res = await getDocumentShares(doc.id);
@@ -234,7 +234,7 @@ function DocumentPage({
     } finally {
       setSharesLoading(false);
     }
-  }
+  }, [doc.id]);
 
   async function handleShareAdd() {
     const email = shareEmail.trim();
@@ -287,7 +287,8 @@ function DocumentPage({
     if (activeTab === "comment") loadComments();
     if (activeTab === "versions") loadVersions();
     if (activeTab === "history") loadLogs();
-  }, [activeTab, doc.id]);
+    if (activeTab === "permissions") loadShares();
+  }, [activeTab, loadComments, loadVersions, loadLogs, loadShares]);
 
   async function handleAddComment() {
     const text = commentText.trim();
