@@ -153,6 +153,7 @@ export async function createEmployee(data: {
   email: string;
   authId: string;
   role: "user" | "admin";
+  organizationId?: string; // Optional: pass directly when creating new org
   data?: Record<string, any> & {
     phone?: string;
     staffNumber?: string;
@@ -165,15 +166,21 @@ export async function createEmployee(data: {
   };
   isManager: boolean;
 }) {
-  const organization = await auth.api.getFullOrganization({
-    headers: await headers(),
-  });
-  if (!organization) {
-    return {
-      error: { reason: "Organization not found" },
-      success: null,
-      data: null,
-    };
+  let orgId = data.organizationId;
+
+  // If organizationId not provided, get from session
+  if (!orgId) {
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return {
+        error: { reason: "Organization not found" },
+        success: null,
+        data: null,
+      };
+    }
+    orgId = organization.id;
   }
 
   const { ...userData } = data;
@@ -216,7 +223,7 @@ export async function createEmployee(data: {
           address: userData.data?.address ?? null,
           maritalStatus: userData.data?.maritalStatus ?? null,
           employmentType: userData.data?.employmentType ?? null,
-          organizationId: organization.id,
+          organizationId: orgId,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -230,7 +237,7 @@ export async function createEmployee(data: {
         status: "active",
         public: false,
         departmental: false,
-        organizationId: organization.id,
+        organizationId: orgId,
       });
 
       await db
@@ -246,7 +253,7 @@ export async function createEmployee(data: {
         email_on_task_notification: false,
         email_on_general_notification: false,
         notify_on_message: true,
-        organizationId: organization.id,
+        organizationId: orgId,
       });
     });
 

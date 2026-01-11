@@ -52,7 +52,7 @@ export default async function Page({
   return (
     <div className="space-y-4">
       <h1 className="text-3xl">Settings</h1>
-      <Tabs value={tab} className="gap-4">
+      <Tabs id="settings-tabs" value={tab} className="gap-4">
         <TabsList className="bg-background justify-start w-full rounded-none border-b p-0">
           <TabsTrigger
             value="profile"

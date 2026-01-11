@@ -143,6 +143,7 @@ function Switcher({
       form.reset();
 
       // Create employee record for the organization owner
+      // Pass organizationId directly to avoid race condition with session update
       const { createEmployee } = await import("@/actions/hr/employees");
       await createEmployee({
         name: userData!.user!.name,
@@ -150,12 +151,16 @@ function Switcher({
         authId: userData!.user!.id,
         role: "admin",
         isManager: true,
+        organizationId: res.data.id, // Pass the new org ID directly
         data: {
           department: "admin",
         },
       });
-      setOpen(false);
+
+      // Now set active organization after employee is created
       await authClient.organization.setActive({ organizationId: res.data.id });
+      setOpen(false);
+      router.refresh();
     }
   }
 
