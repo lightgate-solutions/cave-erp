@@ -28,7 +28,7 @@ export async function getAllEmployeesWithPayroll() {
   if (!organization) throw new Error("Organization not found");
 
   try {
-    // Get all employees
+    // Get all employees for the current organization
     const allEmployees = await db
       .select({
         id: employees.authId,
@@ -40,6 +40,7 @@ export async function getAllEmployeesWithPayroll() {
         status: employees.status,
       })
       .from(employees)
+      .where(eq(employees.organizationId, organization.id))
       .orderBy(asc(employees.name));
 
     // Get all active salary assignments for employees
