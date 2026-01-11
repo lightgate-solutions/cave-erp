@@ -16,7 +16,12 @@ export default function StructurePage() {
         </p>
       </div>
 
-      <Tabs defaultValue="structure" className="w-full">
+      <Tabs
+        id="payroll-structure-tabs"
+        defaultValue="structure"
+        className="w-full"
+        suppressHydrationWarning
+      >
         <TabsList className="bg-background justify-start w-full rounded-none border-b p-0">
           <TabsTrigger
             value="structure"

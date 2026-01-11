@@ -201,6 +201,7 @@ export async function calculateEmployeeTakeHomePay(userId: string) {
         and(
           eq(employeeAllowances.userId, userId),
           isNull(employeeAllowances.effectiveTo),
+          eq(employeeAllowances.organizationId, organization.id),
         ),
       );
 
@@ -218,6 +219,7 @@ export async function calculateEmployeeTakeHomePay(userId: string) {
           eq(employeeDeductions.userId, userId),
           eq(employeeDeductions.active, true),
           isNull(employeeDeductions.effectiveTo),
+          eq(employeeDeductions.organizationId, organization.id),
         ),
       );
 

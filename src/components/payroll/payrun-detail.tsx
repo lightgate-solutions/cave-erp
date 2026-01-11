@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/correctness/useExhaustiveDependencies: <> */
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -37,11 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+
 import {
   ArrowLeft,
   CheckCircle,
@@ -508,44 +504,39 @@ export function PayrunDetail({ payrun }: PayrunDetailProps) {
             </TableHeader>
             <TableBody>
               {payrun.items.map((item) => (
-                <Collapsible
-                  key={item.id}
-                  open={expandedRows.has(item.id)}
-                  onOpenChange={() => toggleRow(item.id)}
-                  asChild
-                >
-                  <CollapsibleTrigger asChild>
-                    <TableRow className="cursor-pointer hover:bg-muted/50">
-                      <TableCell>
-                        {expandedRows.has(item.id) ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {item.employeeName}
-                      </TableCell>
-                      <TableCell>{item.staffNumber || "-"}</TableCell>
-                      <TableCell>{item.department || "-"}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(Number(item.baseSalary))}
-                      </TableCell>
-                      <TableCell className="text-right text-green-600">
-                        {formatCurrency(Number(item.totalAllowances))}
-                      </TableCell>
-                      <TableCell className="text-right text-red-600">
-                        {formatCurrency(
-                          Number(item.totalDeductions) +
-                            Number(item.totalTaxes),
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {formatCurrency(Number(item.netPay))}
-                      </TableCell>
-                    </TableRow>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent asChild>
+                <Fragment key={item.id}>
+                  <TableRow
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => toggleRow(item.id)}
+                  >
+                    <TableCell>
+                      {expandedRows.has(item.id) ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {item.employeeName}
+                    </TableCell>
+                    <TableCell>{item.staffNumber || "-"}</TableCell>
+                    <TableCell>{item.department || "-"}</TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(Number(item.baseSalary))}
+                    </TableCell>
+                    <TableCell className="text-right text-green-600">
+                      {formatCurrency(Number(item.totalAllowances))}
+                    </TableCell>
+                    <TableCell className="text-right text-red-600">
+                      {formatCurrency(
+                        Number(item.totalDeductions) + Number(item.totalTaxes),
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {formatCurrency(Number(item.netPay))}
+                    </TableCell>
+                  </TableRow>
+                  {expandedRows.has(item.id) && (
                     <TableRow className="bg-muted/30">
                       <TableCell colSpan={8} className="p-0">
                         <div className="p-4">
@@ -628,8 +619,8 @@ export function PayrunDetail({ payrun }: PayrunDetailProps) {
                         </div>
                       </TableCell>
                     </TableRow>
-                  </CollapsibleContent>
-                </Collapsible>
+                  )}
+                </Fragment>
               ))}
             </TableBody>
           </Table>

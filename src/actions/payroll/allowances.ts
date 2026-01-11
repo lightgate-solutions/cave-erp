@@ -155,7 +155,12 @@ export async function getAllAllowances() {
               name: employees.name,
             })
             .from(employees)
-            .where(inArray(employees.authId, creatorIds))
+            .where(
+              and(
+                inArray(employees.authId, creatorIds),
+                eq(employees.organizationId, organization.id),
+              ),
+            )
         : [];
 
     const creatorsMap = creators.reduce(
@@ -218,7 +223,12 @@ export async function getAllAllowancesMonthly() {
               name: employees.name,
             })
             .from(employees)
-            .where(inArray(employees.authId, creatorIds))
+            .where(
+              and(
+                inArray(employees.authId, creatorIds),
+                eq(employees.organizationId, organization.id),
+              ),
+            )
         : [];
 
     const creatorsMap = creators.reduce(
@@ -278,7 +288,12 @@ export async function getAllowance(id: number) {
     const creator = await db
       .select({ name: employees.name })
       .from(employees)
-      .where(eq(employees.authId, allowance[0].createdById))
+      .where(
+        and(
+          eq(employees.authId, allowance[0].createdById),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     return {
