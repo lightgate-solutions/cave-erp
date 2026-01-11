@@ -29,7 +29,7 @@ import type { User as EmployeeUser } from "@/types/user";
 interface UserPreferences {
   id?: number;
   userId?: string;
-  theme?: "light" | "dark" | "system";
+  theme?: "light" | "dark" | "system" | "ocean" | "forest" | "sunset";
   language?: "en" | "fr" | "es" | "de";
   dateFormat?: "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD" | "DD MMM YYYY";
   timezone?: string;
@@ -242,9 +242,15 @@ export function PersonalizationDashboard({
                 <Label htmlFor="theme">Theme</Label>
                 <Select
                   value={preferences.theme}
-                  onValueChange={(value: "light" | "dark" | "system") =>
-                    setPreferences({ ...preferences, theme: value })
-                  }
+                  onValueChange={(
+                    value:
+                      | "light"
+                      | "dark"
+                      | "system"
+                      | "ocean"
+                      | "forest"
+                      | "sunset",
+                  ) => setPreferences({ ...preferences, theme: value })}
                 >
                   <SelectTrigger id="theme">
                     <SelectValue />
@@ -252,6 +258,9 @@ export function PersonalizationDashboard({
                   <SelectContent>
                     <SelectItem value="light">Light</SelectItem>
                     <SelectItem value="dark">Dark</SelectItem>
+                    <SelectItem value="ocean">Ocean</SelectItem>
+                    <SelectItem value="forest">Forest</SelectItem>
+                    <SelectItem value="sunset">Sunset</SelectItem>
                     <SelectItem value="system">System</SelectItem>
                   </SelectContent>
                 </Select>

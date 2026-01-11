@@ -249,7 +249,7 @@ export default function AdminDashboard({
           title="Total Users"
           value={stats.totalUsers || 0}
           icon={Users}
-          href="/hr/admin/users"
+          href="/hr/employees"
           accentColor="blue"
         />
         <StatsCard

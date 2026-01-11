@@ -20,7 +20,7 @@ type Timezone =
   | "Africa/Lagos";
 
 export interface UserPreferencesData {
-  theme?: "light" | "dark" | "system";
+  theme?: "light" | "dark" | "system" | "ocean" | "forest" | "sunset";
   language?: "en" | "fr" | "es" | "de";
   dateFormat?: "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD" | "DD MMM YYYY";
   timezone?: Timezone;
@@ -113,7 +113,7 @@ export async function updateUserPreferences(
     ];
 
     const validatedData: Partial<{
-      theme: "light" | "dark" | "system";
+      theme: "light" | "dark" | "system" | "ocean" | "forest" | "sunset";
       language: "en" | "fr" | "es" | "de";
       dateFormat: "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD" | "DD MMM YYYY";
       timezone: Timezone;

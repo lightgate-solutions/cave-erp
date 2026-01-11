@@ -5,7 +5,7 @@ import { PersonalizationDashboard } from "@/components/dashboard/personalization
 type LocalUserPreferences = {
   id?: number;
   userId?: string;
-  theme?: "light" | "dark" | "system";
+  theme?: "light" | "dark" | "system" | "ocean" | "forest" | "sunset";
   language?: "en" | "fr" | "es" | "de";
   dateFormat?: "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD" | "DD MMM YYYY";
   timezone?: string;

@@ -66,8 +66,11 @@ export default async function DashboardPage() {
   }
 
   // Normalize role to lowercase and trim for comparison
-  const normalizedRole = user.role?.toLowerCase().trim() || "staff";
+  const normalizedRole = user.role?.toLowerCase().trim() || "user";
   const isManager = user.isManager || false;
+
+  const normalizedDepartment =
+    user.department?.toLowerCase().trim() || "operations";
 
   // Priority: Admin > Manager (if isManager flag) > Role-based > Default Staff
 
@@ -90,13 +93,9 @@ export default async function DashboardPage() {
   }
 
   // Role-based dashboards
-  switch (normalizedRole) {
+  switch (normalizedDepartment) {
     case "hr":
-    case "human resources":
-    case "humanresource":
-    case "human-resources":
       return <HrDashboard />;
-
     case "finance":
     case "accounting":
     case "accountant":
@@ -105,7 +104,6 @@ export default async function DashboardPage() {
     default:
       // Default fallback: Show staff dashboard for any unrecognized role
       // This ensures ALL users get a dashboard, even if their role is not explicitly handled
-      // Handles: "staff", "employee", "user", "", null, undefined, and any other values
       return <StaffDashboard />;
   }
 }

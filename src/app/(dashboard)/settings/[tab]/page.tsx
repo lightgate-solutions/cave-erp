@@ -1,3 +1,6 @@
+import { db } from "@/db";
+import { member } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { Loader2Icon } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -13,6 +16,7 @@ import { OrganizationDeletion } from "@/components/settings/organization-deletio
 import { ProfileUpdateForm } from "@/components/settings/profile-update-form";
 import SecurityTab from "@/components/settings/security-tab";
 import SessionsTab from "@/components/settings/sessions-tab";
+import { BrandingTab } from "@/components/branding/branding-tab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/lib/auth";
@@ -25,10 +29,16 @@ const validTabs = [
   "organizations",
   "members",
   "billing",
+  "branding",
   "danger",
 ] as const;
 
-const adminOnlyTabs = ["organizations", "members", "billing"] as const;
+const adminOnlyTabs = [
+  "organizations",
+  "members",
+  "billing",
+  "branding",
+] as const;
 
 type ValidTab = (typeof validTabs)[number];
 
@@ -55,10 +65,29 @@ export default async function Page({
     notFound();
   }
 
+  const activeOrgId = session.session.activeOrganizationId;
+  let isOrgAdmin = false;
+
+  if (activeOrgId) {
+    const membership = await db.query.member.findFirst({
+      where: and(
+        eq(member.userId, session.user.id),
+        eq(member.organizationId, activeOrgId),
+      ),
+    });
+    if (
+      membership &&
+      (membership.role === "owner" || membership.role === "admin")
+    ) {
+      isOrgAdmin = true;
+    }
+  }
+
   const isAdmin = session.user.role === "admin";
+  const hasAdminAccess = isAdmin || isOrgAdmin;
 
   // Redirect non-admin users trying to access admin-only tabs
-  if (isAdminOnlyTab(tab) && !isAdmin) {
+  if (isAdminOnlyTab(tab) && !hasAdminAccess) {
     redirect("/settings/profile");
   }
 
@@ -95,7 +124,7 @@ export default async function Page({
           >
             <Link href="/settings/accounts">Accounts</Link>
           </TabsTrigger>
-          {isAdmin && (
+          {hasAdminAccess && (
             <>
               <TabsTrigger
                 value="organizations"
@@ -117,6 +146,20 @@ export default async function Page({
                 className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:-mb-0.5 data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
               >
                 <Link href="/settings/billing">Billing</Link>
+              </TabsTrigger>
+              <TabsTrigger
+                value="branding"
+                asChild
+                className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:-mb-0.5 data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
+              >
+                <Link href="/settings/branding">Branding</Link>
+              </TabsTrigger>
+              <TabsTrigger
+                value="branding"
+                asChild
+                className="border-b-border dark:data-[state=active]:bg-background data-[state=active]:border-border data-[state=active]:border-b-background h-full rounded-none rounded-t border border-transparent data-[state=active]:-mb-0.5 data-[state=active]:shadow-none dark:border-b-0 dark:data-[state=active]:-mb-0.5"
+              >
+                <Link href="/settings/branding">Branding</Link>
               </TabsTrigger>
             </>
           )}
@@ -154,7 +197,7 @@ export default async function Page({
           </LoadingSuspense>
         </TabsContent>
 
-        {isAdmin && (
+        {hasAdminAccess && (
           <>
             <TabsContent value="organizations" className="space-y-4">
               <CreateOrganizationButton />
@@ -168,6 +211,12 @@ export default async function Page({
             <TabsContent value="billing">
               <LoadingSuspense>
                 <BillingsTab user={session.user} />
+              </LoadingSuspense>
+            </TabsContent>
+
+            <TabsContent value="branding">
+              <LoadingSuspense>
+                <BrandingTab />
               </LoadingSuspense>
             </TabsContent>
           </>

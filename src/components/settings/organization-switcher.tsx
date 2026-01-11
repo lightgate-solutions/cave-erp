@@ -183,9 +183,17 @@ function Switcher({
           size="lg"
           className="data-[state=open]:bg-sidebar-accent w-full hover:cursor-pointer data-[state=open]:text-sidebar-accent-foreground"
         >
-          <Mountain
-            className={`${size === "lg" ? "h-7 w-7" : size === "md" ? "h-5 w-5" : "h-4 w-4"} text-primary-foreground`}
-          />
+          {(activeOrganization as any)?.logo ? (
+            <img
+              src={(activeOrganization as any).logo}
+              alt={`${activeOrganization?.name} logo`}
+              className={`${size === "lg" ? "h-7 w-7" : size === "md" ? "h-5 w-5" : "h-4 w-4"} object-contain`}
+            />
+          ) : (
+            <Mountain
+              className={`${size === "lg" ? "h-7 w-7" : size === "md" ? "h-5 w-5" : "h-4 w-4"} text-primary-foreground`}
+            />
+          )}
           <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-medium">
               {activeOrganization?.name}

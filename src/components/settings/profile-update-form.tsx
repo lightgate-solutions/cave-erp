@@ -25,6 +25,8 @@ import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import { LoadingSwap } from "../ui/loading-swap";
 import { Skeleton } from "../ui/skeleton";
+import { ThemeSelector } from "./theme-selector";
+import { useThemePreference } from "@/hooks/use-theme-preference";
 
 const profileUpdateForm = z.object({
   email: z.email({ message: "Email is required" }).min(1, "Email is required"),
@@ -42,6 +44,7 @@ export function ProfileUpdateForm({
     | null;
 }) {
   const router = useRouter();
+  const { theme, setTheme, isLoading: themeLoading } = useThemePreference();
 
   const form = useForm<ProfileUpdateForm>({
     resolver: zodResolver(profileUpdateForm),
@@ -148,6 +151,14 @@ export function ProfileUpdateForm({
             />
           </FieldGroup>
         </form>
+
+        <div className="space-y-2">
+          <ThemeSelector
+            value={theme}
+            onChange={setTheme}
+            disabled={isSubmitting || themeLoading}
+          />
+        </div>
       </CardContent>
 
       <CardFooter className="flex flex-col space-y-4">

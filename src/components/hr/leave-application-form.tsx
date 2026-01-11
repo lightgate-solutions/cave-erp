@@ -69,20 +69,19 @@ export default function LeaveApplicationForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: currentEmployee } = useQuery({
+  const { data: currentEmployee, isLoading: isLoadingEmployee } = useQuery({
     queryKey: ["current-employee"],
     queryFn: async () => {
       const response = await fetch("/api/hr/employees/current");
       const data = await response.json();
       return data.employee;
     },
-    enabled: !initialEmployeeId,
   });
 
   const form = useForm<LeaveApplicationFormValues>({
     resolver: zodResolver(leaveApplicationSchema),
     defaultValues: {
-      userId: initialEmployeeId || currentEmployee?.id || undefined,
+      userId: currentEmployee?.id || undefined,
       leaveType: leaveToEdit?.leaveType || "",
       startDate: leaveToEdit?.startDate
         ? leaveToEdit.startDate.split("T")[0]
@@ -94,10 +93,10 @@ export default function LeaveApplicationForm({
 
   // Update form when current employee is loaded
   useEffect(() => {
-    if (currentEmployee && !initialEmployeeId && !form.getValues("userId")) {
+    if (currentEmployee && !form.getValues("userId")) {
       form.setValue("userId", currentEmployee.id);
     }
-  }, [currentEmployee, initialEmployeeId, form]);
+  }, [currentEmployee, form]);
 
   const startDate = form.watch("startDate");
   const endDate = form.watch("endDate");
@@ -128,12 +127,29 @@ export default function LeaveApplicationForm({
         : "/api/hr/leaves";
       const method = leaveToEdit ? "PUT" : "POST";
 
+      // For POST requests, map userId to employeeId for API compatibility
+      // For PUT requests, exclude userId as the API doesn't need it
+      const payload = leaveToEdit
+        ? {
+            leaveType: values.leaveType,
+            startDate: values.startDate,
+            endDate: values.endDate,
+            reason: values.reason,
+          }
+        : {
+            employeeId: values.userId,
+            leaveType: values.leaveType,
+            startDate: values.startDate,
+            endDate: values.endDate,
+            reason: values.reason,
+          };
+
       const response = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -365,8 +381,15 @@ export default function LeaveApplicationForm({
               Cancel
             </Button>
           )}
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button
+            type="submit"
+            disabled={
+              isSubmitting || !form.watch("userId") || isLoadingEmployee
+            }
+          >
+            {(isSubmitting || isLoadingEmployee) && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
             {leaveToEdit ? "Update Application" : "Submit Application"}
           </Button>
         </div>

@@ -5,8 +5,7 @@ import CreateFolderButton from "./folders/create-folder-button";
 import FoldersViewWrapper from "./folders/folders-view-wrapper";
 import UploadDocumentButton from "./upload-document-button";
 import { ViewToggle } from "./view-toggle/view-toggle";
-import Link from "next/link";
-import { ArrowLeft, FolderOpen } from "lucide-react";
+import { FolderOpen } from "lucide-react";
 
 export function DocumentsOverview({
   usersFolders,
@@ -18,18 +17,9 @@ export function DocumentsOverview({
   return (
     <div className="flex w-full flex-col gap-8">
       {/* Header Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 p-8 text-white shadow-lg">
+      <div className="relative overflow-hidden bg-gradient-to-br from-primary/70 via-primary/60 to-primary/90 p-8 text-white shadow-lg">
         <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-blue-100">
-              <Link
-                href="/"
-                className="flex items-center gap-1 text-sm hover:text-white transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Dashboard
-              </Link>
-            </div>
             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
               Documents
             </h1>

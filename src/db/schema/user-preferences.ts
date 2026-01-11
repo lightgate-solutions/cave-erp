@@ -8,7 +8,14 @@ import {
 } from "drizzle-orm/pg-core";
 import { organization, user } from "./auth";
 
-export const themeEnum = pgEnum("theme", ["light", "dark", "system"]);
+export const themeEnum = pgEnum("theme", [
+  "light",
+  "dark",
+  "system",
+  "ocean",
+  "forest",
+  "sunset",
+]);
 
 export const languageEnum = pgEnum("language", ["en", "fr", "es", "de"]);
 

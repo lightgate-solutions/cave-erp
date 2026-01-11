@@ -30,6 +30,7 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="light"
           enableSystem
+          themes={["light", "dark", "ocean", "forest", "sunset", "system"]}
           disableTransitionOnChange
         >
           <NextTopLoader showSpinner={false} />

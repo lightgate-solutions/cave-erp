@@ -87,9 +87,7 @@ export default async function DashboardLayout({
     <section className="flex w-full flex-col gap-6">
       <div className="w-full flex justify-between pt-2">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            All Documents
-          </h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Documents</h1>
           <p className="text-muted-foreground">
             Review and manage all folders across the organization
           </p>
