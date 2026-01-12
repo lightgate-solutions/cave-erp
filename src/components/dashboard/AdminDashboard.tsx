@@ -60,7 +60,7 @@ export default function AdminDashboard({
       label: "Add Users",
       bgColor: "bg-[#E0F2FE] dark:bg-blue-950/50",
       iconColor: "text-[#0284C7] dark:text-blue-400",
-      href: "/hr/admin/users",
+      href: "/settings/organization",
     },
     {
       icon: FileText,

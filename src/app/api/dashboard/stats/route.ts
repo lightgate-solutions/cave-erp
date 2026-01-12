@@ -155,7 +155,13 @@ export async function GET() {
         const docResult = await db
           .select({ count: sql<number>`count(distinct ${document.id})::int` })
           .from(document)
-          .where(and(eq(document.status, "active"), visibilityCondition));
+          .where(
+            and(
+              eq(document.status, "active"),
+              visibilityCondition,
+              eq(document.organizationId, organization.id),
+            ),
+          );
         documentCount = Number(docResult[0]?.count ?? 0);
       }
     } catch {
@@ -185,6 +191,7 @@ export async function GET() {
             and(
               eq(emailRecipient.recipientId, employee.authId),
               eq(emailRecipient.isRead, false),
+              eq(emailRecipient.organizationId, organization.id),
               eq(emailRecipient.isArchived, false),
               eq(emailRecipient.isDeleted, false),
             ),
@@ -196,6 +203,7 @@ export async function GET() {
             and(
               eq(emailRecipient.recipientId, employee.authId),
               eq(emailRecipient.isArchived, false),
+              eq(emailRecipient.organizationId, organization.id),
               eq(emailRecipient.isDeleted, false),
             ),
           ),
@@ -218,6 +226,7 @@ export async function GET() {
         .where(
           and(
             eq(notifications.user_id, employee.authId),
+            eq(notifications.organizationId, organization.id),
             eq(notifications.is_read, false),
           ),
         );
