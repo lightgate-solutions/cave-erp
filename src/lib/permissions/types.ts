@@ -20,6 +20,7 @@ export const MODULES = {
   ASK_HR: "ask-hr",
   LOAN_MANAGEMENT: "loan-management",
   LEAVE_MANAGEMENT: "leave-management",
+  RECRUITMENT: "recruitment",
   FINANCE: "finance",
   PAYROLL: "payroll",
   NOTIFICATIONS: "notifications",

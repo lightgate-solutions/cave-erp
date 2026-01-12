@@ -21,6 +21,7 @@ import {
   MessageSquare,
   CreditCard,
   Calendar,
+  Briefcase,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -33,8 +34,7 @@ import {
 import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import type { User } from "better-auth";
-import { useEffect, useMemo, useState } from "react";
-import { getUser as getEmployee } from "@/actions/auth/dal";
+import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { OrganizationSwitcher } from "../settings/organization-switcher";
@@ -123,6 +123,38 @@ const data = {
       module: MODULES.LEAVE_MANAGEMENT,
     },
     {
+      title: "Recruitment",
+      url: "/recruitment",
+      icon: Briefcase,
+      module: MODULES.RECRUITMENT,
+      items: [
+        {
+          title: "Analytics",
+          url: "/recruitment/analytics",
+        },
+        {
+          title: "Jobs",
+          url: "/recruitment/jobs",
+        },
+        {
+          title: "Pipeline",
+          url: "/recruitment/pipeline",
+        },
+        {
+          title: "Candidates",
+          url: "/recruitment/candidates",
+        },
+        {
+          title: "Interviews",
+          url: "/recruitment/interviews",
+        },
+        {
+          title: "Offers",
+          url: "/recruitment/offers",
+        },
+      ],
+    },
+    {
       title: "Hr",
       url: "/hr",
       icon: Users,
@@ -181,16 +213,14 @@ export function AppSidebar({
   user,
   userId,
   organizationId,
+  employee,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: User;
   userId: string;
   organizationId: string;
+  employee: any;
 }) {
-  const [isManager, setIsManager] = useState<boolean | null>(null);
-  const [_isHrOrAdmin, setIsHrOrAdmin] = useState<boolean>(false);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [employee, setEmployee] = useState<any>(null);
   // Query notifications - will return undefined if query fails or is loading
   const notifications = useQuery(api.notifications.getUserNotifications, {
     userId: userId,
@@ -202,36 +232,11 @@ export function AppSidebar({
       ? notifications.filter((n) => !n.isRead).length
       : 0;
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const emp = await getEmployee();
-        if (active) {
-          setEmployee(emp);
-          setIsManager(!!emp?.isManager);
-          setIsAdmin(emp?.role === "admin");
-
-          if (emp?.department === "hr" || emp?.role === "admin") {
-            setIsHrOrAdmin(true);
-          } else {
-            setIsHrOrAdmin(false);
-          }
-        }
-      } catch {
-        if (active) {
-          setIsManager(null);
-          setEmployee(null);
-        }
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+  const isManager = !!employee?.isManager;
+  const isAdmin = employee?.role === "admin";
 
   const groupedItems = useMemo(() => {
-    if (isManager === null || !employee) {
+    if (!employee) {
       return {
         overview: [],
         modules: [],
@@ -350,6 +355,7 @@ export function AppSidebar({
           "Ask HR",
           "Loan Management",
           "Leave Management",
+          "Recruitment",
         ].includes(item.title)
       ) {
         groups.management.push(item);
