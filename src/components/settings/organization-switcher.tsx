@@ -1,5 +1,7 @@
 /** biome-ignore-all lint/suspicious/noArrayIndexKey: <> */
 /** biome-ignore-all lint/style/noNonNullAssertion: <> */
+/** biome-ignore-all lint/suspicious/noExplicitAny: <> */
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";

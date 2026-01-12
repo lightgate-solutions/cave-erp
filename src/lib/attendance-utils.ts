@@ -2,13 +2,20 @@
  * Utility functions for attendance sign-in pop-up
  */
 
+export interface AttendanceSettings {
+  signInStartHour: number;
+  signInEndHour: number;
+  signOutStartHour: number;
+  signOutEndHour: number;
+}
+
 /**
  * Check if current time is within the sign-in window (6:00 AM - 9:00 AM)
  */
-export function isWithinSignInWindow(): boolean {
+export function isWithinSignInWindow(settings: AttendanceSettings): boolean {
   const now = new Date();
   const hours = now.getHours();
-  return hours >= 6 && hours < 9;
+  return hours >= settings.signInStartHour && hours < settings.signInEndHour;
 }
 
 /**
@@ -115,16 +122,19 @@ export function shouldShowPopup(hasSignedInToday: boolean): boolean {
 /**
  * Format time window message
  */
-export function getTimeWindowMessage(): string {
+export function getTimeWindowMessage(settings: AttendanceSettings): string {
   const now = new Date();
   const hours = now.getHours();
 
-  if (hours < 6) {
-    return "Sign-in opens at 6:00 AM";
+  const startTime = settings.signInStartHour.toString().padStart(2, "0");
+  const endTime = settings.signInEndHour.toString().padStart(2, "0");
+
+  if (hours < settings.signInStartHour) {
+    return `Sign-in opens at ${startTime}:00`;
   }
 
-  if (hours >= 9) {
-    return "Sign-in window closed (6:00 AM - 9:00 AM)";
+  if (hours >= settings.signInEndHour) {
+    return `Sign-in window closed (${startTime}:00 - ${endTime}:00)`;
   }
 
   return "Sign-in available now";

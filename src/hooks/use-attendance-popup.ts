@@ -5,11 +5,14 @@ import { useEffect, useState } from "react";
 import {
   isWithinSignInWindow,
   shouldShowPopup as checkShouldShowPopup,
+  getTimeWindowMessage,
+  type AttendanceSettings,
 } from "@/lib/attendance-utils";
 
 interface UseAttendancePopupProps {
   hasSignedInToday: boolean;
   isLoading?: boolean;
+  settings: AttendanceSettings;
 }
 
 interface UseAttendancePopupReturn {
@@ -26,6 +29,7 @@ interface UseAttendancePopupReturn {
 export function useAttendancePopup({
   hasSignedInToday,
   isLoading = false,
+  settings,
 }: UseAttendancePopupProps): UseAttendancePopupReturn {
   const [isOpen, setIsOpen] = useState(false);
   const [canSignIn, setCanSignIn] = useState(false);
@@ -48,19 +52,11 @@ export function useAttendancePopup({
   }, [hasSignedInToday, isLoading]);
 
   function updateTimeWindow() {
-    const withinWindow = isWithinSignInWindow();
+    const withinWindow = isWithinSignInWindow(settings);
     setCanSignIn(withinWindow);
 
-    const now = new Date();
-    const hours = now.getHours();
-
-    if (hours < 6) {
-      setTimeWindowMessage("Sign-in opens at 6:00 AM");
-    } else if (hours >= 9) {
-      setTimeWindowMessage("Sign-in window closed (6:00 AM - 9:00 AM)");
-    } else {
-      setTimeWindowMessage("Sign-in available now");
-    }
+    const message = getTimeWindowMessage(settings);
+    setTimeWindowMessage(message);
   }
 
   const closePopup = () => {

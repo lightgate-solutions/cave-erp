@@ -3,6 +3,7 @@ import { requireAuth } from "@/actions/auth/dal";
 import {
   getMyTodayAttendance,
   getAttendanceRecords,
+  getCurrentAttendanceSettings,
 } from "@/actions/hr/attendance";
 import AttendanceClient from "./attendance-client";
 import type { Metadata } from "next";
@@ -18,10 +19,14 @@ export default async function AttendancePage(props: {
   const searchParams = await props.searchParams;
   const authData = await requireAuth();
   const myAttendance = await getMyTodayAttendance();
+  const settings = await getCurrentAttendanceSettings();
 
   // Check if user is HR or Manager
   let isManagerOrHR = false;
-  if (authData.role === "admin" || authData.employee.department === "hr") {
+  const isHROrAdmin =
+    authData.role === "admin" || authData.employee.department === "hr";
+
+  if (isHROrAdmin) {
     isManagerOrHR = true;
   } else {
     // Check if isManager flag is true
@@ -70,6 +75,8 @@ export default async function AttendancePage(props: {
           isManagerOrHR={isManagerOrHR}
           currentEmployeeId={authData.userId}
           managerIdFilter={filters?.managerId}
+          settings={settings}
+          isHROrAdmin={isHROrAdmin}
         />
       </Suspense>
     </div>

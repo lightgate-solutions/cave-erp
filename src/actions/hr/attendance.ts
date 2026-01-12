@@ -2,7 +2,12 @@
 "use server";
 
 import { db } from "@/db";
-import { attendance, employees, attendanceWarnings } from "@/db/schema";
+import {
+  attendance,
+  employees,
+  attendanceWarnings,
+  attendanceSettings,
+} from "@/db/schema";
 import {
   DrizzleQueryError,
   eq,
@@ -20,6 +25,53 @@ import { getEmployee } from "./employees";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
+// Get active attendance settings or return defaults
+async function getAttendanceSettings() {
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      signInStartHour: 6,
+      signInEndHour: 9,
+      signOutStartHour: 14,
+      signOutEndHour: 20,
+    };
+  }
+  try {
+    const settings = await db
+      .select()
+      .from(attendanceSettings)
+      .where(
+        and(
+          eq(attendanceSettings.isActive, true),
+          eq(attendanceSettings.organizationId, organization.id),
+        ),
+      )
+      .limit(1);
+
+    if (settings.length > 0) {
+      return settings[0];
+    }
+
+    // Return default settings if none exist
+    return {
+      signInStartHour: 6,
+      signInEndHour: 9,
+      signOutStartHour: 14,
+      signOutEndHour: 20,
+    };
+  } catch (_error) {
+    // Return defaults on error
+    return {
+      signInStartHour: 6,
+      signInEndHour: 9,
+      signOutStartHour: 14,
+      signOutEndHour: 20,
+    };
+  }
+}
+
 // Helper to check time range
 function isWithinTimeRange(
   date: Date,
@@ -30,8 +82,103 @@ function isWithinTimeRange(
   return hours >= startHour && hours < endHour;
 }
 
+// Get current attendance settings (public)
+export async function getCurrentAttendanceSettings() {
+  return await getAttendanceSettings();
+}
+
+// Update attendance settings (admin/HR only)
+export async function updateAttendanceSettings(settings: {
+  signInStartHour: number;
+  signInEndHour: number;
+  signOutStartHour: number;
+  signOutEndHour: number;
+}) {
+  await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
+  // Validate hours
+  if (
+    settings.signInStartHour < 0 ||
+    settings.signInStartHour > 23 ||
+    settings.signInEndHour < 0 ||
+    settings.signInEndHour > 23 ||
+    settings.signOutStartHour < 0 ||
+    settings.signOutStartHour > 23 ||
+    settings.signOutEndHour < 0 ||
+    settings.signOutEndHour > 23
+  ) {
+    return {
+      success: null,
+      error: { reason: "Hours must be between 0 and 23" },
+    };
+  }
+
+  if (settings.signInStartHour >= settings.signInEndHour) {
+    return {
+      success: null,
+      error: { reason: "Sign-in start hour must be before end hour" },
+    };
+  }
+
+  if (settings.signOutStartHour >= settings.signOutEndHour) {
+    return {
+      success: null,
+      error: { reason: "Sign-out start hour must be before end hour" },
+    };
+  }
+
+  try {
+    // Deactivate all existing settings
+    await db
+      .update(attendanceSettings)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(attendanceSettings.organizationId, organization.id));
+
+    // Create new active settings
+    await db.insert(attendanceSettings).values({
+      ...settings,
+      organizationId: organization.id,
+      isActive: true,
+    });
+
+    revalidatePath("/hr/attendance");
+    return {
+      success: { reason: "Attendance settings updated successfully" },
+      error: null,
+    };
+  } catch (err) {
+    if (err instanceof DrizzleQueryError) {
+      return {
+        success: null,
+        error: { reason: err.cause?.message || "Database error" },
+      };
+    }
+    return {
+      success: null,
+      error: { reason: "Failed to update attendance settings" },
+    };
+  }
+}
+
 // Sign In
-export async function signIn(userId: string) {
+export async function signIn(
+  userId: string,
+  location?: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+  },
+) {
   const authData = await requireAuth();
 
   // Verify user can only sign in for themselves unless admin/hr (though usually attendance is personal)
@@ -58,10 +205,17 @@ export async function signIn(userId: string) {
 
   const now = new Date();
   // Check time: 06:00 to 09:00
-  if (!isWithinTimeRange(now, 6, 9)) {
+  const settings = await getAttendanceSettings();
+
+  // Check time using dynamic settings
+  if (
+    !isWithinTimeRange(now, settings.signInStartHour, settings.signInEndHour)
+  ) {
     return {
       success: null,
-      error: { reason: "Sign in is only allowed between 06:00 and 09:00" },
+      error: {
+        reason: `Sign in is only allowed between ${settings.signInStartHour.toString().padStart(2, "0")}:00 and ${settings.signInEndHour.toString().padStart(2, "0")}:00`,
+      },
     };
   }
 
@@ -92,6 +246,9 @@ export async function signIn(userId: string) {
       userId,
       date: today,
       signInTime: now,
+      signInLatitude: location?.latitude?.toString(),
+      signInLongitude: location?.longitude?.toString(),
+      signInLocation: location?.address,
       status: "Approved",
       organizationId: organization.id,
     });
@@ -141,11 +298,18 @@ export async function signOut(userId: string) {
   }
 
   const now = new Date();
-  // Check time: 14:00 (2 PM) to 20:00 (8 PM)
-  if (!isWithinTimeRange(now, 14, 20)) {
+  const settings = await getAttendanceSettings();
+
+  // Check time using dynamic settings
+  if (
+    !isWithinTimeRange(now, settings.signOutStartHour, settings.signOutEndHour)
+  ) {
     return {
       success: null,
-      error: { reason: "Sign out is only allowed between 14:00 and 20:00" },
+
+      error: {
+        reason: `Sign out is only allowed between ${settings.signOutStartHour.toString().padStart(2, "0")}:00 and ${settings.signOutEndHour.toString().padStart(2, "0")}:00`,
+      },
     };
   }
 
@@ -388,6 +552,9 @@ export async function getAttendanceRecords(filters?: {
       date: attendance.date,
       signInTime: attendance.signInTime,
       signOutTime: attendance.signOutTime,
+      signInLatitude: attendance.signInLatitude,
+      signInLongitude: attendance.signInLongitude,
+      signInLocation: attendance.signInLocation,
       status: attendance.status,
       rejectionReason: attendance.rejectionReason,
       rejectedByUserId: attendance.rejectedByUserId,

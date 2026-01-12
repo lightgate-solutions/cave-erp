@@ -46,7 +46,8 @@ import {
   getAttendanceRecords,
   getMyTodayAttendance,
 } from "@/actions/hr/attendance";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Settings } from "lucide-react";
+import Link from "next/link";
 
 interface AttendanceRecord {
   id: number;
@@ -57,6 +58,9 @@ interface AttendanceRecord {
   date: string;
   signInTime: Date | null;
   signOutTime: Date | null;
+  signInLatitude: string | null;
+  signInLongitude: string | null;
+  signInLocation: string | null;
   status: "Approved" | "Rejected" | string;
   rejectionReason: string | null;
   rejectedByUserId: string | null;
@@ -74,6 +78,13 @@ interface AttendanceClientProps {
   isManagerOrHR: boolean;
   currentEmployeeId: string;
   managerIdFilter?: string;
+  settings: {
+    signInStartHour: number;
+    signInEndHour: number;
+    signOutStartHour: number;
+    signOutEndHour: number;
+  };
+  isHROrAdmin: boolean;
 }
 
 export default function AttendanceClient({
@@ -82,6 +93,8 @@ export default function AttendanceClient({
   isManagerOrHR,
   currentEmployeeId,
   managerIdFilter,
+  settings,
+  isHROrAdmin,
 }: AttendanceClientProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -127,7 +140,17 @@ export default function AttendanceClient({
 
   // Mutations
   const signInMutation = useMutation({
-    mutationFn: signIn,
+    mutationFn: ({
+      userId,
+      location,
+    }: {
+      userId: string;
+      location?: {
+        latitude: number;
+        longitude: number;
+        address?: string;
+      };
+    }) => signIn(userId, location),
     onSuccess: (res) => {
       if (res.error) {
         toast.error(res.error.reason);
@@ -175,7 +198,50 @@ export default function AttendanceClient({
   });
 
   const handleSignIn = () => {
-    signInMutation.mutate(currentEmployeeId);
+    // Check if geolocation is supported
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    // Get user's location
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+
+        // Optional: Reverse geocode to get address (if you want to add this later)
+        // For now, we'll just use coordinates
+        signInMutation.mutate({
+          userId: currentEmployeeId,
+          location: {
+            latitude,
+            longitude,
+          },
+        });
+      },
+      (error) => {
+        // If location access is denied or fails, show error
+        let errorMessage = "Failed to get location";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage =
+              "Location access denied. Please enable location services to sign in.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information is unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out.";
+            break;
+        }
+        toast.error(errorMessage);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      },
+    );
   };
 
   const handleSignOut = () => {
@@ -227,11 +293,27 @@ export default function AttendanceClient({
       {/* My Attendance Section */}
       <Card>
         <CardHeader>
-          <CardTitle>My Attendance</CardTitle>
-          <CardDescription>
-            Sign in between 06:00am - 09:00am. Sign out between 02:00pm -
-            08:00pm.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>My Attendance</CardTitle>
+              <CardDescription>
+                Sign in between{" "}
+                {settings.signInStartHour.toString().padStart(2, "0")}:00 -{" "}
+                {settings.signInEndHour.toString().padStart(2, "0")}:00. Sign
+                out between{" "}
+                {settings.signOutStartHour.toString().padStart(2, "0")}:00 -{" "}
+                {settings.signOutEndHour.toString().padStart(2, "0")}:00.
+              </CardDescription>
+            </div>
+            {isHROrAdmin && (
+              <Link href="/hr/attendance/settings">
+                <Button variant="outline" size="sm">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Button>
+              </Link>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
@@ -328,6 +410,7 @@ export default function AttendanceClient({
                             <TableHead>Employee</TableHead>
                             <TableHead>Sign In</TableHead>
                             <TableHead>Sign Out</TableHead>
+                            <TableHead>Location</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Actions</TableHead>
                           </TableRow>
@@ -336,7 +419,7 @@ export default function AttendanceClient({
                           {records.length === 0 ? (
                             <TableRow>
                               <TableCell
-                                colSpan={5}
+                                colSpan={6}
                                 className="text-center text-muted-foreground"
                               >
                                 No records for this day
@@ -364,6 +447,24 @@ export default function AttendanceClient({
                                   {record.signOutTime
                                     ? format(new Date(record.signOutTime), "p")
                                     : "-"}
+                                </TableCell>
+                                <TableCell>
+                                  {record.signInLatitude &&
+                                  record.signInLongitude ? (
+                                    <a
+                                      href={`https://www.google.com/maps?q=${record.signInLatitude},${record.signInLongitude}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 hover:underline"
+                                      title={`Lat: ${record.signInLatitude}, Lng: ${record.signInLongitude}`}
+                                    >
+                                      View Map
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      -
+                                    </span>
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   {getStatusBadge(record.status)}

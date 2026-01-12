@@ -21,18 +21,21 @@ import {
   dismissPopupForToday,
   snoozePopup,
   getSnoozeRemainingMinutes,
+  type AttendanceSettings,
 } from "@/lib/attendance-utils";
 
 interface AttendanceSignInPopupProps {
   currentEmployeeId: string;
   hasSignedInToday: boolean;
   isLoading?: boolean;
+  settings: AttendanceSettings;
 }
 
 export function AttendanceSignInPopup({
   currentEmployeeId,
   hasSignedInToday,
   isLoading = false,
+  settings,
 }: AttendanceSignInPopupProps) {
   const queryClient = useQueryClient();
   const [snoozeMinutes, _setSnoozeMinutes] = useState(30);
@@ -41,11 +44,22 @@ export function AttendanceSignInPopup({
     useAttendancePopup({
       hasSignedInToday,
       isLoading,
+      settings,
     });
 
   // Sign-in mutation
   const signInMutation = useMutation({
-    mutationFn: signIn,
+    mutationFn: ({
+      userId,
+      location,
+    }: {
+      userId: string;
+      location?: {
+        latitude: number;
+        longitude: number;
+        address?: string;
+      };
+    }) => signIn(userId, location),
     onSuccess: (res) => {
       if (res.error) {
         toast.error(res.error.reason);
@@ -64,7 +78,47 @@ export function AttendanceSignInPopup({
   });
 
   const handleSignIn = () => {
-    signInMutation.mutate(currentEmployeeId);
+    // Check if geolocation is supported
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    // Get user's location
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        signInMutation.mutate({
+          userId: currentEmployeeId,
+          location: {
+            latitude,
+            longitude,
+          },
+        });
+      },
+      (error) => {
+        // If location access is denied or fails, show error
+        let errorMessage = "Failed to get location";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage =
+              "Location access denied. Please enable location services to sign in.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information is unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out.";
+            break;
+        }
+        toast.error(errorMessage);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      },
+    );
   };
 
   const handleSnooze = () => {
@@ -140,8 +194,8 @@ export function AttendanceSignInPopup({
               <p className="text-sm font-medium">{timeWindowMessage}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 {canSignIn
-                  ? "You can sign in now (6:00 AM - 9:00 AM)"
-                  : "Sign-in is only available between 6:00 AM and 9:00 AM"}
+                  ? `You can sign in now (${settings.signInStartHour.toString().padStart(2, "0")}:00 - ${settings.signInEndHour.toString().padStart(2, "0")}:00)`
+                  : `Sign-in is only available between ${settings.signInStartHour.toString().padStart(2, "0")}:00 and ${settings.signInEndHour.toString().padStart(2, "0")}:00`}
               </p>
             </div>
           </div>
