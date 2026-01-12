@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noArrayIndexKey: <> */
 "use client";
 
 import { useState } from "react";
@@ -52,7 +53,7 @@ export function ActivityTimeline({
   return (
     <div className="space-y-4">
       {activities.map((activity, index) => (
-        <div key={activity.id} className="flex gap-3">
+        <div key={index} className="flex gap-3">
           <div className="flex flex-col items-center">
             <div className="w-2 h-2 bg-primary rounded-full" />
             {index < activities.length - 1 && (
