@@ -31,6 +31,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 import { LoadingSwap } from "../ui/loading-swap";
+import Image from "next/image";
 
 type CreateOrganizationForm = z.infer<typeof createOrganizationSchema>;
 
@@ -184,7 +185,9 @@ function Switcher({
           className="data-[state=open]:bg-sidebar-accent w-full hover:cursor-pointer data-[state=open]:text-sidebar-accent-foreground"
         >
           {(activeOrganization as any)?.logo ? (
-            <img
+            <Image
+              width={150}
+              height={150}
               src={(activeOrganization as any).logo}
               alt={`${activeOrganization?.name} logo`}
               className={`${size === "lg" ? "h-7 w-7" : size === "md" ? "h-5 w-5" : "h-4 w-4"} object-contain`}

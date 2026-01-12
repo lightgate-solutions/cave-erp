@@ -5,6 +5,17 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
   },
+
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "assets.cave.ng",
+        port: "",
+        pathname: "/**",
+      },
+    ],
+  },
 };
 
 const withBundleAnalyzer = require("@next/bundle-analyzer")({
