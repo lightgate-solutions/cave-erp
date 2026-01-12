@@ -11,6 +11,7 @@ export default defineSchema({
       v.literal("approval"),
       v.literal("deadline"),
       v.literal("message"),
+      v.literal("warning"),
     ),
     createdBy: v.string(),
     referenceId: v.optional(v.number()),

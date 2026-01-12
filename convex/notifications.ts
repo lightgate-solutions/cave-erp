@@ -30,6 +30,7 @@ export const createNotification = mutation({
       values.v.literal("approval"),
       values.v.literal("deadline"),
       values.v.literal("message"),
+      values.v.literal("warning"),
     ),
     reference_id: values.v.optional(values.v.number()),
     is_read: values.v.optional(values.v.boolean()),

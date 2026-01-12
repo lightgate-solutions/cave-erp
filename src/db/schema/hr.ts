@@ -264,6 +264,41 @@ export const attendance = pgTable(
   (table) => [index("attendance_user_date_idx").on(table.userId, table.date)],
 );
 
+export const attendanceWarningTypeEnum = pgEnum("attendance_warning_type", [
+  "late_arrival",
+  "early_departure",
+  "missing_signout",
+  "general",
+]);
+
+export const attendanceWarnings = pgTable(
+  "attendance_warnings",
+  {
+    id: serial("id").primaryKey(),
+    attendanceId: integer("attendance_id")
+      .notNull()
+      .references(() => attendance.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    warningType: attendanceWarningTypeEnum("warning_type").notNull(),
+    reason: text("reason").notNull(),
+    message: text("message").notNull(),
+    issuedByUserId: text("issued_by_user_id")
+      .notNull()
+      .references(() => user.id),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("attendance_warnings_user_idx").on(table.userId),
+    index("attendance_warnings_attendance_idx").on(table.attendanceId),
+  ],
+);
+
 export const employeeRelations = relations(employees, ({ one, many }) => ({
   manager: one(user, {
     fields: [employees.managerId],
@@ -290,9 +325,30 @@ export const employeeRelations = relations(employees, ({ one, many }) => ({
   attendance: many(attendance),
 }));
 
-export const attendanceRelations = relations(attendance, ({ one }) => ({
+export const attendanceRelations = relations(attendance, ({ one, many }) => ({
   user: one(user, {
     fields: [attendance.userId],
     references: [user.id],
   }),
+  warnings: many(attendanceWarnings),
 }));
+
+export const attendanceWarningsRelations = relations(
+  attendanceWarnings,
+  ({ one }) => ({
+    attendance: one(attendance, {
+      fields: [attendanceWarnings.attendanceId],
+      references: [attendance.id],
+    }),
+    user: one(user, {
+      fields: [attendanceWarnings.userId],
+      references: [user.id],
+      relationName: "warningRecipient",
+    }),
+    issuedBy: one(user, {
+      fields: [attendanceWarnings.issuedByUserId],
+      references: [user.id],
+      relationName: "warningIssuer",
+    }),
+  }),
+);

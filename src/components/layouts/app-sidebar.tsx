@@ -132,6 +132,10 @@ const data = {
           title: "Employees",
           url: "/hr/employees",
         },
+        {
+          title: "Attendance Records",
+          url: "/hr/attendance-records",
+        },
       ],
     },
     {

@@ -10,7 +10,7 @@ type CreateNotificationInput = {
   user_id: string;
   title: string;
   message: string;
-  notification_type: "approval" | "deadline" | "message";
+  notification_type: "approval" | "deadline" | "message" | "warning";
   reference_id?: number;
   is_read?: boolean;
   organization_id?: string;

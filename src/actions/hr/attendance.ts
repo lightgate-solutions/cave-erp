@@ -2,10 +2,19 @@
 "use server";
 
 import { db } from "@/db";
-import { attendance, employees } from "@/db/schema";
-import { DrizzleQueryError, eq, and, desc, count, gte, lte } from "drizzle-orm";
+import { attendance, employees, attendanceWarnings } from "@/db/schema";
+import {
+  DrizzleQueryError,
+  eq,
+  and,
+  desc,
+  count,
+  gte,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireHROrAdmin } from "@/actions/auth/dal";
+import { requireAuth, requireHROrAdmin, requireHR } from "@/actions/auth/dal";
 import { createNotification } from "../notification/notification";
 import { getEmployee } from "./employees";
 import { auth } from "@/lib/auth";
@@ -425,4 +434,314 @@ export async function getMyTodayAttendance() {
     .limit(1);
 
   return result[0] || null;
+}
+
+// Get employees list for attendance records dropdown
+export async function getEmployeesForAttendance() {
+  await requireHR();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return [];
+  }
+
+  const result = await db
+    .select({
+      id: employees.id,
+      authId: employees.authId,
+      name: employees.name,
+      staffNumber: employees.staffNumber,
+      department: employees.department,
+      email: employees.email,
+    })
+    .from(employees)
+    .where(eq(employees.organizationId, organization.id))
+    .orderBy(employees.name);
+
+  return result;
+}
+
+// Get employee attendance records with statistics
+export async function getEmployeeAttendanceRecords(filters: {
+  userId: string;
+  startDate?: string;
+  endDate?: string;
+  status?: "Approved" | "Rejected";
+  page?: number;
+  limit?: number;
+}) {
+  await requireHR();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      records: [],
+      statistics: {
+        totalPresent: 0,
+        totalAbsent: 0,
+        averageSignInTime: "N/A",
+        lateArrivals: 0,
+        earlySignIns: 0,
+        missingSignOuts: 0,
+        perfectDays: 0,
+      },
+      pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
+    };
+  }
+
+  // Default to past month if no date range provided
+  const defaultStartDate = new Date();
+  defaultStartDate.setMonth(defaultStartDate.getMonth() - 1);
+
+  const startDate =
+    filters.startDate || defaultStartDate.toISOString().split("T")[0];
+  const endDate = filters.endDate || new Date().toISOString().split("T")[0];
+  const page = filters.page || 1;
+  const limit = filters.limit || 10;
+  const offset = (page - 1) * limit;
+
+  // Build conditions
+  const conditions: any[] = [
+    eq(attendance.organizationId, organization.id),
+    eq(attendance.userId, filters.userId),
+    gte(attendance.date, startDate),
+    lte(attendance.date, endDate),
+  ];
+
+  if (filters.status) {
+    conditions.push(eq(attendance.status, filters.status));
+  }
+
+  const whereClause = and(...conditions);
+
+  // Get total count
+  const totalResult = await db
+    .select({ count: count() })
+    .from(attendance)
+    .where(whereClause);
+
+  const total = totalResult[0]?.count || 0;
+
+  // Get paginated records with warning info
+  const records = await db
+    .select({
+      id: attendance.id,
+      date: attendance.date,
+      signInTime: attendance.signInTime,
+      signOutTime: attendance.signOutTime,
+      status: attendance.status,
+      rejectionReason: attendance.rejectionReason,
+      warningId: attendanceWarnings.id,
+      hasWarning: sql<boolean>`${attendanceWarnings.id} IS NOT NULL`,
+    })
+    .from(attendance)
+    .leftJoin(
+      attendanceWarnings,
+      eq(attendance.id, attendanceWarnings.attendanceId),
+    )
+    .where(whereClause)
+    .orderBy(desc(attendance.date))
+    .limit(limit)
+    .offset(offset);
+
+  // Get all records for statistics (not paginated)
+  const allRecords = await db
+    .select({
+      date: attendance.date,
+      signInTime: attendance.signInTime,
+      signOutTime: attendance.signOutTime,
+    })
+    .from(attendance)
+    .where(whereClause);
+
+  // Calculate statistics
+  let totalPresent = 0;
+  let lateArrivals = 0;
+  let earlySignIns = 0;
+  let missingSignOuts = 0;
+  let perfectDays = 0;
+  let totalSignInMinutes = 0;
+  let signInCount = 0;
+
+  for (const record of allRecords) {
+    if (record.signInTime) {
+      totalPresent++;
+      const signInDate = new Date(record.signInTime);
+      const hours = signInDate.getHours();
+
+      // Count sign-in time for average
+      totalSignInMinutes += hours * 60 + signInDate.getMinutes();
+      signInCount++;
+
+      // Late arrival (after 6:00 AM)
+      if (hours >= 6) {
+        lateArrivals++;
+      }
+
+      // Early sign-in (before 6:00 AM)
+      if (hours < 6) {
+        earlySignIns++;
+      }
+
+      // Perfect day: sign-in between 6-9 AM and has sign-out
+      if (hours >= 6 && hours < 9 && record.signOutTime) {
+        perfectDays++;
+      }
+
+      // Missing sign-out
+      if (!record.signOutTime) {
+        missingSignOuts++;
+      }
+    }
+  }
+
+  // Calculate average sign-in time
+  let averageSignInTime = "N/A";
+  if (signInCount > 0) {
+    const avgMinutes = Math.floor(totalSignInMinutes / signInCount);
+    const avgHours = Math.floor(avgMinutes / 60);
+    const avgMins = avgMinutes % 60;
+    const period = avgHours >= 12 ? "PM" : "AM";
+    const displayHours = avgHours % 12 || 12;
+    averageSignInTime = `${displayHours}:${avgMins.toString().padStart(2, "0")} ${period}`;
+  }
+
+  // Total days in range
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const totalDays = Math.ceil(
+    (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  const totalAbsent = totalDays - totalPresent;
+
+  return {
+    records,
+    statistics: {
+      totalPresent,
+      totalAbsent,
+      averageSignInTime,
+      lateArrivals,
+      earlySignIns,
+      missingSignOuts,
+      perfectDays,
+    },
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+// Issue attendance warning
+export async function issueAttendanceWarning(data: {
+  attendanceId: number;
+  userId: string;
+  warningType:
+    | "late_arrival"
+    | "early_departure"
+    | "missing_signout"
+    | "general";
+  reason: string;
+  message: string;
+}) {
+  const authData = await requireHR();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) {
+    return {
+      success: null,
+      error: { reason: "Organization not found" },
+    };
+  }
+
+  // Validate reason length
+  if (data.reason.length < 10) {
+    return {
+      success: null,
+      error: { reason: "Reason must be at least 10 characters long" },
+    };
+  }
+
+  try {
+    // Check attendance record exists
+    const attendanceRecord = await db
+      .select()
+      .from(attendance)
+      .where(
+        and(
+          eq(attendance.id, data.attendanceId),
+          eq(attendance.organizationId, organization.id),
+        ),
+      )
+      .limit(1);
+
+    if (attendanceRecord.length === 0) {
+      return {
+        success: null,
+        error: { reason: "Attendance record not found" },
+      };
+    }
+
+    // Check if warning already exists for this attendance
+    const existingWarning = await db
+      .select()
+      .from(attendanceWarnings)
+      .where(eq(attendanceWarnings.attendanceId, data.attendanceId))
+      .limit(1);
+
+    if (existingWarning.length > 0) {
+      return {
+        success: null,
+        error: {
+          reason:
+            "A warning has already been issued for this attendance record",
+        },
+      };
+    }
+
+    // Insert warning record
+    await db.insert(attendanceWarnings).values({
+      attendanceId: data.attendanceId,
+      userId: data.userId,
+      warningType: data.warningType,
+      reason: data.reason,
+      message: data.message,
+      issuedByUserId: authData.userId,
+      organizationId: organization.id,
+    });
+
+    // Send notification to employee
+    await createNotification({
+      user_id: data.userId,
+      title: "Attendance Warning Issued",
+      message: data.message,
+      notification_type: "warning",
+      reference_id: data.attendanceId,
+    });
+
+    revalidatePath("/hr/attendance-records");
+    return {
+      success: { reason: "Warning issued successfully" },
+      error: null,
+    };
+  } catch (err) {
+    if (err instanceof DrizzleQueryError) {
+      return {
+        success: null,
+        error: { reason: err.cause?.message || "Database error" },
+      };
+    }
+    return {
+      success: null,
+      error: { reason: "Failed to issue warning" },
+    };
+  }
 }
