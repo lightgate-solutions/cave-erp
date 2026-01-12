@@ -21,6 +21,7 @@ export async function GET() {
         id: employees.id,
         name: employees.name,
         email: employees.email,
+        authId: employees.authId,
       })
       .from(employees)
       .where(

@@ -7,14 +7,20 @@ import {
   serial,
   text,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 import { organization, user } from "./auth";
 
-// Define enum ONCE at module scope so Drizzle emits CREATE TYPE before using it
+// Define enums ONCE at module scope so Drizzle emits CREATE TYPE before using it
 export const projectStatusEnum = pgEnum("project_status", [
   "pending",
   "in-progress",
   "completed",
+]);
+
+export const projectAccessLevelEnum = pgEnum("project_access_level", [
+  "read",
+  "write",
 ]);
 
 export const projects = pgTable(
@@ -31,6 +37,9 @@ export const projects = pgTable(
     supervisorId: text("supervisor_id").references(() => user.id, {
       onDelete: "set null",
     }),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -39,15 +48,21 @@ export const projects = pgTable(
   },
   (table) => [
     index("projects_supervisor_idx").on(table.supervisorId),
+    index("projects_created_by_idx").on(table.createdBy),
     index("projects_organization_idx").on(table.organizationId),
   ],
 );
 
-export const projectsRelations = relations(projects, ({ one }) => ({
+export const projectsRelations = relations(projects, ({ one, many }) => ({
   supervisor: one(user, {
     fields: [projects.supervisorId],
     references: [user.id],
   }),
+  creator: one(user, {
+    fields: [projects.createdBy],
+    references: [user.id],
+  }),
+  projectAccess: many(projectAccess),
 }));
 
 export const milestones = pgTable(
@@ -101,5 +116,50 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
   project: one(projects, {
     fields: [expenses.projectId],
     references: [projects.id],
+  }),
+}));
+
+export const projectAccess = pgTable(
+  "project_access",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    accessLevel: projectAccessLevelEnum("access_level")
+      .notNull()
+      .default("read"),
+    grantedBy: text("granted_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("project_access_project_idx").on(table.projectId),
+    index("project_access_user_idx").on(table.userId),
+    index("project_access_organization_idx").on(table.organizationId),
+    unique("project_access_unique").on(table.projectId, table.userId),
+  ],
+);
+
+export const projectAccessRelations = relations(projectAccess, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectAccess.projectId],
+    references: [projects.id],
+  }),
+  user: one(user, {
+    fields: [projectAccess.userId],
+    references: [user.id],
+  }),
+  grantedByUser: one(user, {
+    fields: [projectAccess.grantedBy],
+    references: [user.id],
   }),
 }));

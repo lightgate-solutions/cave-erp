@@ -21,8 +21,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
-import { Calendar, ChevronLeft, Loader2, Receipt } from "lucide-react";
+import { Calendar, ChevronLeft, Loader2, Receipt, UserCog } from "lucide-react";
 import { ProjectHeader } from "@/components/projects/project-header";
+import { ProjectAccessDialog } from "@/components/projects/project-access-dialog";
+import { hasManageAccess } from "@/actions/projects/permissions";
 
 type Milestone = {
   id: number;
@@ -79,13 +81,15 @@ export default function ProjectDetailPage({
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(
     null,
   );
+  const [canManage, setCanManage] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [pRes, mRes, eRes] = await Promise.all([
+    const [pRes, mRes, eRes, manageAccess] = await Promise.all([
       fetch(`/api/projects/${projectId}`),
       fetch(`/api/projects/${projectId}/milestones`),
       fetch(`/api/projects/${projectId}/expenses`),
+      hasManageAccess(projectId),
     ]);
     const p = await pRes.json();
     const m = await mRes.json();
@@ -93,11 +97,22 @@ export default function ProjectDetailPage({
     setProject(p.project);
     setMilestones(m.milestones ?? []);
     setExpenses(e.expenses ?? []);
+    setCanManage(manageAccess);
     setLoading(false);
   }, [projectId]);
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  // Listen for project changes (e.g., supervisor updates)
+  useEffect(() => {
+    const handleProjectChange = () => {
+      load();
+    };
+    window.addEventListener("projects:changed", handleProjectChange);
+    return () =>
+      window.removeEventListener("projects:changed", handleProjectChange);
   }, [load]);
 
   const progress = useMemo(() => {
@@ -290,13 +305,31 @@ export default function ProjectDetailPage({
 
   return (
     <div className="space-y-6 p-2 max-w-7xl mx-auto animate-in fade-in duration-500">
-      <Button
-        variant="ghost"
-        onClick={() => router.back()}
-        className="-ml-2 hover:bg-transparent hover:text-primary"
-      >
-        <ChevronLeft className="mr-1 h-4 w-4" /> Back to Projects
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          onClick={() => router.back()}
+          className="-ml-2 hover:bg-transparent hover:text-primary"
+        >
+          <ChevronLeft className="mr-1 h-4 w-4" /> Back to Projects
+        </Button>
+
+        {canManage && project && (
+          <ProjectAccessDialog
+            trigger={
+              <Button variant="outline" size="sm">
+                <UserCog className="mr-2 h-4 w-4" />
+                Manage Access
+              </Button>
+            }
+            projectId={projectId}
+            projectName={project.name}
+            currentSupervisorId={
+              project.supervisorId ? String(project.supervisorId) : null
+            }
+          />
+        )}
+      </div>
 
       {project && (
         <ProjectHeader

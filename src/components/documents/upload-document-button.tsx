@@ -499,7 +499,7 @@ export default function UploadDocumentButton({
 
               <div>
                 <FieldContent>
-                  <FieldLabel>Tags *</FieldLabel>
+                  <FieldLabel>Tags</FieldLabel>
                   {tagFields.map((field, index) => (
                     <Controller
                       key={field.id}
@@ -646,7 +646,7 @@ export default function UploadDocumentButton({
               </div>
               <div className="gap-3">
                 <FieldLabel>
-                  Configure permissions / Uploader has all permissions *
+                  Configure permissions / Uploader has all permissions
                 </FieldLabel>
                 {permissionsField.map((field, index) => (
                   <div

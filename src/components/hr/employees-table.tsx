@@ -67,7 +67,7 @@ export default function EmployeesTable() {
 
   return (
     <section>
-      <Card className="p-4 shadow-sm">
+      <Card className="p-4 bg-muted shadow-sm">
         <CardHeader>
           <CardTitle className="text-xl">Employees</CardTitle>
           <CardDescription>

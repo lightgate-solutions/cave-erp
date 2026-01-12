@@ -55,7 +55,7 @@ export default function Home() {
 
   return (
     <div className="space-y-4">
-      <div className="border-b bg-card">
+      <div className="border-b bg-muted">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">

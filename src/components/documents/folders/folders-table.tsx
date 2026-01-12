@@ -32,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useRouter } from "next/navigation";
 
 export default function FoldersTable({
   folders,
@@ -46,6 +47,7 @@ export default function FoldersTable({
   department: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
 
   return (
     <div className="border rounded-lg">
@@ -59,13 +61,19 @@ export default function FoldersTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableRow className="hover:bg-muted/50">
+          <TableRow
+            className="hover:bg-muted/50 cursor-pointer"
+            onClick={() => router.push("/documents/all")}
+          >
             <TableCell>
               <Folder size={24} className="text-slate-600" />
             </TableCell>
             <TableCell className="font-medium">All Documents</TableCell>
             <TableCell className="text-muted-foreground">This week</TableCell>
-            <TableCell className="text-right">
+            <TableCell
+              className="text-right"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="sm" asChild>
                   <Link href="/documents/all">
@@ -93,73 +101,81 @@ export default function FoldersTable({
               </div>
             </TableCell>
           </TableRow>
-          {folders.map((folder, idx) => (
-            <TableRow key={idx} className="hover:bg-muted/50">
-              <TableCell>
-                <Folder size={24} className="text-slate-600" />
-              </TableCell>
-              <TableCell className="font-medium">
-                {(folder.path ?? folder.name).charAt(0).toUpperCase() +
-                  (folder.path ?? folder.name).slice(1).toUpperCase()}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {folder.updatedAt.toLocaleDateString()}
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link
-                      href={
-                        pathname === "/documents"
-                          ? `${pathname}/f/${folder.id}`
-                          : `${pathname}/${folder.id}`
-                      }
-                    >
-                      <LogIn size={16} className="mr-1" />
-                      Enter
-                    </Link>
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="px-2">
-                        <MoreVertical size={16} />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="space-y-1">
-                      <DropdownMenuItem
-                        disabled={
-                          folder.name === department ||
-                          folder.name === "personal"
-                        }
-                        className="hover:cursor-pointer"
-                        asChild
-                      >
-                        <FoldersAction
-                          type="archive"
-                          id={folder.id}
-                          pathname={pathname}
-                        />
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={
-                          folder.name === department ||
-                          folder.name === "personal"
-                        }
-                        className="text-red-600 hover:cursor-pointer"
-                        asChild
-                      >
-                        <FoldersAction
-                          type="delete"
-                          id={folder.id}
-                          pathname={pathname}
-                        />
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+          {folders.map((folder, idx) => {
+            const folderUrl =
+              pathname === "/documents"
+                ? `${pathname}/f/${folder.id}`
+                : `${pathname}/${folder.id}`;
+
+            return (
+              <TableRow
+                key={idx}
+                className="hover:bg-muted/50 cursor-pointer"
+                onClick={() => router.push(folderUrl)}
+              >
+                <TableCell>
+                  <Folder size={24} className="text-slate-600" />
+                </TableCell>
+                <TableCell className="font-medium">
+                  {(folder.path ?? folder.name).charAt(0).toUpperCase() +
+                    (folder.path ?? folder.name).slice(1).toUpperCase()}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {folder.updatedAt.toLocaleDateString()}
+                </TableCell>
+                <TableCell
+                  className="text-right"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={folderUrl}>
+                        <LogIn size={16} className="mr-1" />
+                        Enter
+                      </Link>
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="px-2">
+                          <MoreVertical size={16} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="space-y-1">
+                        <DropdownMenuItem
+                          disabled={
+                            folder.name === department ||
+                            folder.name === "personal"
+                          }
+                          className="hover:cursor-pointer"
+                          asChild
+                        >
+                          <FoldersAction
+                            type="archive"
+                            id={folder.id}
+                            pathname={pathname}
+                          />
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={
+                            folder.name === department ||
+                            folder.name === "personal"
+                          }
+                          className="text-red-600 hover:cursor-pointer"
+                          asChild
+                        >
+                          <FoldersAction
+                            type="delete"
+                            id={folder.id}
+                            pathname={pathname}
+                          />
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

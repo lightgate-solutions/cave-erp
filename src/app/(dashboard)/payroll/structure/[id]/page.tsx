@@ -229,7 +229,7 @@ export default async function StructureDetailPage(props: {
         </TabsList>
 
         <TabsContent value="employees">
-          <Card>
+          <Card className="bg-muted">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Assigned Employees</CardTitle>
@@ -252,7 +252,7 @@ export default async function StructureDetailPage(props: {
         </TabsContent>
 
         <TabsContent value="allowances">
-          <Card>
+          <Card className="bg-muted">
             <CardHeader>
               <CardTitle>Structure Allowances</CardTitle>
               <CardDescription>
@@ -270,7 +270,7 @@ export default async function StructureDetailPage(props: {
         </TabsContent>
 
         <TabsContent value="deductions">
-          <Card>
+          <Card className="bg-muted">
             <CardHeader>
               <CardTitle>Structure Deductions</CardTitle>
               <CardDescription>

@@ -22,8 +22,8 @@ export default function EmployeesTableSkeleton() {
   const skeletonRows = Array.from({ length: 10 }, (_, i) => i);
 
   return (
-    <section className="max-w-4xl">
-      <Card className=" shadow-sm">
+    <section className="max-w-full">
+      <Card className=" bg-muted shadow-sm">
         <CardHeader>
           <CardTitle className="text-xl">
             <Skeleton className="h-7 w-32" />

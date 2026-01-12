@@ -6,6 +6,7 @@ import { createNotification } from "@/actions/notification/notification";
 import { getUser } from "@/actions/auth/dal";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { requireProjectPermission } from "@/actions/projects/permissions";
 
 export async function GET(
   _request: NextRequest,
@@ -21,6 +22,10 @@ export async function GET(
   try {
     const { id } = await params;
     const projectId = Number(id);
+
+    // Check if user has permission to view this project
+    await requireProjectPermission(projectId, "view");
+
     const rows = await db
       .select()
       .from(expenses)
@@ -54,6 +59,10 @@ export async function POST(
   try {
     const { id } = await params;
     const projectId = Number(id);
+
+    // Check if user has permission to edit this project
+    await requireProjectPermission(projectId, "edit");
+
     const body = await request.json();
     const { title, amount, spentAt, notes } = body ?? {};
     if (!title)
@@ -126,6 +135,10 @@ export async function PUT(
   try {
     const { id } = await params;
     const projectId = Number(id);
+
+    // Check if user has permission to edit this project
+    await requireProjectPermission(projectId, "edit");
+
     const body = await request.json();
     const { id: expenseId, title, amount, spentAt, notes } = body ?? {};
     if (!expenseId)
@@ -216,6 +229,10 @@ export async function DELETE(
   try {
     const { id } = await params;
     const projectId = Number(id);
+
+    // Check if user has permission to edit this project
+    await requireProjectPermission(projectId, "edit");
+
     const body = await request.json();
     const { id: expenseId } = body ?? {};
     if (!expenseId)

@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
         id: employees.id,
         name: employees.name,
         email: employees.email,
+        authId: employees.authId,
       })
       .from(employees)
       .where(where)

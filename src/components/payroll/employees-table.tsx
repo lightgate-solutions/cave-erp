@@ -110,7 +110,7 @@ export function EmployeesTable() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-sm rounded-none p-1">
+      <Card className="shadow-sm bg-muted rounded-none p-1">
         <CardContent className="p-0">
           <Table>
             <TableHeader>

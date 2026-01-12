@@ -1,5 +1,4 @@
 import AnnualLeaveBalancesTable from "@/components/hr/annual-leave-balances-table";
-import { BackButton } from "@/components/ui/back-button";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -16,7 +15,7 @@ export default async function Page() {
     return redirect("/auth/login");
   }
 
-  const organization = await auth.api.getFullOrganization({
+  const _organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
 
@@ -46,7 +45,6 @@ export default async function Page() {
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
-          <BackButton />
           <div>
             <h1 className="text-2xl font-bold">Annual Leave Balances</h1>
             <p className="text-sm text-muted-foreground">

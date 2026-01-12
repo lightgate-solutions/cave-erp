@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
+import { requireProjectPermission } from "@/actions/projects/permissions";
 
 export async function GET(
   _request: NextRequest,
@@ -19,6 +20,10 @@ export async function GET(
   try {
     const { id } = await params;
     const projectId = Number(id);
+
+    // Check if user has permission to view this project
+    await requireProjectPermission(projectId, "view");
+
     const rows = await db
       .select()
       .from(milestones)
@@ -52,6 +57,10 @@ export async function POST(
   try {
     const { id } = await params;
     const projectId = Number(id);
+
+    // Check if user has permission to edit this project
+    await requireProjectPermission(projectId, "edit");
+
     const body = await request.json();
     const { title, description, dueDate } = body ?? {};
     if (!title)
@@ -90,6 +99,10 @@ export async function PUT(
   try {
     const { id } = await params;
     const projectId = Number(id);
+
+    // Check if user has permission to edit this project
+    await requireProjectPermission(projectId, "edit");
+
     const body = await request.json();
     const {
       id: milestoneId,
@@ -139,6 +152,10 @@ export async function DELETE(
   try {
     const { id } = await params;
     const projectId = Number(id);
+
+    // Check if user has permission to edit this project
+    await requireProjectPermission(projectId, "edit");
+
     const body = await request.json();
     const { id: milestoneId } = body ?? {};
     if (!milestoneId)

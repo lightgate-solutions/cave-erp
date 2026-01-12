@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noArrayIndexKey: <> */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -21,8 +22,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { X } from "lucide-react";
 
-type Supervisor = { id: number; name: string; email: string };
+type Supervisor = { id: number; name: string; email: string; authId: string };
+type Employee = { id: number; name: string; email: string; authId: string };
+type TeamMember = {
+  userId: string;
+  name: string;
+  email: string;
+  accessLevel: "read" | "write";
+};
 
 type Props = {
   trigger: React.ReactNode;
@@ -32,7 +42,7 @@ type Props = {
     code: string;
     description: string | null;
     location: string | null;
-    supervisorId: number | null;
+    supervisorId: string | null; // This is authId (text) from database
     status?: string;
     budgetPlanned?: number;
     budgetActual?: number;
@@ -45,51 +55,132 @@ export function ProjectFormDialog({ trigger, initial, onCompleted }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [location, setLocation] = useState(initial?.location ?? "");
-  const [budgetPlanned, setBudgetPlanned] = useState<string>("0");
-  const [budgetActual, setBudgetActual] = useState<string>("0");
+  const [budgetPlanned, setBudgetPlanned] = useState<string>(
+    initial?.budgetPlanned ? String(initial.budgetPlanned) : "0",
+  );
+  const [budgetActual, setBudgetActual] = useState<string>(
+    initial?.budgetActual ? String(initial.budgetActual) : "0",
+  );
   const [supervisorId, setSupervisorId] = useState<string>(
-    initial?.supervisorId ? String(initial.supervisorId) : "",
+    initial?.supervisorId ?? "",
   );
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<string>(
-    initial ? (initial.status ?? "pending") : "pending",
-  );
+  const [status, setStatus] = useState<string>(initial?.status ?? "pending");
+
+  // Team member selection state
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>("");
+  const [selectedAccessLevel, setSelectedAccessLevel] = useState<
+    "read" | "write"
+  >("read");
 
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const res = await fetch("/api/hr/employees/supervisors");
-      const data = await res.json();
-      setSupervisors(data.supervisors ?? []);
+      // Fetch supervisors
+      const supervisorsRes = await fetch("/api/hr/employees/supervisors");
+      const supervisorsData = await supervisorsRes.json();
+      setSupervisors(supervisorsData.supervisors ?? []);
+
+      // Fetch all employees for team member selection (only for create)
+      if (!initial?.id) {
+        const employeesRes = await fetch("/api/hr/employees/all");
+        const employeesData = await employeesRes.json();
+        setEmployees(employeesData.employees ?? []);
+      }
     })();
-  }, [open]);
+  }, [open, initial?.id]);
 
   useEffect(() => {
     if (!open) return;
     setName(initial?.name ?? "");
     setDescription(initial?.description ?? "");
     setLocation(initial?.location ?? "");
-    setSupervisorId(initial?.supervisorId ? String(initial.supervisorId) : "");
+    setSupervisorId(initial?.supervisorId ?? "");
     setBudgetPlanned(
       initial?.budgetPlanned ? String(initial.budgetPlanned) : "0",
     );
     setBudgetActual(initial?.budgetActual ? String(initial.budgetActual) : "0");
     setStatus(initial?.status ?? "pending");
+    setTeamMembers([]); // Reset team members on dialog open
   }, [initial, open]);
 
+  function addTeamMember() {
+    if (!selectedEmployee) return;
+
+    const employee = employees.find((e) => e.authId === selectedEmployee);
+    if (!employee) return;
+
+    // Check if already added
+    if (teamMembers.some((tm) => tm.userId === selectedEmployee)) {
+      toast.error("This team member has already been added");
+      return;
+    }
+
+    // Don't allow adding supervisor as team member
+    if (selectedEmployee === supervisorId) {
+      toast.error("Supervisor is automatically added to the project");
+      return;
+    }
+
+    setTeamMembers([
+      ...teamMembers,
+      {
+        userId: selectedEmployee,
+        name: employee.name,
+        email: employee.email,
+        accessLevel: selectedAccessLevel,
+      },
+    ]);
+
+    setSelectedEmployee("");
+    setSelectedAccessLevel("read");
+  }
+
+  function removeTeamMember(userId: string) {
+    setTeamMembers(teamMembers.filter((tm) => tm.userId !== userId));
+  }
+
+  function updateTeamMemberPermission(
+    userId: string,
+    accessLevel: "read" | "write",
+  ) {
+    setTeamMembers(
+      teamMembers.map((tm) =>
+        tm.userId === userId ? { ...tm, accessLevel } : tm,
+      ),
+    );
+  }
+
   async function onSubmit() {
+    // Validate required supervisor (only for create, not edit)
+    if (!initial?.id && !supervisorId) {
+      toast.error("Supervisor is required");
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
         name,
         description: description || null,
         location: location || null,
-        supervisorId: supervisorId ? Number(supervisorId) : null,
+        supervisorId: supervisorId || null,
         budgetPlanned: Number(budgetPlanned) || 0,
         budgetActual: Number(budgetActual) || 0,
         status,
+        // Only include teamMembers for create, not edit
+        ...(!initial?.id &&
+          teamMembers.length > 0 && {
+            teamMembers: teamMembers.map((tm) => ({
+              userId: tm.userId,
+              accessLevel: tm.accessLevel,
+            })),
+          }),
       };
+
       let res: Response;
       if (initial?.id) {
         res = await fetch(`/api/projects/${initial.id}`, {
@@ -139,7 +230,7 @@ export function ProjectFormDialog({ trigger, initial, onCompleted }: Props) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>
             {initial?.id ? "Edit Project" : "New Project"}
@@ -171,23 +262,132 @@ export function ProjectFormDialog({ trigger, initial, onCompleted }: Props) {
             />
           </div>
           <div className="grid gap-2">
-            <Label>Supervisor</Label>
+            <Label>
+              Supervisor{" "}
+              {!initial?.id && <span className="text-red-500">*</span>}
+            </Label>
             <Select
               value={supervisorId}
               onValueChange={(v) => setSupervisorId(v)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select a supervisor (optional)" />
+                <SelectValue
+                  placeholder={
+                    initial?.id
+                      ? "Select a supervisor (optional)"
+                      : "Select a supervisor (required)"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {supervisors.map((s) => (
-                  <SelectItem key={s.id} value={String(s.id)}>
+                  <SelectItem key={s.id} value={s.authId}>
                     {s.name} ({s.email})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Team Member Selection - Only show for create, not edit */}
+          {!initial?.id && (
+            <div className="grid gap-2">
+              <Label>Team Members (optional)</Label>
+              <p className="text-sm text-muted-foreground">
+                Add team members with Read or Read-Write permissions
+              </p>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Select
+                    value={selectedEmployee}
+                    onValueChange={(v) => setSelectedEmployee(v)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select team member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees
+                        .filter((e) => e.authId !== supervisorId)
+                        .map((e, idx) => (
+                          <SelectItem key={idx} value={e.authId}>
+                            {e.name} ({e.email})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={selectedAccessLevel}
+                    onValueChange={(v) =>
+                      setSelectedAccessLevel(v as "read" | "write")
+                    }
+                  >
+                    <SelectTrigger className="w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="read">Read</SelectItem>
+                      <SelectItem value="write">Read-Write</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={addTeamMember}
+                    disabled={!selectedEmployee}
+                  >
+                    Add
+                  </Button>
+                </div>
+
+                {/* Team members list */}
+                {teamMembers.length > 0 && (
+                  <ScrollArea className="h-32 w-full rounded-md border p-2">
+                    <div className="space-y-2">
+                      {teamMembers.map((tm) => (
+                        <div
+                          key={tm.userId}
+                          className="flex items-center justify-between gap-2 rounded-md bg-muted p-2"
+                        >
+                          <div className="flex-1 text-sm">
+                            <span className="font-medium">{tm.name}</span>
+                            <span className="text-muted-foreground ml-2">
+                              ({tm.email})
+                            </span>
+                          </div>
+                          <Select
+                            value={tm.accessLevel}
+                            onValueChange={(v) =>
+                              updateTeamMemberPermission(
+                                tm.userId,
+                                v as "read" | "write",
+                              )
+                            }
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="read">Read</SelectItem>
+                              <SelectItem value="write">Read-Write</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeTeamMember(tm.userId)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-2">
             <Label>Status</Label>
             <Select value={status} onValueChange={(v) => setStatus(v)}>

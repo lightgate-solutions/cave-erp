@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noArrayIndexKey: <> */
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -5,7 +6,7 @@ export function DocumentsOverviewSkeleton() {
   return (
     <div className="space-y-6 p-6">
       {/* Gradient Header */}
-      <div className="h-48 bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-900 dark:to-purple-900 rounded-xl p-8 flex flex-col justify-end">
+      <div className="h-48  rounded-xl p-8 flex flex-col justify-end">
         <Skeleton className="h-10 w-64 mb-2 bg-white/20" />
         <Skeleton className="h-5 w-96 bg-white/20" />
       </div>
@@ -26,7 +27,6 @@ export function DocumentsOverviewSkeleton() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <Card
-            // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
             key={i}
             className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
           >

@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { organization as organizationSchema } from "@/db/schema/auth";
+import { getProjectVisibilityFilter } from "@/actions/projects/permissions";
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,6 +50,20 @@ export async function GET(request: NextRequest) {
       | undefined;
 
     where = eq(projects.organizationId, organization.id);
+
+    // Apply visibility filtering based on user's access
+    try {
+      const visibilityFilter = await getProjectVisibilityFilter();
+      if (visibilityFilter) {
+        where = and(where, visibilityFilter);
+      }
+    } catch (error) {
+      // If not authenticated or error, return zero stats
+      return NextResponse.json(
+        { total: 0, actual: 0, expenses: 0 },
+        { status: 200 },
+      );
+    }
 
     if (q) {
       where = and(

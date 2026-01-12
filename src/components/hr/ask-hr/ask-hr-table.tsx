@@ -227,7 +227,7 @@ export default function AskHrTable() {
         />
       </div>
 
-      <Card>
+      <Card className="bg-muted">
         <CardHeader className="pb-3">
           <CardTitle>Questions</CardTitle>
         </CardHeader>

@@ -7,6 +7,13 @@ import QueryProvider from "@/components/providers/query-provider";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import {
+  CircleCheckIcon,
+  InfoIcon,
+  Loader2Icon,
+  OctagonXIcon,
+  TriangleAlertIcon,
+} from "lucide-react";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -41,7 +48,18 @@ export default function RootLayout({
               <SpeedInsights />
             </div>
           </QueryProvider>
-          <SonnerToaster richColors position="top-center" />
+          <SonnerToaster
+            className="toaster group"
+            icons={{
+              success: <CircleCheckIcon className="size-4" />,
+              info: <InfoIcon className="size-4" />,
+              warning: <TriangleAlertIcon className="size-4" />,
+              error: <OctagonXIcon className="size-4" />,
+              loading: <Loader2Icon className="size-4 animate-spin" />,
+            }}
+            richColors
+            position="top-center"
+          />
         </ThemeProvider>
       </body>
     </html>

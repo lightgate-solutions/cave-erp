@@ -10,7 +10,7 @@ import { PayrunTable } from "@/components/payroll/payrun-table";
 export default function PayrunPage() {
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="bg-muted">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Payrun Management</CardTitle>

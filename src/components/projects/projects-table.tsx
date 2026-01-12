@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2, Settings } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -31,6 +31,8 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { ProjectFormDialog } from "./project-form-dialog";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { ProjectAccessDialog } from "./project-access-dialog";
+import { ProjectRoleBadges } from "./project-role-badges";
 
 type Project = {
   id: number;
@@ -38,8 +40,14 @@ type Project = {
   code: string;
   description: string | null;
   location: string | null;
-  supervisorId: number | null;
+  supervisorId: string | null;
   createdAt: string;
+  supervisorName?: string;
+  status?: string;
+  budgetPlanned?: number;
+  budgetActual?: number;
+  permission?: "view" | "edit" | "manage" | null;
+  userRoles?: string[];
 };
 
 export function ProjectsTable() {
@@ -73,6 +81,8 @@ export function ProjectsTable() {
       if (dateTo) params.append("dateTo", dateTo);
       const res = await fetch(`/api/projects?${params.toString()}`);
       const data = await res.json();
+
+      // The API now includes permission data for each project
       setItems(data.projects ?? []);
       setTotal(data.total ?? 0);
     } finally {
@@ -275,180 +285,247 @@ export function ProjectsTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((p) => (
-                <TableRow key={p.id} className="group">
-                  <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell>{p.code}</TableCell>
-                  <TableCell>{p.location}</TableCell>
-                  <TableCell>
-                    {(p as { supervisorName?: string }).supervisorName ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    {(() => {
-                      const status = ((p as { status?: string }).status ??
-                        "pending") as string;
-                      const base =
-                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
-                      const color =
-                        status === "completed"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                          : status === "in-progress"
-                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-                      return <div className={`${base} ${color}`}>{status}</div>;
-                    })()}
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <a href={`/projects/${p.id}`} title="View">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        aria-label="View project"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </a>
-                    <ProjectFormDialog
-                      initial={p}
-                      onCompleted={() => load()}
-                      trigger={
+              {items.map((p) => {
+                const canEdit =
+                  p.permission === "edit" || p.permission === "manage";
+                const canManage = p.permission === "manage";
+
+                return (
+                  <TableRow key={p.id} className="group">
+                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell>{p.code}</TableCell>
+                    <TableCell>{p.location}</TableCell>
+                    <TableCell>
+                      {(p as { supervisorName?: string }).supervisorName ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const status = ((p as { status?: string }).status ??
+                          "pending") as string;
+                        const base =
+                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
+                        const color =
+                          status === "completed"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                            : status === "in-progress"
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+                        return (
+                          <div className={`${base} ${color}`}>{status}</div>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <a href={`/projects/${p.id}`} title="View">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          aria-label="Edit project"
-                          title="Edit"
+                          aria-label="View project"
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      }
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => confirmDelete(p.id)}
-                      aria-label="Delete project"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      </a>
+                      {canEdit && (
+                        <ProjectFormDialog
+                          initial={p}
+                          onCompleted={() => load()}
+                          trigger={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label="Edit project"
+                              title="Edit"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          }
+                        />
+                      )}
+                      {canManage && (
+                        <>
+                          <ProjectAccessDialog
+                            trigger={
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                aria-label="Manage access"
+                                title="Manage access"
+                              >
+                                <Settings className="h-4 w-4" />
+                              </Button>
+                            }
+                            projectId={p.id}
+                            projectName={p.name}
+                            currentSupervisorId={p.supervisorId}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => confirmDelete(p.id)}
+                            aria-label="Delete project"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((p) => (
-            <div
-              key={p.id}
-              className="group relative flex flex-col justify-between overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-primary/50"
-            >
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold leading-none tracking-tight">
-                      {p.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">{p.code}</p>
+          {items.map((p) => {
+            const canEdit =
+              p.permission === "edit" || p.permission === "manage";
+            const canManage = p.permission === "manage";
+
+            return (
+              <div
+                key={p.id}
+                className="group relative flex flex-col justify-between overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-primary/50"
+              >
+                <div className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1 flex-1">
+                          <h3 className="font-semibold leading-none tracking-tight">
+                            {p.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {p.code}
+                          </p>
+                        </div>
+                        {(() => {
+                          const status = ((p as { status?: string }).status ??
+                            "pending") as string;
+                          const color =
+                            status === "completed"
+                              ? "bg-green-500"
+                              : status === "in-progress"
+                                ? "bg-blue-500"
+                                : "bg-yellow-500";
+                          return (
+                            <div
+                              className={`h-2.5 w-2.5 rounded-full ${color} flex-shrink-0 mt-1`}
+                              title={status}
+                            />
+                          );
+                        })()}
+                      </div>
+                      <ProjectRoleBadges roles={p.userRoles || []} />
+                    </div>
                   </div>
-                  {(() => {
-                    const status = ((p as { status?: string }).status ??
-                      "pending") as string;
-                    const color =
-                      status === "completed"
-                        ? "bg-green-500"
-                        : status === "in-progress"
-                          ? "bg-blue-500"
-                          : "bg-yellow-500";
-                    return (
-                      <div
-                        className={`h-2.5 w-2.5 rounded-full ${color}`}
-                        title={status}
-                      />
-                    );
-                  })()}
-                </div>
-                <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <svg
-                      aria-hidden="true"
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-4 w-4"
-                    >
-                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                      <circle cx="12" cy="10" r="3" />
-                    </svg>
-                    <span>{p.location || "No location"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <svg
-                      aria-hidden="true"
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-4 w-4"
-                    >
-                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
-                    <span>
-                      {(p as { supervisorName?: string }).supervisorName ??
-                        "No supervisor"}
-                    </span>
+                  <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <svg
+                        aria-hidden="true"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4"
+                      >
+                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                        <circle cx="12" cy="10" r="3" />
+                      </svg>
+                      <span>{p.location || "No location"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg
+                        aria-hidden="true"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4"
+                      >
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                      <span>
+                        {(p as { supervisorName?: string }).supervisorName ??
+                          "No supervisor"}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between border-t bg-muted/50 p-4">
-                <div className="text-xs text-muted-foreground">
-                  Created {new Date(p.createdAt).toLocaleDateString()}
-                </div>
-                <div className="flex gap-1">
-                  <a href={`/projects/${p.id}`} title="View">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </a>
-                  <ProjectFormDialog
-                    initial={p}
-                    onCompleted={() => load()}
-                    trigger={
+                <div className="flex items-center justify-between border-t bg-muted/50 p-4">
+                  <div className="text-xs text-muted-foreground">
+                    Created {new Date(p.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="flex gap-1">
+                    <a href={`/projects/${p.id}`} title="View">
                       <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Pencil className="h-4 w-4" />
+                        <Eye className="h-4 w-4" />
                       </Button>
-                    }
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => confirmDelete(p.id)}
-                    aria-label="Delete project"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                    </a>
+                    {canEdit && (
+                      <ProjectFormDialog
+                        initial={p}
+                        onCompleted={() => load()}
+                        trigger={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        }
+                      />
+                    )}
+                    {canManage && (
+                      <>
+                        <ProjectAccessDialog
+                          trigger={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                          }
+                          projectId={p.id}
+                          projectName={p.name}
+                          currentSupervisorId={p.supervisorId}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => confirmDelete(p.id)}
+                          aria-label="Delete project"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

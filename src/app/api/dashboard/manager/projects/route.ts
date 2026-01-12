@@ -2,8 +2,8 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { employees } from "@/db/schema/hr";
-import { projects } from "@/db/schema/projects";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { projects, projectAccess } from "@/db/schema/projects";
+import { eq, and, sql, desc, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -48,8 +48,10 @@ export async function GET() {
       );
     }
 
-    // Get projects where manager is supervisor
-    // Prioritize active projects (in-progress, then pending), then completed
+    // Get all projects where manager has access:
+    // 1. Projects they created
+    // 2. Projects they supervise
+    // 3. Projects they're team members of
     const managerProjects = await db
       .select({
         id: projects.id,
@@ -62,8 +64,17 @@ export async function GET() {
       .from(projects)
       .where(
         and(
-          eq(projects.supervisorId, employee.authId),
           eq(projects.organizationId, organization.id),
+          or(
+            eq(projects.createdBy, employee.authId), // Created by manager
+            eq(projects.supervisorId, employee.authId), // Supervised by manager
+            sql`EXISTS (
+              SELECT 1 FROM ${projectAccess}
+              WHERE ${projectAccess.projectId} = ${projects.id}
+                AND ${projectAccess.userId} = ${employee.authId}
+                AND ${projectAccess.organizationId} = ${organization.id}
+            )`, // Team member
+          ),
         ),
       )
       .orderBy(desc(projects.updatedAt))

@@ -62,7 +62,7 @@ export default async function Page({
       loggedUser: sql`${user.id}`,
     })
     .from(document)
-    .leftJoin(employees, eq(document.uploadedBy, employees.id))
+    .leftJoin(employees, eq(document.uploadedBy, employees.authId))
     .leftJoin(documentFolders, eq(document.folderId, documentFolders.id))
     .leftJoin(
       documentVersions,
@@ -94,7 +94,7 @@ export default async function Page({
       })
       .from(documentAccess)
       .where(eq(documentAccess.documentId, documentId))
-      .leftJoin(employees, eq(documentAccess.userId, employees.id)),
+      .leftJoin(employees, eq(documentAccess.userId, employees.authId)),
   ]);
 
   const enrichedDocs = {

@@ -169,7 +169,7 @@ export default function LeavesTable({
 
   return (
     <section className="space-y-4">
-      <Card className="p-4 shadow-sm">
+      <Card className="p-4 bg-muted shadow-sm">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>

@@ -95,7 +95,7 @@ export default function AnnualLeaveBalancesTable() {
   return (
     <section className="space-y-8">
       {/* Global Annual Leave Settings */}
-      <Card className="overflow-hidden border-none shadow-md bg-gradient-to-br from-card to-muted/20">
+      <Card className="overflow-hidden border-none shadow-md bg-muted">
         <CardHeader className="border-b bg-muted/30 pb-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
@@ -238,8 +238,8 @@ export default function AnnualLeaveBalancesTable() {
       </Card>
 
       {/* Employee Balances */}
-      <Card className="overflow-hidden border-none shadow-md">
-        <CardHeader className="border-b bg-card pb-4">
+      <Card className="overflow-hidden bg-muted border-none shadow-md">
+        <CardHeader className="border-b pb-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <CardTitle className="text-xl font-semibold flex items-center gap-2">

@@ -140,7 +140,7 @@ export default function BugReportPage() {
 
   return (
     <div className="container mx-auto py-8 max-w-2xl">
-      <Card>
+      <Card className="bg-muted">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bug className="h-6 w-6" />

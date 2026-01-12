@@ -1,12 +1,12 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Monitor, Droplets, Trees, Sunset } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
 export function ThemeToggle() {
-  const { theme, setTheme, systemTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -15,18 +15,32 @@ export function ThemeToggle() {
 
   if (!mounted) return null;
 
-  const isDark =
-    theme === "dark" || (theme === "system" && systemTheme === "dark");
+  const order = ["light", "dark", "ocean", "forest", "sunset", "system"];
+
+  const iconMap: Record<string, React.ReactNode> = {
+    light: <Sun className="h-4 w-4" />,
+    dark: <Moon className="h-4 w-4" />,
+    ocean: <Droplets className="h-4 w-4" />,
+    forest: <Trees className="h-4 w-4" />,
+    sunset: <Sunset className="h-4 w-4" />,
+    system: <Monitor className="h-4 w-4" />,
+  };
+
+  const currentIcon = iconMap[theme || "system"] || <Sun className="h-4 w-4" />;
 
   return (
     <Button
       type="button"
       variant="ghost"
       className="h-8 w-8 p-0 text-primary"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={() => {
+        const currentIndex = order.indexOf(theme || "system");
+        const nextIndex = (currentIndex + 1) % order.length;
+        setTheme(order[nextIndex]);
+      }}
+      aria-label={`Switch to ${order[(order.indexOf(theme || "system") + 1) % order.length]} mode`}
     >
-      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      {currentIcon}
     </Button>
   );
 }

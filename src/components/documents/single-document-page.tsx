@@ -771,7 +771,7 @@ function DocumentPage({
                           {doc.tags.map((tag, idx) => (
                             <div
                               key={idx}
-                              className="rounded-full bg-teal-200 p-1 px-3"
+                              className="rounded-full text-xs bg-teal-200 p-1 px-3"
                             >
                               {tag}
                             </div>

@@ -3,10 +3,18 @@ import { db } from "@/db";
 import { documentFolders } from "@/db/schema";
 import { DocumentsOverview } from "@/components/documents/documents-overview-page";
 import { and, eq, or } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export default async function Page() {
   const user = await getUser();
   if (!user) return null;
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+
+  if (!organization) return null;
 
   const foldersRaw = await db
     .select({
@@ -28,6 +36,7 @@ export default async function Page() {
         ),
         eq(documentFolders.root, true),
         eq(documentFolders.status, "active"),
+        eq(documentFolders.organizationId, organization.id),
       ),
     );
 
