@@ -13,7 +13,7 @@ export function useOrganizationLogo(organizationId?: string) {
   const org = orgs?.find((o) => o.id === targetOrgId);
 
   return {
-    logoUrl: (org as any)?.logo || null,
+    logoUrl: (org as { logo?: string | null })?.logo || null,
     isLoading: !orgs,
     error: null,
   };

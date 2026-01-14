@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
+import FleetDashboardWidget from "@/components/fleet/fleet-dashboard-widget";
 
 export default function FinanceDashboard() {
   return (
@@ -119,6 +120,8 @@ export default function FinanceDashboard() {
             <p className="text-xs text-muted-foreground">Coming soon</p>
           </CardContent>
         </Card>
+
+        <FleetDashboardWidget />
       </div>
     </div>
   );

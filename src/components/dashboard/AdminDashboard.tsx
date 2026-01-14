@@ -14,6 +14,7 @@ import ActivityChart from "@/components/dashboard-components/activity-chart";
 import RecentDocuments from "@/components/dashboard-components/recent-documents";
 import RecentNotifications from "@/components/dashboard-components/recent-notifications";
 import BudgetBreakdownChart from "@/components/dashboard-components/budget-breakdown-chart";
+import FleetDashboardWidget from "@/components/fleet/fleet-dashboard-widget";
 import {
   Users,
   FileText,
@@ -330,6 +331,11 @@ export default function AdminDashboard({
             <BudgetBreakdownChart />
           </CardContent>
         </Card>
+      </div>
+
+      {/* Fleet Overview */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <FleetDashboardWidget />
       </div>
     </div>
   );

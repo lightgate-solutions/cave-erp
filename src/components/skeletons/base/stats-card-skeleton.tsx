@@ -15,7 +15,6 @@ export function StatsCardSkeleton({
   return (
     <div className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-4", className)}>
       {Array.from({ length: count }).map((_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
         <Card key={`stats-card-${i}`} className="shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">

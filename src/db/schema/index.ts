@@ -8,6 +8,7 @@ export * from "./notification-preferences";
 export * from "./payments";
 export * from "./tasks";
 export * from "./finance";
+export * from "./fleet";
 export * from "./payroll";
 export * from "./user-preferences";
 export * from "./ask-hr";

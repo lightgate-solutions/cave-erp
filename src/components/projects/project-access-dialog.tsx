@@ -93,7 +93,7 @@ export function ProjectAccessDialog({
 
       setEmployees(employeesData.employees ?? []);
       setSupervisors(supervisorsData.supervisors ?? []);
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to load team data");
     } finally {
       setLoading(false);
@@ -125,7 +125,7 @@ export function ProjectAccessDialog({
       } else {
         toast.error(result.error || "Failed to add team member");
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to add team member");
     } finally {
       setAdding(false);
@@ -149,7 +149,7 @@ export function ProjectAccessDialog({
       } else {
         toast.error(result.error || "Failed to update permission");
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to update permission");
     }
   }
@@ -164,7 +164,7 @@ export function ProjectAccessDialog({
       } else {
         toast.error(result.error || "Failed to remove team member");
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to remove team member");
     }
   }
@@ -187,7 +187,7 @@ export function ProjectAccessDialog({
         // Revert on error
         setSupervisorId(currentSupervisorId || "");
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to update supervisor");
       setSupervisorId(currentSupervisorId || "");
     } finally {

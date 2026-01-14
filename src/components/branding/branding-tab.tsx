@@ -23,7 +23,8 @@ export function BrandingTab() {
 
   // Find full organization data
   const org = orgs?.find((o) => o.id === activeOrg.id);
-  const isOwner = org && (org as any).ownerId === session.user.id;
+  const isOwner =
+    org && (org as { ownerId?: string }).ownerId === session.user.id;
 
   function handleUploadComplete() {
     router.refresh();
@@ -52,7 +53,7 @@ export function BrandingTab() {
               </p>
               <LogoUpload
                 organizationId={activeOrg.id}
-                currentLogoUrl={(org as any)?.logo}
+                currentLogoUrl={(org as { logo?: string | null })?.logo}
                 onUploadComplete={handleUploadComplete}
               />
             </div>

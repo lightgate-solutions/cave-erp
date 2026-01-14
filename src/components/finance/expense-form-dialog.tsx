@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -31,6 +33,9 @@ type Props = {
     amount: string;
     category: string | null;
     expenseDate: string;
+    isFleetExpense?: boolean;
+    vehicleId?: number | null;
+    fleetExpenseCategory?: string | null;
   } | null;
   onCompleted?: () => void;
 };
@@ -49,6 +54,18 @@ const expenseCategories = [
   "Other",
 ];
 
+const fleetExpenseCategories = [
+  "Fuel",
+  "Maintenance",
+  "Insurance",
+  "Registration",
+  "Repairs",
+  "Tires",
+  "Parts",
+  "Inspection",
+  "Other",
+];
+
 export function ExpenseFormDialog({ trigger, initial, onCompleted }: Props) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -62,6 +79,28 @@ export function ExpenseFormDialog({ trigger, initial, onCompleted }: Props) {
   );
   const [saving, setSaving] = useState(false);
 
+  // Fleet expense fields
+  const [isFleetExpense, setIsFleetExpense] = useState(
+    initial?.isFleetExpense ?? false,
+  );
+  const [vehicleId, setVehicleId] = useState<string>(
+    initial?.vehicleId?.toString() ?? "",
+  );
+  const [fleetExpenseCategory, setFleetExpenseCategory] = useState(
+    initial?.fleetExpenseCategory ?? "",
+  );
+
+  // Fetch vehicles for fleet expense selector
+  const { data: vehiclesData } = useQuery({
+    queryKey: ["vehicles-for-expenses"],
+    queryFn: async () => {
+      const response = await fetch("/api/fleet/vehicles?limit=1000");
+      if (!response.ok) return { vehicles: [] };
+      return response.json();
+    },
+    enabled: isFleetExpense,
+  });
+
   useEffect(() => {
     if (!open) return;
     setTitle(initial?.title ?? "");
@@ -73,6 +112,9 @@ export function ExpenseFormDialog({ trigger, initial, onCompleted }: Props) {
         ? new Date(initial.expenseDate).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0],
     );
+    setIsFleetExpense(initial?.isFleetExpense ?? false);
+    setVehicleId(initial?.vehicleId?.toString() ?? "");
+    setFleetExpenseCategory(initial?.fleetExpenseCategory ?? "");
   }, [initial, open]);
 
   async function onSubmit() {
@@ -93,6 +135,10 @@ export function ExpenseFormDialog({ trigger, initial, onCompleted }: Props) {
         amount: Number(amount),
         category: category || null,
         expenseDate: expenseDate ? new Date(expenseDate).toISOString() : null,
+        isFleetExpense,
+        vehicleId: isFleetExpense && vehicleId ? Number(vehicleId) : null,
+        fleetExpenseCategory:
+          isFleetExpense && fleetExpenseCategory ? fleetExpenseCategory : null,
       };
 
       if (initial?.id) {
@@ -161,35 +207,121 @@ export function ExpenseFormDialog({ trigger, initial, onCompleted }: Props) {
               placeholder="0.00"
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="category">Category</Label>
-            <Select
-              value={category || undefined}
-              onValueChange={(v) => setCategory(v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a category (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {expenseCategories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {category && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setCategory("")}
-                className="h-6 w-fit text-xs"
-              >
-                Clear category
-              </Button>
-            )}
+          <div className="flex items-center space-x-2 py-2">
+            <Checkbox
+              id="isFleetExpense"
+              checked={isFleetExpense}
+              onCheckedChange={(checked) => {
+                setIsFleetExpense(checked as boolean);
+                if (!checked) {
+                  setVehicleId("");
+                  setFleetExpenseCategory("");
+                }
+              }}
+            />
+            <Label htmlFor="isFleetExpense" className="cursor-pointer">
+              Fleet Related Expense
+            </Label>
           </div>
+
+          {!isFleetExpense && (
+            <div className="grid gap-2">
+              <Label htmlFor="category">Category</Label>
+              <Select
+                value={category || undefined}
+                onValueChange={(v) => setCategory(v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {expenseCategories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {category && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCategory("")}
+                  className="h-6 w-fit text-xs"
+                >
+                  Clear category
+                </Button>
+              )}
+            </div>
+          )}
+
+          {isFleetExpense && (
+            <>
+              <div className="grid gap-2">
+                <Label htmlFor="fleetExpenseCategory">
+                  Fleet Expense Category
+                </Label>
+                <Select
+                  value={fleetExpenseCategory || undefined}
+                  onValueChange={(v) => setFleetExpenseCategory(v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select fleet expense category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fleetExpenseCategories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="vehicleId">Vehicle (Optional)</Label>
+                <Select
+                  value={vehicleId || undefined}
+                  onValueChange={(v) => setVehicleId(v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a vehicle (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vehiclesData?.vehicles?.map(
+                      (vehicle: {
+                        id: number;
+                        year: number;
+                        make: string;
+                        model: string;
+                        licensePlate: string;
+                      }) => (
+                        <SelectItem
+                          key={vehicle.id}
+                          value={vehicle.id.toString()}
+                        >
+                          {vehicle.year} {vehicle.make} {vehicle.model} (
+                          {vehicle.licensePlate})
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+                {vehicleId && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVehicleId("")}
+                    className="h-6 w-fit text-xs"
+                  >
+                    Clear vehicle
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="expenseDate">Expense Date *</Label>
             <Input

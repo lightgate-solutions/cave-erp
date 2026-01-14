@@ -6,8 +6,11 @@ import {
   text,
   timestamp,
   numeric,
+  boolean,
+  integer,
 } from "drizzle-orm/pg-core";
 import { organization, user } from "./auth";
+import { vehicles, fleetExpenseCategoryEnum } from "./fleet";
 
 export const companyBalance = pgTable("company_balance", {
   id: serial("id").primaryKey(),
@@ -36,8 +39,19 @@ export const companyExpenses = pgTable(
     expenseDate: timestamp("expense_date").notNull().defaultNow(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
+
+    // Fleet-specific fields
+    isFleetExpense: boolean("is_fleet_expense").default(false).notNull(),
+    vehicleId: integer("vehicle_id").references(() => vehicles.id, {
+      onDelete: "set null",
+    }),
+    fleetExpenseCategory: fleetExpenseCategoryEnum("fleet_expense_category"),
   },
-  (table) => [index("company_expenses_date_idx").on(table.expenseDate)],
+  (table) => [
+    index("company_expenses_date_idx").on(table.expenseDate),
+    index("company_expenses_vehicle_idx").on(table.vehicleId),
+    index("company_expenses_fleet_idx").on(table.isFleetExpense),
+  ],
 );
 
 export const companyExpensesRelations = relations(companyExpenses, () => ({}));

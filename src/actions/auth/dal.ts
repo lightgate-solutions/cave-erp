@@ -180,3 +180,20 @@ export const requireModuleAccess = cache(async (module: Module) => {
 
   return authData;
 });
+
+// Helper to require fleet access (HR, Finance, or Admin only)
+export const requireFleetAccess = cache(async () => {
+  const authData = await requireAuth();
+
+  if (
+    authData.role !== "admin" &&
+    authData.employee.department !== DEPARTMENTS.HR &&
+    authData.employee.department !== DEPARTMENTS.FINANCE
+  ) {
+    throw new Error(
+      "Forbidden: Fleet access required (HR, Finance, or Admin only)",
+    );
+  }
+
+  return authData;
+});

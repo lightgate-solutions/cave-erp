@@ -22,6 +22,7 @@ import {
   CreditCard,
   Calendar,
   Briefcase,
+  Car,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -151,6 +152,34 @@ const data = {
         {
           title: "Offers",
           url: "/recruitment/offers",
+        },
+      ],
+    },
+    {
+      title: "Fleet",
+      url: "/fleet/dashboard",
+      icon: Car,
+      module: MODULES.FLEET,
+      items: [
+        {
+          title: "Dashboard",
+          url: "/fleet/dashboard",
+        },
+        {
+          title: "Vehicles",
+          url: "/fleet/vehicles",
+        },
+        {
+          title: "Drivers",
+          url: "/fleet/drivers",
+        },
+        {
+          title: "Maintenance",
+          url: "/fleet/maintenance",
+        },
+        {
+          title: "Incidents",
+          url: "/fleet/incidents",
         },
       ],
     },
@@ -356,6 +385,7 @@ export function AppSidebar({
           "Loan Management",
           "Leave Management",
           "Recruitment",
+          "Fleet",
         ].includes(item.title)
       ) {
         groups.management.push(item);

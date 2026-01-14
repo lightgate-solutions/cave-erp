@@ -431,7 +431,7 @@ export async function getAllCandidates(filters?: {
           ilike(candidates.name, `%${filters.search}%`),
           ilike(candidates.email, `%${filters.search}%`),
           ilike(candidates.candidateCode, `%${filters.search}%`),
-        )!,
+        ),
       );
     }
 

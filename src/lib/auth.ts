@@ -152,7 +152,7 @@ export const auth = betterAuth({
           role: ctx.body?.role,
         };
 
-        if (user != null && user.email) {
+        if (user?.email) {
           try {
             await sendWelcomeEmail(user);
           } catch (error) {

@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       if (visibilityFilter) {
         where = and(where, visibilityFilter);
       }
-    } catch (error) {
+    } catch (_error) {
       // If not authenticated or error, return zero stats
       return NextResponse.json(
         { total: 0, actual: 0, expenses: 0 },

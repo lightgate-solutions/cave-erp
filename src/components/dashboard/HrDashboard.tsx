@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
+import FleetDashboardWidget from "@/components/fleet/fleet-dashboard-widget";
 
 export default function HrDashboard() {
   return (
@@ -136,6 +137,8 @@ export default function HrDashboard() {
             </Link>
           </CardContent>
         </Card>
+
+        <FleetDashboardWidget />
       </div>
     </div>
   );

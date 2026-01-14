@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
+import Image from "next/image";
 import { uploadFileToR2 } from "@/lib/utils/upload";
 import {
   uploadOrganizationLogo,
@@ -96,9 +97,11 @@ export function LogoUpload({
       <div className="flex items-center gap-4">
         {preview && (
           <div className="relative">
-            <img
+            <Image
               src={preview}
               alt="Organization logo preview"
+              width={64}
+              height={64}
               className="h-16 w-16 object-contain border rounded"
             />
             <Button

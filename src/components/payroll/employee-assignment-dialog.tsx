@@ -99,14 +99,23 @@ export function EmployeeAssignmentDialog({
     setLoading(true);
     try {
       const employeesList = await getEmployeesNotInStructure(structureId);
-      const mappedEmployees = employeesList.map((emp: any) => ({
-        id: emp.authId,
-        name: emp.name,
-        staffNumber: emp.staffNumber,
-        department: emp.department,
-        currentStructureId: emp.currentStructureId,
-        currentStructureName: emp.currentStructureName,
-      }));
+      const mappedEmployees = employeesList.map(
+        (emp: {
+          authId: string;
+          name: string;
+          staffNumber: string | null;
+          department: string | null;
+          currentStructureId: number | null;
+          currentStructureName: string | null;
+        }) => ({
+          id: emp.authId,
+          name: emp.name,
+          staffNumber: emp.staffNumber,
+          department: emp.department,
+          currentStructureId: emp.currentStructureId,
+          currentStructureName: emp.currentStructureName,
+        }),
+      );
       setEmployees(mappedEmployees);
 
       if (employeesList.length === 0) {

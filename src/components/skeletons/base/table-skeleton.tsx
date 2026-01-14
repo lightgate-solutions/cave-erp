@@ -31,7 +31,6 @@ export function TableSkeleton({
       <TableHeader>
         <TableRow>
           {Array.from({ length: columns }).map((_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: skeleton components have static order
             <TableHead key={`table-head-${i}`}>
               <Skeleton className="h-5 w-24" />
             </TableHead>
@@ -47,7 +46,6 @@ export function TableSkeleton({
         {skeletonRows.map((index) => (
           <TableRow key={index}>
             {Array.from({ length: columns }).map((_, colIndex) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: skeleton component with static order
               <TableCell key={colIndex}>
                 {colIndex === 0 && showAvatar ? (
                   <div className="flex items-center gap-3">
