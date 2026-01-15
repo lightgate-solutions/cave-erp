@@ -283,8 +283,8 @@ export default function LoanDetailsDialog({ loan }: LoanDetailsDialogProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {loan.repayments.slice(0, 6).map((repayment) => (
-                      <TableRow key={repayment.id}>
+                    {loan.repayments.slice(0, 6).map((repayment, index) => (
+                      <TableRow key={`${repayment.id}-${index}`}>
                         <TableCell>{repayment.installmentNumber}</TableCell>
                         <TableCell>{formatDate(repayment.dueDate)}</TableCell>
                         <TableCell>
@@ -368,9 +368,9 @@ export default function LoanDetailsDialog({ loan }: LoanDetailsDialogProps) {
             <div>
               <h4 className="font-medium mb-3">History</h4>
               <div className="space-y-3">
-                {loan.history.map((entry) => (
+                {loan.history.map((entry, index) => (
                   <div
-                    key={entry.id}
+                    key={`${entry.id}-${index}`}
                     className="flex items-start gap-3 text-sm"
                   >
                     <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />

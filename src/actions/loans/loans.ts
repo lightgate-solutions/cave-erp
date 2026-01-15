@@ -201,17 +201,21 @@ export async function createLoanType(data: {
       return { success: null, error: { reason: "Organization not found" } };
     }
 
+    // Helper to convert empty strings to undefined for numeric fields
+    const toNumericOrNull = (val?: string) =>
+      val && val.trim() !== "" ? val : undefined;
+
     const [newLoanType] = await db
       .insert(loanTypes)
       .values({
         name: data.name,
-        description: data.description,
+        description: toNumericOrNull(data.description),
         amountType: data.amountType,
         organizationId: organization.id,
-        fixedAmount: data.fixedAmount,
-        maxPercentage: data.maxPercentage,
+        fixedAmount: toNumericOrNull(data.fixedAmount),
+        maxPercentage: toNumericOrNull(data.maxPercentage),
         tenureMonths: data.tenureMonths,
-        interestRate: data.interestRate || "0",
+        interestRate: toNumericOrNull(data.interestRate) || "0",
         minServiceMonths: data.minServiceMonths || 0,
         maxActiveLoans: data.maxActiveLoans || 1,
         createdByUserId: currentUser.authId,
@@ -284,10 +288,35 @@ export async function updateLoanType(
       return { success: null, error: { reason: "Organization not found" } };
     }
 
+    // Helper to convert empty strings to undefined for numeric fields
+    const toNumericOrNull = (val?: string) =>
+      val && val.trim() !== "" ? val : undefined;
+
+    // Sanitize string fields that should be numeric or null
+    const sanitizedData = {
+      ...data,
+      description:
+        data.description !== undefined
+          ? toNumericOrNull(data.description)
+          : undefined,
+      fixedAmount:
+        data.fixedAmount !== undefined
+          ? toNumericOrNull(data.fixedAmount)
+          : undefined,
+      maxPercentage:
+        data.maxPercentage !== undefined
+          ? toNumericOrNull(data.maxPercentage)
+          : undefined,
+      interestRate:
+        data.interestRate !== undefined
+          ? toNumericOrNull(data.interestRate)
+          : undefined,
+    };
+
     await db
       .update(loanTypes)
       .set({
-        ...data,
+        ...sanitizedData,
         updatedByUserId: currentUser.authId,
         updatedAt: new Date(),
       })
@@ -704,7 +733,13 @@ export async function getAllLoanApplications(filters?: {
   const totalResult = await db
     .select({ count: count() })
     .from(loanApplications)
-    .leftJoin(employees, eq(loanApplications.userId, employees.authId))
+    .leftJoin(
+      employees,
+      and(
+        eq(loanApplications.userId, employees.authId),
+        eq(employees.organizationId, organization.id),
+      ),
+    )
     .where(whereClause);
 
   const total = totalResult[0]?.count || 0;
@@ -738,13 +773,28 @@ export async function getAllLoanApplications(filters?: {
       createdAt: loanApplications.createdAt,
     })
     .from(loanApplications)
-    .leftJoin(employees, eq(loanApplications.userId, employees.authId))
+    .leftJoin(
+      employees,
+      and(
+        eq(loanApplications.userId, employees.authId),
+        eq(employees.organizationId, organization.id),
+      ),
+    )
     .leftJoin(loanTypes, eq(loanApplications.loanTypeId, loanTypes.id))
     .leftJoin(
       hrReviewer,
-      eq(loanApplications.hrReviewedByUserId, hrReviewer.id),
+      and(
+        eq(loanApplications.hrReviewedByUserId, hrReviewer.authId),
+        eq(hrReviewer.organizationId, organization.id),
+      ),
     )
-    .leftJoin(disburser, eq(loanApplications.disbursedByUserId, disburser.id))
+    .leftJoin(
+      disburser,
+      and(
+        eq(loanApplications.disbursedByUserId, disburser.authId),
+        eq(disburser.organizationId, organization.id),
+      ),
+    )
     .where(whereClause)
     .orderBy(desc(loanApplications.createdAt))
     .limit(limit)
@@ -802,13 +852,28 @@ export async function getLoanApplicationById(applicationId: number) {
       createdAt: loanApplications.createdAt,
     })
     .from(loanApplications)
-    .leftJoin(employees, eq(loanApplications.userId, employees.authId))
+    .leftJoin(
+      employees,
+      and(
+        eq(loanApplications.userId, employees.authId),
+        eq(employees.organizationId, organization.id),
+      ),
+    )
     .leftJoin(loanTypes, eq(loanApplications.loanTypeId, loanTypes.id))
     .leftJoin(
       hrReviewer,
-      eq(loanApplications.hrReviewedByUserId, hrReviewer.id),
+      and(
+        eq(loanApplications.hrReviewedByUserId, hrReviewer.authId),
+        eq(hrReviewer.organizationId, organization.id),
+      ),
     )
-    .leftJoin(disburser, eq(loanApplications.disbursedByUserId, disburser.id))
+    .leftJoin(
+      disburser,
+      and(
+        eq(loanApplications.disbursedByUserId, disburser.authId),
+        eq(disburser.organizationId, organization.id),
+      ),
+    )
     .where(
       and(
         eq(loanApplications.id, applicationId),
@@ -823,7 +888,12 @@ export async function getLoanApplicationById(applicationId: number) {
   const [bankDetails] = await db
     .select()
     .from(employeesBank)
-    .where(eq(employeesBank.userId, application.userId))
+    .where(
+      and(
+        eq(employeesBank.userId, application.userId),
+        eq(employeesBank.organizationId, organization.id),
+      ),
+    )
     .limit(1);
 
   // Get employee salary info
@@ -841,6 +911,7 @@ export async function getLoanApplicationById(applicationId: number) {
     .where(
       and(
         eq(employeeSalary.userId, application.userId),
+        eq(employeeSalary.organizationId, organization.id),
         isNull(employeeSalary.effectiveTo),
       ),
     )
@@ -857,15 +928,31 @@ export async function getLoanApplicationById(applicationId: number) {
       createdAt: loanHistory.createdAt,
     })
     .from(loanHistory)
-    .leftJoin(employees, eq(loanHistory.performedByUserId, employees.authId))
-    .where(eq(loanHistory.loanApplicationId, applicationId))
+    .leftJoin(
+      employees,
+      and(
+        eq(loanHistory.performedByUserId, employees.authId),
+        eq(employees.organizationId, organization.id),
+      ),
+    )
+    .where(
+      and(
+        eq(loanHistory.loanApplicationId, applicationId),
+        eq(loanHistory.organizationId, organization.id),
+      ),
+    )
     .orderBy(desc(loanHistory.createdAt));
 
   // Get repayment schedule
   const repayments = await db
     .select()
     .from(loanRepayments)
-    .where(eq(loanRepayments.loanApplicationId, applicationId))
+    .where(
+      and(
+        eq(loanRepayments.loanApplicationId, applicationId),
+        eq(loanRepayments.organizationId, organization.id),
+      ),
+    )
     .orderBy(asc(loanRepayments.installmentNumber));
 
   return {
