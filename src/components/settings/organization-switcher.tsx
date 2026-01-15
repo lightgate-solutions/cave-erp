@@ -127,10 +127,22 @@ function Switcher({
       return;
     }
 
-    const slug = data.name
+    // Generate a unique slug by prefixing with owner's user ID and random suffix
+    // This is needed because better-auth enforces globally unique slugs
+    const baseSlug = data.name
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-");
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
+
+    // Sanitize prefix
+    const ownerPrefix = userData?.user?.id
+      ? userData.user.id.replace(/[^a-z0-9]/g, "").substring(0, 8)
+      : "org";
+
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    const slug = `${ownerPrefix}-${baseSlug}-${randomSuffix}`;
+
     const res = await authClient.organization.create({
       name: data.name,
       slug,
@@ -138,7 +150,18 @@ function Switcher({
     });
 
     if (res.error) {
-      toast.error(res.error.message || "Failed to create organization");
+      // Customize duplicate organization error message
+      // Check for 409 Conflict or "exist"/"taken" in message
+      const isDuplicate =
+        res.error.status === 409 ||
+        res.error.message?.toLowerCase().includes("exist") ||
+        res.error.message?.toLowerCase().includes("taken");
+
+      const errorMessage = isDuplicate
+        ? "Organization name already exists"
+        : res.error.message || "Failed to create organization";
+
+      toast.error(errorMessage);
     } else {
       form.reset();
 
@@ -172,10 +195,9 @@ function Switcher({
           toast.error(error.error.message || "Failed to switch organization");
         },
         onSuccess: () => {
-          router.refresh();
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new Event("organization:changed"));
-          }
+          // Force full page reload to ensure all data/state is cleared and re-fetched for the new organization
+          // This prevents stale data from the previous organization from being displayed
+          window.location.reload();
         },
       },
     );
@@ -212,7 +234,6 @@ function Switcher({
             key={index}
             onClick={() => {
               setActiveOrganization(org.id);
-              router.refresh;
             }}
             className="gap-2 p-2"
           >

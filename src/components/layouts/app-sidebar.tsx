@@ -12,6 +12,7 @@ import {
   TvMinimal,
   Users,
   Warehouse,
+  Settings,
   Bell,
   DollarSign,
   Newspaper,
@@ -301,6 +302,14 @@ export function AppSidebar({
     if (canAccessModule(userContext, MODULES.NEWS_VIEW)) {
       allItems.push(newsItem);
     }
+
+    // Settings - available to all
+    allItems.push({
+      title: "Settings",
+      url: "/settings",
+      icon: Settings,
+      isActive: false,
+    });
 
     // Data Export - admin only
     if (isAdmin) {
