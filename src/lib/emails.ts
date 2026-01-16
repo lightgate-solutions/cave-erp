@@ -9,12 +9,14 @@ export async function sendEmail({
   html,
   text,
   replyTo,
+  attachments,
 }: {
   to: string;
   subject: string;
   html: string;
   text: string;
   replyTo?: string;
+  attachments?: { filename: string; content: Buffer | string }[];
 }) {
   const { data, error } = await resend.emails.send({
     from: `Cave ERP <${passwordSendEmail}>`,
@@ -23,6 +25,7 @@ export async function sendEmail({
     replyTo: replyTo ? replyTo : "contact@lightgatesolutions.com",
     html: html,
     text: text,
+    attachments: attachments,
   });
 
   if (error) {
@@ -437,6 +440,8 @@ export async function sendWelcomeEmail(user: { name: string; email: string }) {
 export async function sendInvoiceEmail({
   to,
   invoiceDetails,
+  pdfBuffer,
+  organizationName,
 }: {
   to: string;
   invoiceDetails: {
@@ -445,36 +450,41 @@ export async function sendInvoiceEmail({
     dueDate: string;
     items: Array<{ description: string; amount: string }>;
     paymentLink?: string;
+    currencySymbol?: string;
   };
+  pdfBuffer?: Buffer;
+  organizationName?: string;
 }) {
-  const currencyFormatter = new Intl.NumberFormat("en-NG", {
+  const currencySymbol = invoiceDetails.currencySymbol || "₦";
+  const _currencyFormatter = new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "NGN",
+    currency: "USD", // Fallback, we'll manually prepend symbol
   });
+
+  // Custom format since Intl requires valid currency code
+  const format = (val: number | string) =>
+    `${currencySymbol}${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const itemsHtml = invoiceDetails.items
     .map(
       (item) => `
     <tr style="border-bottom: 1px solid #eee;">
       <td style="padding: 12px 0; color: #333;">${item.description}</td>
-      <td style="padding: 12px 0; text-align: right; color: #333; font-weight: 500;">${currencyFormatter.format(
-        parseFloat(item.amount),
-      )}</td>
+      <td style="padding: 12px 0; text-align: right; color: #333; font-weight: 500;">${format(item.amount)}</td>
     </tr>
   `,
     )
     .join("");
 
   const itemsText = invoiceDetails.items
-    .map(
-      (item) =>
-        `${item.description}: ${currencyFormatter.format(parseFloat(item.amount))}`,
-    )
+    .map((item) => `${item.description}: ${format(item.amount)}`)
     .join("\n");
 
   const payButtonUrl =
     invoiceDetails.paymentLink ||
     `${process.env.NEXT_PUBLIC_APP_URL}/settings/billing`;
+
+  const orgName = organizationName || "The Cave Team";
 
   await sendEmail({
     to,
@@ -490,7 +500,7 @@ export async function sendInvoiceEmail({
         
         <div style="padding: 24px; border: 1px solid #eee; border-top: none; background-color: white;">
           <p>Hello,</p>
-          <p>A new invoice has been generated for your account. Here are the details:</p>
+          <p>A new invoice has been generated for your account. Please find the attached PDF invoice.</p>
           
           <div style="margin: 24px 0;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
@@ -499,9 +509,7 @@ export async function sendInvoiceEmail({
             </div>
             <div style="display: flex; justify-content: space-between;">
               <span style="color: #666;">Total Amount:</span>
-              <span style="font-weight: bold; color: #007bff; font-size: 18px;">${currencyFormatter.format(
-                invoiceDetails.amount,
-              )}</span>
+              <span style="font-weight: bold; color: #007bff; font-size: 18px;">${format(invoiceDetails.amount)}</span>
             </div>
           </div>
 
@@ -520,17 +528,23 @@ export async function sendInvoiceEmail({
         
         <div style="padding: 16px; text-align: center; color: #999; font-size: 12px;">
           <p>Thank you for your business!</p>
-          <p>The Cave Team</p>
+          <p>${orgName}</p>
         </div>
       </div>
     `,
     text: `Hello,\n\nA new invoice has been generated for your account.\n\nInvoice #${
       invoiceDetails.invoiceId
-    }\nDue Date: ${invoiceDetails.dueDate}\nTotal Amount: ${currencyFormatter.format(
-      invoiceDetails.amount,
-    )}\n\nItems:\n${itemsText}\n\nPay Now: ${payButtonUrl}\nView Invoice Details: ${
+    }\nDue Date: ${invoiceDetails.dueDate}\nTotal Amount: ${format(invoiceDetails.amount)}\n\nItems:\n${itemsText}\n\nPay Now: ${payButtonUrl}\nView Invoice Details: ${
       process.env.NEXT_PUBLIC_APP_URL
-    }/settings/billing\n\nThank you for your business!\nThe Cave Team`,
+    }/settings/billing\n\nThank you for your business!\n${orgName}`,
+    attachments: pdfBuffer
+      ? [
+          {
+            filename: `Invoice_${invoiceDetails.invoiceId}.pdf`,
+            content: pdfBuffer,
+          },
+        ]
+      : undefined,
   });
 }
 

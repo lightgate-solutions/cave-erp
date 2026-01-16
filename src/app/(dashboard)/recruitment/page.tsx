@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { requireHROrAdmin } from "@/actions/auth/dal";
 import { redirect } from "next/navigation";
 

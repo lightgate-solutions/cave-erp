@@ -95,7 +95,12 @@ export default function AskHrTable() {
     if (page > 1) params.set("page", String(page));
     if (activeTab !== "mine") params.set("tab", activeTab);
 
-    router.replace(`/hr/ask-hr?${params.toString()}`);
+    const newUrl = `/hr/ask-hr?${params.toString()}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+
+    if (newUrl !== currentUrl) {
+      router.replace(newUrl);
+    }
   }, [category, status, debouncedSearch, page, activeTab, router]);
 
   // Build query parameters based on filters and user role

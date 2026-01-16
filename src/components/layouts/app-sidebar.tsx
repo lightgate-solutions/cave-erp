@@ -23,6 +23,7 @@ import {
   Calendar,
   Briefcase,
   Car,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -156,6 +157,42 @@ const data = {
       ],
     },
     {
+      title: "Receivables",
+      url: "/invoicing",
+      icon: Receipt,
+      module: MODULES.INVOICING,
+      items: [
+        {
+          title: "Dashboard",
+          url: "/invoicing",
+        },
+        {
+          title: "Invoices",
+          url: "/invoicing/invoices",
+        },
+        {
+          title: "Clients",
+          url: "/invoicing/clients",
+        },
+        {
+          title: "Payments",
+          url: "/invoicing/payments",
+        },
+        {
+          title: "Analytics",
+          url: "/invoicing/analytics",
+        },
+        {
+          title: "Templates",
+          url: "/invoicing/templates",
+        },
+        {
+          title: "Settings",
+          url: "/invoicing/settings",
+        },
+      ],
+    },
+    {
       title: "Fleet",
       url: "/fleet/dashboard",
       icon: Car,
@@ -270,6 +307,7 @@ export function AppSidebar({
         overview: [],
         modules: [],
         management: [],
+        accounting: [],
         system: [],
       };
     }
@@ -364,6 +402,7 @@ export function AppSidebar({
       overview: [] as typeof allItems,
       modules: [] as typeof allItems,
       management: [] as typeof allItems,
+      accounting: [] as typeof allItems,
       system: [] as typeof allItems,
     };
 
@@ -378,7 +417,6 @@ export function AppSidebar({
         groups.modules.push(item);
       } else if (
         [
-          "Finance",
           "Hr",
           "Payroll",
           "Ask HR",
@@ -389,6 +427,8 @@ export function AppSidebar({
         ].includes(item.title)
       ) {
         groups.management.push(item);
+      } else if (["Receivables", "Finance"].includes(item.title)) {
+        groups.accounting.push(item);
       } else {
         groups.system.push(item);
       }
@@ -403,9 +443,10 @@ export function AppSidebar({
         <OrganizationSwitcher size="md" />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={groupedItems.overview} />
+        <NavMain items={groupedItems.overview} label="General" />
         <NavMain items={groupedItems.modules} label="Modules" />
-        <NavMain items={groupedItems.management} label="Management" />
+        <NavMain items={groupedItems.accounting} label="Accounting" />
+        <NavMain items={groupedItems.management} label="Corporate Services" />
         <NavMain
           items={groupedItems.system}
           label="System"

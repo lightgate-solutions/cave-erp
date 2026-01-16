@@ -426,13 +426,14 @@ export async function getAllCandidates(filters?: {
     }
 
     if (filters?.search) {
-      conditions.push(
-        or(
-          ilike(candidates.name, `%${filters.search}%`),
-          ilike(candidates.email, `%${filters.search}%`),
-          ilike(candidates.candidateCode, `%${filters.search}%`),
-        ),
+      const searchCondition = or(
+        ilike(candidates.name, `%${filters.search}%`),
+        ilike(candidates.email, `%${filters.search}%`),
+        ilike(candidates.candidateCode, `%${filters.search}%`),
       );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
     }
 
     const allCandidates = await db

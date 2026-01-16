@@ -71,7 +71,7 @@ export const subscriptions = pgTable(
 );
 
 export const invoices = pgTable(
-  "invoices",
+  "subscriptions_invoices",
   {
     id: text("id").primaryKey(),
     subscriptionId: text("subscription_id")

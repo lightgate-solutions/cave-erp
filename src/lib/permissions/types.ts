@@ -21,6 +21,7 @@ export const MODULES = {
   LOAN_MANAGEMENT: "loan-management",
   LEAVE_MANAGEMENT: "leave-management",
   RECRUITMENT: "recruitment",
+  INVOICING: "invoicing",
   FINANCE: "finance",
   FLEET: "fleet",
   PAYROLL: "payroll",
