@@ -50,7 +50,7 @@ const loanTypeSchema = z.object({
   interestRate: z.string().optional(),
   minServiceMonths: z.string().optional(),
   maxActiveLoans: z.string().optional(),
-  salaryStructureIds: z.array(z.number()).default([]),
+  salaryStructureIds: z.array(z.number()),
   isActive: z.boolean().optional(),
 });
 
