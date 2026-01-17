@@ -50,9 +50,7 @@ const loanTypeSchema = z.object({
   interestRate: z.string().optional(),
   minServiceMonths: z.string().optional(),
   maxActiveLoans: z.string().optional(),
-  salaryStructureIds: z
-    .array(z.number())
-    .min(1, "Select at least one salary structure"),
+  salaryStructureIds: z.array(z.number()),
   isActive: z.boolean().optional(),
 });
 
@@ -309,10 +307,15 @@ export default function LoanTypeForm({
           name="salaryStructureIds"
           render={() => (
             <FormItem>
-              <FormLabel>Eligible Salary Structures *</FormLabel>
+              <FormLabel>Eligible Salary Structures</FormLabel>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 {loadingStructures ? (
                   <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : !structures || structures.length === 0 ? (
+                  <p className="text-sm text-muted-foreground col-span-2">
+                    No salary structures available. You can create this loan
+                    type and assign structures later.
+                  </p>
                 ) : (
                   structures?.map((structure) => (
                     <FormField

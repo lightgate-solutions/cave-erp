@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/correctness/useExhaustiveDependencies: <> */
+/** biome-ignore-all lint/suspicious/noExplicitAny: Employee type is dynamic from server */
 "use client";
 
 import { useEffect, useState } from "react";

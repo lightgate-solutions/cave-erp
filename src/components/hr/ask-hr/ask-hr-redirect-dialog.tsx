@@ -144,10 +144,7 @@ export function AskHrRedirectDialog({
                     </FormControl>
                     <SelectContent>
                       {employees.map((employee) => (
-                        <SelectItem
-                          key={employee.id}
-                          value={employee.id.toString()}
-                        >
+                        <SelectItem key={employee.id} value={employee.authId}>
                           {employee.name} - {employee.department}
                         </SelectItem>
                       ))}
