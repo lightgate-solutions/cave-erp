@@ -59,8 +59,9 @@ export async function GET() {
       OR EXISTS (
         SELECT 1 FROM ${documentAccess}
         WHERE ${documentAccess.documentId} = ${document.id}
+          AND ${documentAccess.organizationId} = ${organization.id}
           AND (
-            ${documentAccess.userId} = ${employee.id}
+            ${documentAccess.userId} = ${employee.authId}
             OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${employee.department ?? ""})
           )
       )

@@ -48,7 +48,13 @@ export async function POST(req: Request) {
   const accessibleDocs = await db
     .selectDistinct({ id: document.id })
     .from(document)
-    .leftJoin(documentAccess, eq(documentAccess.documentId, document.id))
+    .leftJoin(
+      documentAccess,
+      and(
+        eq(documentAccess.documentId, document.id),
+        eq(documentAccess.organizationId, organization.id),
+      ),
+    )
     .where(
       and(
         inArray(document.id, documentIds),
@@ -58,14 +64,14 @@ export async function POST(req: Request) {
           // Public documents
           eq(document.public, true),
           // User uploaded the document
-          eq(document.uploadedBy, user.id),
+          eq(document.uploadedBy, user.authId),
           // Departmental documents in user's department
           and(
             eq(document.departmental, true),
             eq(document.department, user.department),
           ),
           // User has explicit access
-          eq(documentAccess.userId, user.id),
+          eq(documentAccess.userId, user.authId),
           // User's department has access
           and(
             eq(documentAccess.department, user.department),

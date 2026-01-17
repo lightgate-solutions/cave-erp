@@ -205,6 +205,7 @@ export async function sendEmail(
             and(
               inArray(document.id, validated.attachmentIds),
               eq(document.status, "active"),
+              eq(document.organizationId, organization.id),
               or(
                 eq(document.uploadedBy, currentUser.authId),
                 eq(document.public, true),
@@ -372,6 +373,7 @@ export async function replyToEmail(data: z.infer<typeof replyEmailSchema>) {
             and(
               inArray(document.id, validated.attachmentIds),
               eq(document.status, "active"),
+              eq(document.organizationId, organization.id),
               or(
                 eq(document.uploadedBy, currentUser.authId),
                 eq(document.public, true),
@@ -539,6 +541,7 @@ export async function forwardEmail(data: z.infer<typeof forwardEmailSchema>) {
             and(
               inArray(document.id, validated.attachmentIds),
               eq(document.status, "active"),
+              eq(document.organizationId, organization.id),
               or(
                 eq(document.uploadedBy, currentUser.authId),
                 eq(document.public, true),
@@ -1830,7 +1833,10 @@ export async function attachDocumentToEmail(
 
       // Check if document exists and user has access
       const documentRecord = await tx.query.document.findFirst({
-        where: eq(document.id, validated.documentId),
+        where: and(
+          eq(document.id, validated.documentId),
+          eq(document.organizationId, organization.id),
+        ),
       });
 
       if (!documentRecord) {

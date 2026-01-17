@@ -139,14 +139,15 @@ export async function GET() {
         // Build visibility condition for non-admin users
         // Users can see documents they uploaded, public documents, departmental documents, or documents they have access to
         const visibilityCondition = sql`(
-          ${document.uploadedBy} = ${employee.id}
+          ${document.uploadedBy} = ${employee.authId}
           OR ${document.public} = true
           OR (${document.departmental} = true AND ${document.department} = ${employee.department ?? ""})
           OR EXISTS (
             SELECT 1 FROM ${documentAccess}
             WHERE ${documentAccess.documentId} = ${document.id}
+              AND ${documentAccess.organizationId} = ${organization.id}
               AND (
-                ${documentAccess.userId} = ${employee.id}
+                ${documentAccess.userId} = ${employee.authId}
                 OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${employee.department ?? ""})
               )
           )

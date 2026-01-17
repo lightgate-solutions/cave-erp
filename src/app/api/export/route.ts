@@ -23,7 +23,7 @@ import { tasks, taskSubmissions } from "@/db/schema/tasks";
 import { projects } from "@/db/schema/projects";
 import { document, documentLogs } from "@/db/schema/documents";
 import { newsArticles } from "@/db/schema/news";
-import { user, session } from "@/db/schema/auth";
+import { user, session, member } from "@/db/schema/auth";
 import { companyExpenses, balanceTransactions } from "@/db/schema/finance";
 import { askHrQuestions } from "@/db/schema/ask-hr";
 import { eq, and, gte, lte, inArray, desc, sql } from "drizzle-orm";
@@ -68,12 +68,24 @@ type ExportDataset =
 
 export async function GET(request: NextRequest) {
   try {
+    const headersList = await headers();
     const authSession = await auth.api.getSession({
-      headers: await headers(),
+      headers: headersList,
     });
 
     if (!authSession?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const organization = await auth.api.getFullOrganization({
+      headers: headersList,
+    });
+
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 403 },
+      );
     }
 
     const userRole = authSession.user.role?.toLowerCase().trim();
@@ -106,7 +118,7 @@ export async function GET(request: NextRequest) {
       data,
       headers: csvHeaders,
       filename,
-    } = await fetchDataset(dataset, dateFilters);
+    } = await fetchDataset(dataset, dateFilters, organization.id);
 
     if (format === "json") {
       return NextResponse.json({ data, count: data.length });
@@ -138,6 +150,7 @@ export async function GET(request: NextRequest) {
 async function fetchDataset(
   dataset: ExportDataset,
   dateFilters: { start?: Date; end?: Date },
+  organizationId: string,
 ) {
   // Create aliases for joins
   const manager = alias(employees, "manager");
@@ -171,6 +184,7 @@ async function fetchDataset(
         })
         .from(employees)
         .leftJoin(manager, eq(employees.managerId, manager.id))
+        .where(eq(employees.organizationId, organizationId))
         .orderBy(desc(employees.createdAt));
 
       return {
@@ -210,6 +224,7 @@ async function fetchDataset(
           createdAt: salaryStructure.createdAt,
         })
         .from(salaryStructure)
+        .where(eq(salaryStructure.organizationId, organizationId))
         .orderBy(desc(salaryStructure.createdAt));
 
       return {
@@ -244,6 +259,7 @@ async function fetchDataset(
           createdAt: allowances.createdAt,
         })
         .from(allowances)
+        .where(eq(allowances.organizationId, organizationId))
         .orderBy(desc(allowances.createdAt));
 
       return {
@@ -277,6 +293,7 @@ async function fetchDataset(
           createdAt: deductions.createdAt,
         })
         .from(deductions)
+        .where(eq(deductions.organizationId, organizationId))
         .orderBy(desc(deductions.createdAt));
 
       return {
@@ -320,7 +337,7 @@ async function fetchDataset(
         .leftJoin(employees, eq(loanApplications.userId, employees.authId))
         .leftJoin(loanTypes, eq(loanApplications.loanTypeId, loanTypes.id));
 
-      const conditions = [];
+      const conditions = [eq(loanApplications.organizationId, organizationId)];
 
       if (dataset === "loans-active") {
         conditions.push(eq(loanApplications.status, "active"));
@@ -393,6 +410,7 @@ async function fetchDataset(
           createdAt: loanTypes.createdAt,
         })
         .from(loanTypes)
+        .where(eq(loanTypes.organizationId, organizationId))
         .orderBy(desc(loanTypes.createdAt));
 
       return {
@@ -434,7 +452,7 @@ async function fetchDataset(
         .from(loanRepayments)
         .leftJoin(employees, eq(loanRepayments.userId, employees.authId));
 
-      const conditions = [];
+      const conditions = [eq(loanRepayments.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(loanRepayments.dueDate, dateFilters.start));
         conditions.push(lte(loanRepayments.dueDate, dateFilters.end));
@@ -469,6 +487,8 @@ async function fetchDataset(
     }
 
     case "payruns": {
+      const generatedByEmployee = alias(employees, "generatedByEmployee");
+      const approvedByEmployee = alias(employees, "approvedByEmployee");
       const baseQuery = db
         .select({
           name: payrun.name,
@@ -480,22 +500,28 @@ async function fetchDataset(
           totalDeductions: payrun.totalDeductions,
           totalNetPay: payrun.totalNetPay,
           status: payrun.status,
-          generatedBy: generatedByUser.name,
-          approvedBy: approvedByUser.name,
+          generatedBy: generatedByEmployee.name,
+          approvedBy: approvedByEmployee.name,
           createdAt: payrun.createdAt,
           approvedAt: payrun.approvedAt,
         })
         .from(payrun)
         .leftJoin(
-          generatedByUser,
-          eq(payrun.generatedByUserId, generatedByUser.id),
+          generatedByEmployee,
+          and(
+            eq(payrun.generatedByUserId, generatedByEmployee.authId),
+            eq(generatedByEmployee.organizationId, organizationId),
+          ),
         )
         .leftJoin(
-          approvedByUser,
-          eq(payrun.approvedByUserId, approvedByUser.id),
+          approvedByEmployee,
+          and(
+            eq(payrun.approvedByUserId, approvedByEmployee.authId),
+            eq(approvedByEmployee.organizationId, organizationId),
+          ),
         );
 
-      const conditions = [];
+      const conditions = [eq(payrun.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(payrun.createdAt, dateFilters.start));
         conditions.push(lte(payrun.createdAt, dateFilters.end));
@@ -554,7 +580,7 @@ async function fetchDataset(
         .leftJoin(payrun, eq(payrunItems.payrunId, payrun.id))
         .leftJoin(employees, eq(payrunItems.userId, employees.authId));
 
-      const conditions = [];
+      const conditions = [eq(payrunItems.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(payrunItems.createdAt, dateFilters.start));
         conditions.push(lte(payrunItems.createdAt, dateFilters.end));
@@ -611,7 +637,7 @@ async function fetchDataset(
         .from(newsArticles)
         .leftJoin(employees, eq(newsArticles.authorId, employees.authId));
 
-      const conditions = [];
+      const conditions = [eq(newsArticles.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(newsArticles.createdAt, dateFilters.start));
         conditions.push(lte(newsArticles.createdAt, dateFilters.end));
@@ -649,6 +675,7 @@ async function fetchDataset(
     case "projects-pending":
     case "projects-in-progress":
     case "projects-completed": {
+      const supervisorEmployee = alias(employees, "supervisorEmployee");
       const baseQuery = db
         .select({
           name: projects.name,
@@ -658,13 +685,19 @@ async function fetchDataset(
           status: projects.status,
           budgetPlanned: projects.budgetPlanned,
           budgetActual: projects.budgetActual,
-          supervisorName: supervisor.name,
+          supervisorName: supervisorEmployee.name,
           createdAt: projects.createdAt,
         })
         .from(projects)
-        .leftJoin(supervisor, eq(projects.supervisorId, supervisor.id));
+        .leftJoin(
+          supervisorEmployee,
+          and(
+            eq(projects.supervisorId, supervisorEmployee.id),
+            eq(supervisorEmployee.organizationId, organizationId),
+          ),
+        );
 
-      const conditions = [];
+      const conditions = [eq(projects.organizationId, organizationId)];
 
       if (dataset === "projects-pending") {
         conditions.push(eq(projects.status, "pending"));
@@ -711,12 +744,20 @@ async function fetchDataset(
     case "tasks-in-progress":
     case "tasks-completed":
     case "tasks-overdue": {
+      const assignedToEmployeeAlias = alias(
+        employees,
+        "assignedToEmployeeAlias",
+      );
+      const assignedByEmployeeAlias = alias(
+        employees,
+        "assignedByEmployeeAlias",
+      );
       const baseQuery = db
         .select({
           title: tasks.title,
           description: tasks.description,
-          assignedToName: assignedToEmployee.name,
-          assignedByName: assignedByEmployee.name,
+          assignedToName: assignedToEmployeeAlias.name,
+          assignedByName: assignedByEmployeeAlias.name,
           status: tasks.status,
           priority: tasks.priority,
           dueDate: tasks.dueDate,
@@ -724,15 +765,21 @@ async function fetchDataset(
         })
         .from(tasks)
         .leftJoin(
-          assignedToEmployee,
-          eq(tasks.assignedTo, assignedToEmployee.id),
+          assignedToEmployeeAlias,
+          and(
+            eq(tasks.assignedTo, assignedToEmployeeAlias.authId),
+            eq(assignedToEmployeeAlias.organizationId, organizationId),
+          ),
         )
         .leftJoin(
-          assignedByEmployee,
-          eq(tasks.assignedBy, assignedByEmployee.id),
+          assignedByEmployeeAlias,
+          and(
+            eq(tasks.assignedBy, assignedByEmployeeAlias.authId),
+            eq(assignedByEmployeeAlias.organizationId, organizationId),
+          ),
         );
 
-      const conditions = [];
+      const conditions = [eq(tasks.organizationId, organizationId)];
 
       if (dataset === "tasks-pending") {
         conditions.push(eq(tasks.status, "Todo"));
@@ -771,18 +818,31 @@ async function fetchDataset(
     }
 
     case "task-submissions": {
+      const submitterEmployee = alias(employees, "submitterEmployee");
       const baseQuery = db
         .select({
           taskTitle: tasks.title,
-          submittedByName: submitter.name,
+          submittedByName: submitterEmployee.name,
           submissionNote: taskSubmissions.submissionNote,
           submittedAt: taskSubmissions.submittedAt,
         })
         .from(taskSubmissions)
-        .leftJoin(tasks, eq(taskSubmissions.taskId, tasks.id))
-        .leftJoin(submitter, eq(taskSubmissions.submittedBy, submitter.id));
+        .leftJoin(
+          tasks,
+          and(
+            eq(taskSubmissions.taskId, tasks.id),
+            eq(tasks.organizationId, organizationId),
+          ),
+        )
+        .leftJoin(
+          submitterEmployee,
+          and(
+            eq(taskSubmissions.submittedBy, submitterEmployee.authId),
+            eq(submitterEmployee.organizationId, organizationId),
+          ),
+        );
 
-      const conditions = [];
+      const conditions = [eq(taskSubmissions.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(taskSubmissions.submittedAt, dateFilters.start));
         conditions.push(lte(taskSubmissions.submittedAt, dateFilters.end));
@@ -819,6 +879,8 @@ async function fetchDataset(
           createdAt: user.createdAt,
         })
         .from(user)
+        .innerJoin(member, eq(member.userId, user.id))
+        .where(eq(member.organizationId, organizationId))
         .orderBy(desc(user.createdAt));
 
       return {
@@ -841,19 +903,28 @@ async function fetchDataset(
     }
 
     case "user-sessions": {
+      const sessionEmployee = alias(employees, "sessionEmployee");
       const baseQuery = db
         .select({
-          userName: user.name,
-          userEmail: user.email,
+          userName: sessionEmployee.name,
+          userEmail: sessionEmployee.email,
           ipAddress: session.ipAddress,
           userAgent: session.userAgent,
           createdAt: session.createdAt,
           expiresAt: session.expiresAt,
         })
         .from(session)
-        .leftJoin(user, eq(session.userId, user.id));
+        .leftJoin(
+          sessionEmployee,
+          and(
+            eq(session.userId, sessionEmployee.authId),
+            eq(sessionEmployee.organizationId, organizationId),
+          ),
+        );
 
       const conditions = [];
+      conditions.push(eq(session.activeOrganizationId, organizationId));
+
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(session.createdAt, dateFilters.start));
         conditions.push(lte(session.createdAt, dateFilters.end));
@@ -883,6 +954,7 @@ async function fetchDataset(
     }
 
     case "documents": {
+      const uploaderEmployee = alias(employees, "uploaderEmployee");
       const baseQuery = db
         .select({
           title: document.title,
@@ -890,14 +962,20 @@ async function fetchDataset(
           department: document.department,
           currentVersion: document.currentVersion,
           public: document.public,
-          uploadedByName: uploader.name,
+          uploadedByName: uploaderEmployee.name,
           status: document.status,
           createdAt: document.createdAt,
         })
         .from(document)
-        .leftJoin(uploader, eq(document.uploadedBy, uploader.id));
+        .leftJoin(
+          uploaderEmployee,
+          and(
+            eq(document.uploadedBy, uploaderEmployee.authId),
+            eq(uploaderEmployee.organizationId, organizationId),
+          ),
+        );
 
-      const conditions = [];
+      const conditions = [eq(document.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(document.createdAt, dateFilters.start));
         conditions.push(lte(document.createdAt, dateFilters.end));
@@ -929,20 +1007,32 @@ async function fetchDataset(
     }
 
     case "document-logs": {
-      const logUser = alias(user, "logUser");
+      const logEmployee = alias(employees, "logEmployee");
       const baseQuery = db
         .select({
-          userName: logUser.name,
+          userName: logEmployee.name,
           documentTitle: document.title,
           action: documentLogs.action,
           details: documentLogs.details,
           createdAt: documentLogs.createdAt,
         })
         .from(documentLogs)
-        .leftJoin(logUser, eq(documentLogs.userId, logUser.id))
-        .leftJoin(document, eq(documentLogs.documentId, document.id));
+        .leftJoin(
+          logEmployee,
+          and(
+            eq(documentLogs.userId, logEmployee.authId),
+            eq(logEmployee.organizationId, organizationId),
+          ),
+        )
+        .leftJoin(
+          document,
+          and(
+            eq(documentLogs.documentId, document.id),
+            eq(document.organizationId, organizationId),
+          ),
+        );
 
-      const conditions = [];
+      const conditions = [eq(documentLogs.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(documentLogs.createdAt, dateFilters.start));
         conditions.push(lte(documentLogs.createdAt, dateFilters.end));
@@ -970,9 +1060,10 @@ async function fetchDataset(
     }
 
     case "attendance": {
+      const attendanceEmployee = alias(employees, "attendanceEmployee");
       const baseQuery = db
         .select({
-          employeeName: employees.name,
+          employeeName: attendanceEmployee.name,
           date: attendance.date,
           time: attendance.signInTime,
           signOutTime: attendance.signOutTime,
@@ -982,9 +1073,15 @@ async function fetchDataset(
           createdAt: attendance.createdAt,
         })
         .from(attendance)
-        .leftJoin(employees, eq(attendance.userId, employees.authId));
+        .leftJoin(
+          attendanceEmployee,
+          and(
+            eq(attendance.userId, attendanceEmployee.authId),
+            eq(attendanceEmployee.organizationId, organizationId),
+          ),
+        );
 
-      const conditions = [];
+      const conditions = [eq(attendance.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(
           gte(attendance.date, dateFilters.start.toISOString().split("T")[0]),
@@ -1019,26 +1116,37 @@ async function fetchDataset(
     }
 
     case "leave-applications": {
+      const leaveEmployee = alias(employees, "leaveEmployee");
+      const approverEmployee = alias(employees, "approverEmployee");
       const baseQuery = db
         .select({
-          employeeName: employees.name,
+          employeeName: leaveEmployee.name,
           leaveType: leaveApplications.leaveType,
           startDate: leaveApplications.startDate,
           endDate: leaveApplications.endDate,
           totalDays: leaveApplications.totalDays,
           reason: leaveApplications.reason,
           status: leaveApplications.status,
-          approvedByName: approver.name,
+          approvedByName: approverEmployee.name,
           appliedAt: leaveApplications.appliedAt,
         })
         .from(leaveApplications)
-        .leftJoin(employees, eq(leaveApplications.userId, employees.authId))
         .leftJoin(
-          approver,
-          eq(leaveApplications.approvedByUserId, approver.id),
+          leaveEmployee,
+          and(
+            eq(leaveApplications.userId, leaveEmployee.authId),
+            eq(leaveEmployee.organizationId, organizationId),
+          ),
+        )
+        .leftJoin(
+          approverEmployee,
+          and(
+            eq(leaveApplications.approvedByUserId, approverEmployee.authId),
+            eq(approverEmployee.organizationId, organizationId),
+          ),
         );
 
-      const conditions = [];
+      const conditions = [eq(leaveApplications.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(leaveApplications.appliedAt, dateFilters.start));
         conditions.push(lte(leaveApplications.appliedAt, dateFilters.end));
@@ -1070,9 +1178,10 @@ async function fetchDataset(
     }
 
     case "leave-balances": {
+      const leaveBalanceEmployee = alias(employees, "leaveBalanceEmployee");
       const data = await db
         .select({
-          employeeName: employees.name,
+          employeeName: leaveBalanceEmployee.name,
           leaveType: leaveBalances.leaveType,
           totalDays: leaveBalances.totalDays,
           usedDays: leaveBalances.usedDays,
@@ -1081,7 +1190,14 @@ async function fetchDataset(
           createdAt: leaveBalances.createdAt,
         })
         .from(leaveBalances)
-        .leftJoin(employees, eq(leaveBalances.userId, employees.authId))
+        .leftJoin(
+          leaveBalanceEmployee,
+          and(
+            eq(leaveBalances.userId, leaveBalanceEmployee.authId),
+            eq(leaveBalanceEmployee.organizationId, organizationId),
+          ),
+        )
+        .where(eq(leaveBalances.organizationId, organizationId))
         .orderBy(desc(leaveBalances.createdAt));
 
       return {
@@ -1114,7 +1230,7 @@ async function fetchDataset(
         })
         .from(companyExpenses);
 
-      const conditions = [];
+      const conditions = [eq(companyExpenses.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(companyExpenses.expenseDate, dateFilters.start));
         conditions.push(lte(companyExpenses.expenseDate, dateFilters.end));
@@ -1145,10 +1261,10 @@ async function fetchDataset(
     }
 
     case "balance-transactions": {
-      const transactionUser = alias(user, "transactionUser");
+      const transactionEmployee = alias(employees, "transactionEmployee");
       const baseQuery = db
         .select({
-          userName: transactionUser.name,
+          userName: transactionEmployee.name,
           amount: balanceTransactions.amount,
           transactionType: balanceTransactions.transactionType,
           description: balanceTransactions.description,
@@ -1158,11 +1274,16 @@ async function fetchDataset(
         })
         .from(balanceTransactions)
         .leftJoin(
-          transactionUser,
-          eq(balanceTransactions.userId, transactionUser.id),
+          transactionEmployee,
+          and(
+            eq(balanceTransactions.userId, transactionEmployee.authId),
+            eq(transactionEmployee.organizationId, organizationId),
+          ),
         );
 
-      const conditions = [];
+      const conditions = [
+        eq(balanceTransactions.organizationId, organizationId),
+      ];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(balanceTransactions.createdAt, dateFilters.start));
         conditions.push(lte(balanceTransactions.createdAt, dateFilters.end));
@@ -1195,9 +1316,10 @@ async function fetchDataset(
     }
 
     case "ask-hr": {
+      const askEmployee = alias(employees, "askEmployee");
       const baseQuery = db
         .select({
-          employeeName: employees.name,
+          employeeName: askEmployee.name,
           title: askHrQuestions.title,
           question: askHrQuestions.question,
           category: askHrQuestions.category,
@@ -1207,9 +1329,15 @@ async function fetchDataset(
           createdAt: askHrQuestions.createdAt,
         })
         .from(askHrQuestions)
-        .leftJoin(employees, eq(askHrQuestions.userId, employees.authId));
+        .leftJoin(
+          askEmployee,
+          and(
+            eq(askHrQuestions.userId, askEmployee.authId),
+            eq(askEmployee.organizationId, organizationId),
+          ),
+        );
 
-      const conditions = [];
+      const conditions = [eq(askHrQuestions.organizationId, organizationId)];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(askHrQuestions.createdAt, dateFilters.start));
         conditions.push(lte(askHrQuestions.createdAt, dateFilters.end));
@@ -1253,6 +1381,7 @@ async function fetchDataset(
         })
         .from(employeesBank)
         .leftJoin(employees, eq(employeesBank.userId, employees.authId))
+        .where(eq(employeesBank.organizationId, organizationId))
         .orderBy(desc(employeesBank.createdAt));
 
       return {
@@ -1272,25 +1401,38 @@ async function fetchDataset(
     }
 
     case "employee-documents": {
+      const docEmployee = alias(employees, "docEmployee");
+      const uploaderEmployee = alias(employees, "uploaderEmployee");
       const baseQuery = db
         .select({
-          employeeName: employees.name,
+          employeeName: docEmployee.name,
           documentType: employeesDocuments.documentType,
           documentName: employeesDocuments.documentName,
           fileSize: employeesDocuments.fileSize,
           mimeType: employeesDocuments.mimeType,
           department: employeesDocuments.department,
-          uploadedByName: uploader.name,
+          uploadedByName: uploaderEmployee.name,
           createdAt: employeesDocuments.createdAt,
         })
         .from(employeesDocuments)
-        .leftJoin(employees, eq(employeesDocuments.userId, employees.authId))
         .leftJoin(
-          uploader,
-          eq(employeesDocuments.uploadedByUserId, uploader.id),
+          docEmployee,
+          and(
+            eq(employeesDocuments.userId, docEmployee.authId),
+            eq(docEmployee.organizationId, organizationId),
+          ),
+        )
+        .leftJoin(
+          uploaderEmployee,
+          and(
+            eq(employeesDocuments.uploadedByUserId, uploaderEmployee.authId),
+            eq(uploaderEmployee.organizationId, organizationId),
+          ),
         );
 
-      const conditions = [];
+      const conditions = [
+        eq(employeesDocuments.organizationId, organizationId),
+      ];
       if (dateFilters.start && dateFilters.end) {
         conditions.push(gte(employeesDocuments.createdAt, dateFilters.start));
         conditions.push(lte(employeesDocuments.createdAt, dateFilters.end));

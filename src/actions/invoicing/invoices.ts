@@ -765,7 +765,12 @@ export async function sendInvoice(id: number) {
       [bankAccount] = await db
         .select()
         .from(companyBankAccounts)
-        .where(eq(companyBankAccounts.id, invoice.bankAccountId))
+        .where(
+          and(
+            eq(companyBankAccounts.id, invoice.bankAccountId),
+            eq(companyBankAccounts.organizationId, organization.id),
+          ),
+        )
         .limit(1);
     }
 
@@ -821,7 +826,12 @@ export async function sendInvoice(id: number) {
           emailSentAt: new Date(),
           emailSentCount: (invoice.emailSentCount || 0) + 1,
         })
-        .where(eq(receivablesInvoices.id, id));
+        .where(
+          and(
+            eq(receivablesInvoices.id, id),
+            eq(receivablesInvoices.organizationId, organization.id),
+          ),
+        );
 
       await tx.insert(invoiceActivityLog).values({
         invoiceId: id,
@@ -884,7 +894,12 @@ export async function remindInvoice(id: number) {
       [bankAccount] = await db
         .select()
         .from(companyBankAccounts)
-        .where(eq(companyBankAccounts.id, invoice.bankAccountId))
+        .where(
+          and(
+            eq(companyBankAccounts.id, invoice.bankAccountId),
+            eq(companyBankAccounts.organizationId, organization.id),
+          ),
+        )
         .limit(1);
     }
 
@@ -919,7 +934,12 @@ export async function remindInvoice(id: number) {
           lastReminderSentAt: new Date(),
           reminderCount: (invoice.reminderCount || 0) + 1,
         })
-        .where(eq(receivablesInvoices.id, id));
+        .where(
+          and(
+            eq(receivablesInvoices.id, id),
+            eq(receivablesInvoices.organizationId, organization.id),
+          ),
+        );
 
       await tx.insert(invoiceActivityLog).values({
         invoiceId: id,

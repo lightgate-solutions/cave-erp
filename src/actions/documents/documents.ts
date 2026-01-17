@@ -338,7 +338,12 @@ export async function deleteDocumentAction(
         const [emp] = await db
           .select({ id: employees.authId })
           .from(employees)
-          .where(eq(employees.authId, recipientId))
+          .where(
+            and(
+              eq(employees.authId, recipientId),
+              eq(employees.organizationId, organization.id),
+            ),
+          )
           .limit(1);
 
         if (emp) {
@@ -443,7 +448,12 @@ export async function archiveDocumentAction(
       const [emp] = await db
         .select({ id: employees.authId })
         .from(employees)
-        .where(eq(employees.authId, recipientId))
+        .where(
+          and(
+            eq(employees.authId, recipientId),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
         .limit(1);
 
       if (emp) {
@@ -663,7 +673,12 @@ export async function addDocumentComment(documentId: number, content: string) {
         const [emp] = await db
           .select({ id: employees.authId })
           .from(employees)
-          .where(eq(employees.authId, recipientId))
+          .where(
+            and(
+              eq(employees.authId, recipientId),
+              eq(employees.organizationId, organization.id),
+            ),
+          )
           .limit(1);
 
         if (emp) {
@@ -1720,7 +1735,12 @@ export async function removeDocumentShare(
     const [targetEmp] = await db
       .select({ id: employees.authId })
       .from(employees)
-      .where(eq(employees.authId, targetUserId))
+      .where(
+        and(
+          eq(employees.authId, targetUserId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (targetEmp) {

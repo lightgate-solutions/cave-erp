@@ -27,7 +27,7 @@ export default async function Page() {
     .where(
       and(
         or(
-          eq(documentFolders.createdBy, user.id),
+          eq(documentFolders.createdBy, user.authId),
           eq(documentFolders.public, true),
           and(
             eq(documentFolders.departmental, true),

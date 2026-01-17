@@ -133,7 +133,7 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
           toast.error(result.error?.reason || "Failed to create client");
         }
       } else if (initialData?.id) {
-        const { _clientCode, ...updateData } = data;
+        const { clientCode: _clientCode, ...updateData } = data;
         const result = await updateClient(initialData.id, updateData);
 
         if (result.success) {

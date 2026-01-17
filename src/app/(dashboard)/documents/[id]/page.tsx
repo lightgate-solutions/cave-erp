@@ -11,6 +11,8 @@ import {
   employees,
 } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export default async function Page({
   params,
@@ -28,6 +30,11 @@ export default async function Page({
       </div>
     );
   }
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) return null;
 
   const accessLevel = await getMyDocumentAccess(documentId);
   if (accessLevel.error) return null;
@@ -68,7 +75,13 @@ export default async function Page({
       documentVersions,
       eq(documentVersions.id, document.currentVersionId),
     )
-    .where(and(eq(document.status, "active"), eq(document.id, documentId)))
+    .where(
+      and(
+        eq(document.status, "active"),
+        eq(document.id, documentId),
+        eq(document.organizationId, organization.id),
+      ),
+    )
     .limit(1);
 
   const baseDoc = doc[0];
@@ -81,7 +94,12 @@ export default async function Page({
         tag: documentTags.tag,
       })
       .from(documentTags)
-      .where(eq(documentTags.documentId, documentId)),
+      .where(
+        and(
+          eq(documentTags.documentId, documentId),
+          eq(documentTags.organizationId, organization.id),
+        ),
+      ),
 
     db
       .select({
@@ -93,7 +111,12 @@ export default async function Page({
         department: documentAccess.department,
       })
       .from(documentAccess)
-      .where(eq(documentAccess.documentId, documentId))
+      .where(
+        and(
+          eq(documentAccess.documentId, documentId),
+          eq(documentAccess.organizationId, organization.id),
+        ),
+      )
       .leftJoin(employees, eq(documentAccess.userId, employees.authId)),
   ]);
 

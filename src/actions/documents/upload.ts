@@ -138,7 +138,7 @@ export async function uploadDocumentsAction(data: UploadActionProps) {
           ),
         );
 
-      const updatedCount = currentCount.count + data.Files.length;
+      const updatedCount = (currentCount?.count ?? 0) + data.Files.length;
 
       await tx
         .update(employees)

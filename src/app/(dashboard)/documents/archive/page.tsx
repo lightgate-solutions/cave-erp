@@ -8,6 +8,8 @@ import { and, eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { Folder } from "lucide-react";
 import { ViewToggle } from "@/components/documents/view-toggle/view-toggle";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export default async function Page({
   searchParams,
@@ -33,6 +35,11 @@ export default async function Page({
   const user = await getUser();
   if (!user) return null;
 
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) return null;
+
   const fOffset = Math.max(0, (fPage - 1) * fPageSize);
 
   const [{ total: foldersTotal }] = await db
@@ -43,7 +50,8 @@ export default async function Page({
     .where(
       and(
         eq(documentFolders.status, "archived"),
-        eq(documentFolders.createdBy, user.id),
+        eq(documentFolders.createdBy, user.authId),
+        eq(documentFolders.organizationId, organization.id),
       ),
     );
 
@@ -57,7 +65,8 @@ export default async function Page({
     .where(
       and(
         eq(documentFolders.status, "archived"),
-        eq(documentFolders.createdBy, user.id),
+        eq(documentFolders.createdBy, user.authId),
+        eq(documentFolders.organizationId, organization.id),
       ),
     )
     .orderBy(sql`${documentFolders.updatedAt} DESC`)

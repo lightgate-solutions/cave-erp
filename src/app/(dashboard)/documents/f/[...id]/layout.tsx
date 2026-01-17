@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/breadcrumb";
 import Link from "next/link";
 import { getFoldersNames } from "@/actions/documents/folders";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export default async function DashboardLayout({
   children,
@@ -24,6 +26,11 @@ export default async function DashboardLayout({
   const { id: foldersId } = await params;
   const user = await getUser();
   if (!user) return null;
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) return null;
 
   const currentFolderId = Number(foldersId.at(-1));
 
@@ -37,8 +44,9 @@ export default async function DashboardLayout({
     .from(documentFolders)
     .where(
       and(
-        eq(documentFolders.createdBy, user.id),
+        eq(documentFolders.createdBy, user.authId),
         eq(documentFolders.status, "active"),
+        eq(documentFolders.organizationId, organization.id),
         or(
           eq(documentFolders.id, currentFolderId),
           eq(documentFolders.parentId, currentFolderId),
