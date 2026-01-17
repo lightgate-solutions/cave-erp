@@ -105,32 +105,37 @@ export function InvitesCard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingInvites?.map((invitation) => (
-                  <TableRow key={invitation.id}>
-                    <TableCell>{invitation.email}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{invitation.role}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        {invitation.department?.charAt(0).toUpperCase() +
-                          invitation.department?.slice(1) || "Operations"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(invitation.expiresAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <BetterAuthActionButton
-                        variant="destructive"
-                        size="sm"
-                        action={() => cancelInvitation(invitation.id)}
-                      >
-                        Cancel
-                      </BetterAuthActionButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {pendingInvites?.map((rawInvitation) => {
+                  const invitation = rawInvitation as typeof rawInvitation & {
+                    department?: string;
+                  };
+                  const dept = invitation.department || "Operations";
+                  return (
+                    <TableRow key={invitation.id}>
+                      <TableCell>{invitation.email}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{invitation.role}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {dept.charAt(0).toUpperCase() + dept.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(invitation.expiresAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <BetterAuthActionButton
+                          variant="destructive"
+                          size="sm"
+                          action={() => cancelInvitation(invitation.id)}
+                        >
+                          Cancel
+                        </BetterAuthActionButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>

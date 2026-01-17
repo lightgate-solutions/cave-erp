@@ -142,7 +142,12 @@ export async function getAllDeductions() {
               name: employees.name,
             })
             .from(employees)
-            .where(inArray(employees.authId, creatorIds))
+            .where(
+              and(
+                inArray(employees.authId, creatorIds),
+                eq(employees.organizationId, organization.id),
+              ),
+            )
         : [];
 
     const creatorsMap = creators.reduce(
@@ -202,7 +207,12 @@ export async function getAllRecurringDeductions() {
               name: employees.name,
             })
             .from(employees)
-            .where(inArray(employees.authId, creatorIds))
+            .where(
+              and(
+                inArray(employees.authId, creatorIds),
+                eq(employees.organizationId, organization.id),
+              ),
+            )
         : [];
 
     const creatorsMap = creators.reduce(
@@ -259,7 +269,12 @@ export async function getDeduction(id: number) {
     const creator = await db
       .select({ name: employees.name })
       .from(employees)
-      .where(eq(employees.authId, deduction[0].createdById))
+      .where(
+        and(
+          eq(employees.authId, deduction[0].createdById),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     return {

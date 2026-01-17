@@ -33,7 +33,13 @@ export async function getEmployeesBySalaryStructure(structureId: number) {
         effectiveFrom: employeeSalary.effectiveFrom,
       })
       .from(employeeSalary)
-      .innerJoin(employees, eq(employeeSalary.userId, employees.authId))
+      .innerJoin(
+        employees,
+        and(
+          eq(employeeSalary.userId, employees.authId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .where(
         and(
           eq(employeeSalary.salaryStructureId, structureId),
@@ -109,6 +115,7 @@ export async function getEmployeesNotInStructure(structureId: number) {
         role: employees.role,
       })
       .from(employees)
+      .where(eq(employees.organizationId, organization.id))
       .orderBy(employees.name);
 
     if (allEmployees.length === 0) {

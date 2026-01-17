@@ -244,8 +244,8 @@ export default function LoanApplicationsTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {applications.map((loan) => (
-                  <TableRow key={loan.id}>
+                {applications.map((loan, index) => (
+                  <TableRow key={`${loan.id}-${index}`}>
                     <TableCell className="font-mono text-sm">
                       {loan.referenceNumber}
                     </TableCell>

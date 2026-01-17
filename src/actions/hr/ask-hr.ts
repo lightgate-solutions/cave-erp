@@ -165,10 +165,19 @@ export async function getAskHrQuestions(filters?: {
     const totalResult = await db
       .select({ count: count() })
       .from(askHrQuestions)
-      .leftJoin(questionAuthor, eq(askHrQuestions.userId, questionAuthor.id))
+      .leftJoin(
+        questionAuthor,
+        and(
+          eq(askHrQuestions.userId, questionAuthor.authId),
+          eq(questionAuthor.organizationId, organization.id),
+        ),
+      )
       .leftJoin(
         redirectEmployee,
-        eq(askHrQuestions.redirectedToUserId, redirectEmployee.id),
+        and(
+          eq(askHrQuestions.redirectedToUserId, redirectEmployee.authId),
+          eq(redirectEmployee.organizationId, organization.id),
+        ),
       )
       .where(whereClause);
 
@@ -199,10 +208,19 @@ export async function getAskHrQuestions(filters?: {
         redirectedDepartment: redirectEmployee.department,
       })
       .from(askHrQuestions)
-      .leftJoin(questionAuthor, eq(askHrQuestions.userId, questionAuthor.id))
+      .leftJoin(
+        questionAuthor,
+        and(
+          eq(askHrQuestions.userId, questionAuthor.authId),
+          eq(questionAuthor.organizationId, organization.id),
+        ),
+      )
       .leftJoin(
         redirectEmployee,
-        eq(askHrQuestions.redirectedToUserId, redirectEmployee.id),
+        and(
+          eq(askHrQuestions.redirectedToUserId, redirectEmployee.authId),
+          eq(redirectEmployee.organizationId, organization.id),
+        ),
       )
       .where(whereClause)
       .orderBy(desc(askHrQuestions.createdAt))
@@ -271,10 +289,19 @@ export async function getAskHrQuestion(questionId: number) {
         redirectedDepartment: redirectEmployee.department,
       })
       .from(askHrQuestions)
-      .leftJoin(questionAuthor, eq(askHrQuestions.userId, questionAuthor.id))
+      .leftJoin(
+        questionAuthor,
+        and(
+          eq(askHrQuestions.userId, questionAuthor.authId),
+          eq(questionAuthor.organizationId, organization.id),
+        ),
+      )
       .leftJoin(
         redirectEmployee,
-        eq(askHrQuestions.redirectedToUserId, redirectEmployee.id),
+        and(
+          eq(askHrQuestions.redirectedToUserId, redirectEmployee.authId),
+          eq(redirectEmployee.organizationId, organization.id),
+        ),
       )
       .where(
         and(
@@ -315,7 +342,10 @@ export async function getAskHrQuestion(questionId: number) {
       .from(askHrResponses)
       .leftJoin(
         employees,
-        eq(askHrResponses.respondentUserId, employees.authId),
+        and(
+          eq(askHrResponses.respondentUserId, employees.authId),
+          eq(employees.organizationId, organization.id),
+        ),
       )
       .where(eq(askHrResponses.questionId, questionId))
       .orderBy(askHrResponses.createdAt);
@@ -617,7 +647,12 @@ export async function redirectAskHrQuestion(
     const targetEmployee = await db
       .select()
       .from(employees)
-      .where(eq(employees.authId, validated.data.userId))
+      .where(
+        and(
+          eq(employees.authId, validated.data.userId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
       .limit(1)
       .then((rows) => rows[0]);
 
@@ -876,6 +911,7 @@ export async function getEmployeesForRedirection() {
     return await db
       .select({
         id: employees.id,
+        authId: employees.authId,
         name: employees.name,
         department: employees.department,
         role: employees.role,
