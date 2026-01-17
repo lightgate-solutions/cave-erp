@@ -197,3 +197,20 @@ export const requireFleetAccess = cache(async () => {
 
   return authData;
 });
+
+// Helper to require Asset access (HR or Admin department only)
+export const requireAssetAccess = cache(async () => {
+  const authData = await requireAuth();
+
+  const isHrOrAdminDept =
+    authData.employee.department === DEPARTMENTS.HR ||
+    authData.employee.department === DEPARTMENTS.ADMIN;
+
+  if (authData.role !== "admin" && !isHrOrAdminDept) {
+    throw new Error(
+      "Forbidden: Asset access required (HR or Admin department only)",
+    );
+  }
+
+  return authData;
+});

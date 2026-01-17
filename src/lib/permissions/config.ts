@@ -27,6 +27,7 @@ const DEPARTMENT_MODULE_ACCESS: Record<Department, Module[]> = {
     MODULES.PAYROLL,
     MODULES.NEWS_MANAGE,
     MODULES.FLEET,
+    MODULES.ASSETS,
   ],
   [DEPARTMENTS.FINANCE]: [
     // General access
@@ -46,6 +47,7 @@ const DEPARTMENT_MODULE_ACCESS: Record<Department, Module[]> = {
     MODULES.INVOICING,
     MODULES.FINANCE,
     MODULES.FLEET,
+    MODULES.ASSETS,
   ],
   [DEPARTMENTS.OPERATIONS]: [
     // General access only
@@ -109,6 +111,12 @@ export const ROUTE_MODULE_MAP: Record<string, Module> = {
   "/fleet/maintenance": MODULES.FLEET,
   "/fleet/incidents": MODULES.FLEET,
   "/fleet/analytics": MODULES.FLEET,
+  "/assets": MODULES.ASSETS,
+  "/assets/dashboard": MODULES.ASSETS,
+  "/assets/list": MODULES.ASSETS,
+  "/assets/categories": MODULES.ASSETS,
+  "/assets/locations": MODULES.ASSETS,
+  "/assets/maintenance": MODULES.ASSETS,
   "/payroll": MODULES.PAYROLL,
   "/payroll/structure": MODULES.PAYROLL,
   "/payroll/employees": MODULES.PAYROLL,

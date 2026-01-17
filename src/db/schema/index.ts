@@ -18,3 +18,4 @@ export * from "./bug-reports";
 export * from "./subscriptions";
 export * from "./recruitment";
 export * from "./invoicing";
+export * from "./assets";

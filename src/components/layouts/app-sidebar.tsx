@@ -24,6 +24,7 @@ import {
   Briefcase,
   Car,
   Receipt,
+  Package,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -217,6 +218,34 @@ const data = {
         {
           title: "Incidents",
           url: "/fleet/incidents",
+        },
+      ],
+    },
+    {
+      title: "Assets",
+      url: "/assets/dashboard",
+      icon: Package,
+      module: MODULES.ASSETS,
+      items: [
+        {
+          title: "Dashboard",
+          url: "/assets/dashboard",
+        },
+        {
+          title: "Assets",
+          url: "/assets/list",
+        },
+        {
+          title: "Categories",
+          url: "/assets/categories",
+        },
+        {
+          title: "Locations",
+          url: "/assets/locations",
+        },
+        {
+          title: "Maintenance",
+          url: "/assets/maintenance",
         },
       ],
     },
@@ -424,6 +453,7 @@ export function AppSidebar({
           "Leave Management",
           "Recruitment",
           "Fleet",
+          "Assets",
         ].includes(item.title)
       ) {
         groups.management.push(item);

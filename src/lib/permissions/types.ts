@@ -24,6 +24,7 @@ export const MODULES = {
   INVOICING: "invoicing",
   FINANCE: "finance",
   FLEET: "fleet",
+  ASSETS: "assets",
   PAYROLL: "payroll",
   NOTIFICATIONS: "notifications",
   NEWS_VIEW: "news-view",
