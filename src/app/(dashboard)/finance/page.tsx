@@ -135,6 +135,7 @@ export default function FinancePage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start h-auto py-4 px-4"
+                  suppressHydrationWarning
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
@@ -182,6 +183,24 @@ export default function FinancePage() {
                   <span className="font-semibold">Expenses</span>
                   <span className="text-xs text-muted-foreground">
                     Record and track expenses
+                  </span>
+                </div>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start h-auto py-4 px-4"
+              onClick={() => router.push("/finance/payables")}
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex flex-col items-start text-left">
+                  <span className="font-semibold">Payables</span>
+                  <span className="text-xs text-muted-foreground">
+                    Bills and suppliers
                   </span>
                 </div>
               </div>

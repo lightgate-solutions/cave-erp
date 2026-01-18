@@ -35,6 +35,7 @@ export function DatePickerWithRange({
               "w-[300px] justify-start text-left font-normal",
               !date && "text-muted-foreground",
             )}
+            suppressHydrationWarning
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {date?.from ? (

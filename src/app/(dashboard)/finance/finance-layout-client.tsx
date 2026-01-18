@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Menu, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -13,6 +14,14 @@ export default function FinanceLayout({
   children: React.ReactNode;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const pathname = usePathname();
+
+  // Skip the finance sidebar for payables routes - treat them as standalone
+  const isPayablesRoute = pathname?.startsWith("/finance/payables");
+
+  if (isPayablesRoute) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden rounded-xl border bg-background shadow-sm">
@@ -42,7 +51,7 @@ export default function FinanceLayout({
       <div className="md:hidden absolute top-4 left-4 z-50">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" suppressHydrationWarning>
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>

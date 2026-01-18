@@ -95,6 +95,38 @@ const data = {
       icon: Landmark,
       module: MODULES.FINANCE,
     },
+    {
+      title: "Payables",
+      url: "/finance/payables",
+      icon: CreditCard,
+      module: MODULES.PAYABLES,
+      items: [
+        {
+          title: "Payables Overview",
+          url: "/finance/payables",
+        },
+        {
+          title: "Suppliers",
+          url: "/finance/payables/suppliers",
+        },
+        {
+          title: "Bills",
+          url: "/finance/payables/bills",
+        },
+        {
+          title: "Payments",
+          url: "/finance/payables/payments",
+        },
+        {
+          title: "Aging Report",
+          url: "/finance/payables/report",
+        },
+        {
+          title: "Settings",
+          url: "/finance/payables/settings",
+        },
+      ],
+    },
     // Task/Performance is customized per role at runtime
     {
       title: "Mail",
@@ -466,7 +498,7 @@ export function AppSidebar({
         ].includes(item.title)
       ) {
         groups.management.push(item);
-      } else if (["Receivables", "Finance"].includes(item.title)) {
+      } else if (["Receivables", "Finance", "Payables"].includes(item.title)) {
         groups.accounting.push(item);
       } else {
         groups.system.push(item);

@@ -27,7 +27,9 @@ const DEPARTMENT_MODULE_ACCESS: Record<Department, Module[]> = {
     MODULES.PAYROLL,
     MODULES.NEWS_MANAGE,
     MODULES.FLEET,
+    MODULES.FLEET,
     MODULES.ASSETS,
+    MODULES.PAYABLES,
   ],
   [DEPARTMENTS.FINANCE]: [
     // General access
@@ -46,6 +48,7 @@ const DEPARTMENT_MODULE_ACCESS: Record<Department, Module[]> = {
     // Finance specific
     MODULES.INVOICING,
     MODULES.FINANCE,
+    MODULES.PAYABLES,
     MODULES.FLEET,
     MODULES.ASSETS,
   ],
@@ -103,6 +106,12 @@ export const ROUTE_MODULE_MAP: Record<string, Module> = {
   "/finance/balance": MODULES.FINANCE,
   "/finance/payruns": MODULES.FINANCE,
   "/finance/expenses": MODULES.FINANCE,
+  "/finance/payables": MODULES.PAYABLES,
+  "/finance/payables/suppliers": MODULES.PAYABLES,
+  "/finance/payables/bills": MODULES.PAYABLES,
+  "/finance/payables/payments": MODULES.PAYABLES,
+  "/finance/payables/report": MODULES.PAYABLES,
+  "/finance/payables/settings": MODULES.PAYABLES,
   "/finance/loans": MODULES.FINANCE,
   "/fleet": MODULES.FLEET,
   "/fleet/dashboard": MODULES.FLEET,

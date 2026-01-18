@@ -23,6 +23,7 @@ export const MODULES = {
   RECRUITMENT: "recruitment",
   INVOICING: "invoicing",
   FINANCE: "finance",
+  PAYABLES: "payables",
   FLEET: "fleet",
   ASSETS: "assets",
   PAYROLL: "payroll",

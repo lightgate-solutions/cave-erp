@@ -154,14 +154,14 @@ async function fetchDataset(
 ) {
   // Create aliases for joins
   const manager = alias(employees, "manager");
-  const approver = alias(employees, "approver");
-  const assignedToEmployee = alias(employees, "assignedTo");
-  const assignedByEmployee = alias(employees, "assignedBy");
-  const submitter = alias(employees, "submitter");
-  const supervisor = alias(employees, "supervisor");
-  const uploader = alias(employees, "uploader");
-  const generatedByUser = alias(user, "generatedBy");
-  const approvedByUser = alias(user, "approvedBy");
+  const _approver = alias(employees, "approver");
+  const _assignedToEmployee = alias(employees, "assignedTo");
+  const _assignedByEmployee = alias(employees, "assignedBy");
+  const _submitter = alias(employees, "submitter");
+  const _supervisor = alias(employees, "supervisor");
+  const _uploader = alias(employees, "uploader");
+  const _generatedByUser = alias(user, "generatedBy");
+  const _approvedByUser = alias(user, "approvedBy");
 
   switch (dataset) {
     case "employees": {

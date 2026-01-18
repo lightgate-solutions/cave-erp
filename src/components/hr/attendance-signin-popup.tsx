@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -39,6 +39,7 @@ export function AttendanceSignInPopup({
 }: AttendanceSignInPopupProps) {
   const queryClient = useQueryClient();
   const [snoozeMinutes, _setSnoozeMinutes] = useState(30);
+  const [mounted, setMounted] = useState(false);
 
   const { isOpen, canSignIn, timeWindowMessage, closePopup } =
     useAttendancePopup({
@@ -76,6 +77,12 @@ export function AttendanceSignInPopup({
       toast.error("Failed to sign in. Please try again.");
     },
   });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
 
   const handleSignIn = () => {
     // Check if geolocation is supported

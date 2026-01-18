@@ -45,10 +45,38 @@ export function NavMain({
       <SidebarMenu>
         {items.map((item) => {
           const hasSubItems = item.items && item.items.length > 0;
-          const isActive =
-            item.url === "/"
-              ? pathname === "/"
-              : pathname?.startsWith(item.url);
+
+          // More precise active state logic:
+          // - For root "/", only match exact
+          // - For items with sub-items, check if any sub-item URL matches
+          // - For items without sub-items, use exact match or path prefix but exclude nested module routes
+          let isActive = false;
+          if (item.url === "/") {
+            isActive = pathname === "/";
+          } else if (hasSubItems) {
+            // Check if the current path matches any of the sub-items
+            isActive =
+              item.items?.some(
+                (subItem) =>
+                  pathname === subItem.url ||
+                  pathname?.startsWith(`${subItem.url}/`),
+              ) || false;
+          } else {
+            // For direct links, check exact match or if it's a child route
+            // But exclude routes that belong to other modules (like /finance/payables belongs to Payables, not Finance)
+            const isExactMatch = pathname === item.url;
+            const isChildRoute = pathname?.startsWith(`${item.url}/`) || false;
+
+            // Special case: /finance should not be active when on /finance/payables
+            if (
+              item.url === "/finance" &&
+              pathname?.startsWith("/finance/payables")
+            ) {
+              isActive = false;
+            } else {
+              isActive = isExactMatch || isChildRoute;
+            }
+          }
 
           if (hasSubItems) {
             return (
@@ -58,7 +86,7 @@ export function NavMain({
                 defaultOpen={isActive}
                 className="group/collapsible"
               >
-                <SidebarMenuItem>
+                <SidebarMenuItem suppressHydrationWarning>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
                       tooltip={item.title}
@@ -67,6 +95,7 @@ export function NavMain({
                         "transition-all duration-200",
                         isActive && "font-semibold text-primary",
                       )}
+                      suppressHydrationWarning
                     >
                       {/* {item.icon && <item.icon />} */}
 
@@ -129,7 +158,7 @@ export function NavMain({
 
           // 📌 CASE 2: Item without subitems (direct link)
           return (
-            <SidebarMenuItem key={item.title}>
+            <SidebarMenuItem key={item.title} suppressHydrationWarning>
               <SidebarMenuButton
                 asChild
                 tooltip={item.title}
@@ -138,6 +167,7 @@ export function NavMain({
                   "transition-all duration-200",
                   isActive && "font-semibold text-primary bg-primary/10",
                 )}
+                suppressHydrationWarning
               >
                 <Link href={item.url} className="flex items-center">
                   {item.icon &&
