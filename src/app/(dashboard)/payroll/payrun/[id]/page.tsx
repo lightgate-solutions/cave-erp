@@ -1,6 +1,5 @@
 import { getPayrunById } from "@/actions/payroll/payrun";
 import { PayrunDetail } from "@/components/payroll/payrun-detail";
-import { notFound } from "next/navigation";
 
 interface PayrunDetailPageProps {
   params: Promise<{
@@ -15,7 +14,7 @@ export default async function PayrunDetailPage({
   const payrun = await getPayrunById(Number(id));
 
   if (!payrun) {
-    notFound();
+    return null;
   }
 
   return <PayrunDetail payrun={payrun} />;

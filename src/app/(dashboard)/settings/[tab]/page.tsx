@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { Loader2Icon } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
 import { AccountDeletion } from "@/components/settings/account-deletion";
 import LinkedAccountsTab from "@/components/settings/accounts-tab";
@@ -62,7 +62,7 @@ export default async function Page({
   const { tab } = await params;
 
   if (!isValidTab(tab)) {
-    notFound();
+    return null;
   }
 
   const activeOrgId = session.session.activeOrganizationId;

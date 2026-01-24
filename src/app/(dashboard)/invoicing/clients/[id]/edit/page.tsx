@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { ClientForm } from "@/components/invoicing/client-form";
 import { getClient } from "@/actions/invoicing/clients";
 import { requireInvoicingWriteAccess } from "@/actions/auth/dal-invoicing";
@@ -18,13 +18,12 @@ export default async function EditClientPage({
 
   const clientId = Number.parseInt(id);
   if (Number.isNaN(clientId)) {
-    notFound();
+    return null;
   }
 
   const client = await getClient(clientId);
 
   if (!client) {
-    notFound();
     return null;
   }
 

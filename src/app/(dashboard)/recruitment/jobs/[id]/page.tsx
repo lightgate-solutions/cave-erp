@@ -2,7 +2,6 @@ import { requireHROrAdmin } from "@/actions/auth/dal";
 import { getJobPosting } from "@/actions/recruitment/job-postings";
 import { getAllCandidates } from "@/actions/recruitment/candidates";
 import { JobPostingDetails } from "@/components/recruitment/job-posting-details";
-import { notFound } from "next/navigation";
 
 export default async function JobPostingDetailsPage({
   params,
@@ -15,7 +14,7 @@ export default async function JobPostingDetailsPage({
   const job = await getJobPosting(jobId);
 
   if (!job) {
-    notFound();
+    return null;
   }
 
   // Get candidates for this job

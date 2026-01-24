@@ -195,6 +195,46 @@ const data = {
       ],
     },
     {
+      title: "Payables",
+      url: "/payables",
+      icon: DollarSign,
+      module: MODULES.PAYABLES,
+      items: [
+        {
+          title: "Dashboard",
+          url: "/payables",
+        },
+        {
+          title: "Purchase Orders",
+          url: "/payables/purchase-orders",
+        },
+        {
+          title: "Bills",
+          url: "/payables/bills",
+        },
+        {
+          title: "Vendors",
+          url: "/payables/vendors",
+        },
+        {
+          title: "Payments",
+          url: "/payables/payments",
+        },
+        {
+          title: "AP Overview",
+          url: "/payables/overview",
+        },
+        {
+          title: "Reports",
+          url: "/payables/reports",
+        },
+        {
+          title: "Settings",
+          url: "/payables/settings",
+        },
+      ],
+    },
+    {
       title: "Fleet",
       url: "/fleet/dashboard",
       icon: Car,
@@ -466,7 +506,7 @@ export function AppSidebar({
         ].includes(item.title)
       ) {
         groups.management.push(item);
-      } else if (["Receivables", "Finance"].includes(item.title)) {
+      } else if (["Receivables", "Finance", "Payables"].includes(item.title)) {
         groups.accounting.push(item);
       } else {
         groups.system.push(item);
