@@ -85,7 +85,7 @@ export async function generatePONumber() {
  */
 export async function createPurchaseOrder(data: CreatePOInput) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -174,7 +174,7 @@ export async function createPurchaseOrder(data: CreatePOInput) {
  */
 export async function updatePurchaseOrder(id: number, data: UpdatePOInput) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -492,7 +492,7 @@ export async function updatePOStatus(
   _reason?: string,
 ) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -568,7 +568,7 @@ export async function updatePOStatus(
  */
 export async function approvePurchaseOrder(id: number) {
   try {
-    const { employee, userId } = await requirePayablesApprovalAccess();
+    const { userId } = await requirePayablesApprovalAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),

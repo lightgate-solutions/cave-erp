@@ -15,7 +15,7 @@ import {
   requirePayablesWriteAccess,
   requirePayablesApprovalAccess,
 } from "../auth/dal-payables";
-import { and, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, lte, ne, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -120,6 +120,7 @@ export async function checkForDuplicateBill(
   vendorInvoiceNumber: string,
   amount: number,
   billDate: string,
+  excludeBillId?: number,
 ): Promise<DuplicateCheckResult> {
   try {
     await requirePayablesViewAccess();
@@ -137,18 +138,23 @@ export async function checkForDuplicateBill(
     }
 
     // 1. HIGH confidence: Exact match on vendor + invoice number
+    const exactMatchConditions = [
+      eq(payablesBills.vendorId, vendorId),
+      eq(payablesBills.vendorInvoiceNumber, vendorInvoiceNumber.trim()),
+      eq(payablesBills.organizationId, organization.id),
+      // Exclude cancelled bills
+      sql`${payablesBills.status} != 'Cancelled'`,
+    ];
+
+    // Exclude current bill when in edit mode
+    if (excludeBillId) {
+      exactMatchConditions.push(ne(payablesBills.id, excludeBillId));
+    }
+
     const exactMatches = await db
       .select()
       .from(payablesBills)
-      .where(
-        and(
-          eq(payablesBills.vendorId, vendorId),
-          eq(payablesBills.vendorInvoiceNumber, vendorInvoiceNumber.trim()),
-          eq(payablesBills.organizationId, organization.id),
-          // Exclude cancelled bills
-          sql`${payablesBills.status} != 'Cancelled'`,
-        ),
-      )
+      .where(and(...exactMatchConditions))
       .limit(10);
 
     if (exactMatches.length > 0) {
@@ -174,19 +180,24 @@ export async function checkForDuplicateBill(
     const lowerAmount = amount * (1 - amountTolerance);
     const upperAmount = amount * (1 + amountTolerance);
 
+    const similarMatchConditions = [
+      eq(payablesBills.vendorId, vendorId),
+      eq(payablesBills.organizationId, organization.id),
+      gte(payablesBills.total, lowerAmount.toString()),
+      lte(payablesBills.total, upperAmount.toString()),
+      sql`ABS(EXTRACT(DAY FROM (${payablesBills.billDate}::date - ${billDate}::date))) <= ${dateRange}`,
+      sql`${payablesBills.status} != 'Cancelled'`,
+    ];
+
+    // Exclude current bill when in edit mode
+    if (excludeBillId) {
+      similarMatchConditions.push(ne(payablesBills.id, excludeBillId));
+    }
+
     const similarMatches = await db
       .select()
       .from(payablesBills)
-      .where(
-        and(
-          eq(payablesBills.vendorId, vendorId),
-          eq(payablesBills.organizationId, organization.id),
-          gte(payablesBills.total, lowerAmount.toString()),
-          lte(payablesBills.total, upperAmount.toString()),
-          sql`ABS(EXTRACT(DAY FROM (${payablesBills.billDate}::date - ${billDate}::date))) <= ${dateRange}`,
-          sql`${payablesBills.status} != 'Cancelled'`,
-        ),
-      )
+      .where(and(...similarMatchConditions))
       .limit(10);
 
     if (similarMatches.length > 0) {
@@ -243,7 +254,7 @@ export async function checkForDuplicateBill(
  */
 export async function createBill(data: CreateBillInput) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -441,7 +452,7 @@ export async function createBill(data: CreateBillInput) {
  */
 export async function updateBill(id: number, data: UpdateBillInput) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -624,7 +635,7 @@ export async function updateBill(id: number, data: UpdateBillInput) {
  */
 export async function deleteBill(id: number) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -852,7 +863,7 @@ export async function updateBillStatus(
   reason?: string,
 ) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -945,7 +956,7 @@ export async function updateBillStatus(
  */
 export async function approveBill(id: number) {
   try {
-    const { employee, userId } = await requirePayablesApprovalAccess();
+    const { userId } = await requirePayablesApprovalAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -1033,7 +1044,7 @@ export async function approveBill(id: number) {
  */
 export async function matchBillToPO(billId: number, poId: number) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -1157,7 +1168,7 @@ export async function matchBillToPO(billId: number, poId: number) {
  */
 export async function sendBillReceivedConfirmation(billId: number) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),

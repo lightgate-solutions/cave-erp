@@ -152,7 +152,9 @@ export function VendorForm({ mode, vendorId, initialData }: VendorFormProps) {
       const result =
         mode === "create"
           ? await createVendor(values as any)
-          : await updateVendor(vendorId!, values as any);
+          : vendorId
+            ? await updateVendor(vendorId, values as any)
+            : { error: { reason: "Vendor ID is required for update" } };
 
       if (result.error) {
         toast.error(result.error.reason || "Failed to save vendor");

@@ -330,6 +330,7 @@ export function BillForm({
           watchedVendorInvoiceNumber,
           Number.parseFloat(total),
           format(watchedBillDate, "yyyy-MM-dd"),
+          mode === "edit" ? billId : undefined,
         );
 
         if (result.isDuplicate) {
@@ -366,7 +367,9 @@ export function BillForm({
       const result =
         mode === "create"
           ? await createBill(billData as any)
-          : await updateBill(billId!, billData as any);
+          : billId
+            ? await updateBill(billId, billData as any)
+            : { error: { reason: "Bill ID is required for update" } };
 
       if (result.error) {
         toast.error(result.error.reason || "Failed to save bill");

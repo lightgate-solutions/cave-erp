@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { PurchaseOrdersTable } from "@/components/payables/purchase-orders-table";
 import { getAllPurchaseOrders } from "@/actions/payables/purchase-orders";
+import type { POStatus } from "@/types/payables";
 
 export const dynamic = "force-dynamic";
 
@@ -47,11 +48,11 @@ async function PurchaseOrdersContent({
 }) {
   const purchaseOrders = await getAllPurchaseOrders({
     search: searchParams.search,
-    status: searchParams.status as any,
+    status: searchParams.status as POStatus | undefined,
     vendorId: searchParams.vendorId ? Number(searchParams.vendorId) : undefined,
   });
 
-  return <PurchaseOrdersTable purchaseOrders={purchaseOrders as any} />;
+  return <PurchaseOrdersTable purchaseOrders={purchaseOrders} />;
 }
 
 export default async function PurchaseOrdersPage({

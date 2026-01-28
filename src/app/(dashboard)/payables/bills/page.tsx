@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { BillsTable } from "@/components/payables/bills-table";
 import { getAllBills } from "@/actions/payables/bills";
+import type { BillStatus } from "@/types/payables";
 
 export const dynamic = "force-dynamic";
 
@@ -51,13 +52,13 @@ async function BillsContent({
 }) {
   const bills = await getAllBills({
     search: searchParams.search,
-    status: searchParams.status as any,
+    status: searchParams.status as BillStatus | undefined,
     vendorId: searchParams.vendorId ? Number(searchParams.vendorId) : undefined,
     startDate: searchParams.startDate,
     endDate: searchParams.endDate,
   });
 
-  return <BillsTable bills={bills as any} />;
+  return <BillsTable bills={bills} />;
 }
 
 export default async function BillsPage({ searchParams }: BillsPageProps) {

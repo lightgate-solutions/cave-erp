@@ -239,6 +239,7 @@ export default async function PayablesDashboard() {
       <Suspense
         fallback={
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {/* biome-ignore lint/suspicious/noArrayIndexKey: static skeleton loader */}
             {[...Array(4)].map((_, i) => (
               <Card key={i} className="animate-pulse">
                 <CardHeader className="space-y-0 pb-2">

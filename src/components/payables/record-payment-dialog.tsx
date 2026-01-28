@@ -137,7 +137,7 @@ export function RecordPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
           <DialogDescription>
@@ -146,7 +146,7 @@ export function RecordPaymentDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto max-h-[60vh] pr-2">
             {/* Amount Due Display */}
             <div className="p-4 bg-muted rounded-lg">
               <div className="flex justify-between items-center">

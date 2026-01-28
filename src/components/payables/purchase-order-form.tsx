@@ -182,7 +182,9 @@ export function PurchaseOrderForm({
       const result =
         mode === "create"
           ? await createPurchaseOrder(poData as any)
-          : await updatePurchaseOrder(poId!, poData as any);
+          : poId
+            ? await updatePurchaseOrder(poId, poData as any)
+            : { error: { reason: "PO ID is required for update" } };
 
       if (result.error) {
         toast.error(result.error.reason || "Failed to save purchase order");

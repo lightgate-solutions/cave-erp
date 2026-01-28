@@ -244,8 +244,8 @@ export default async function PayablesReportsPage({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    taxSummaryData.map((tax, index) => (
-                      <TableRow key={index}>
+                    taxSummaryData.map((tax) => (
+                      <TableRow key={`${tax.taxType}-${tax.taxName}`}>
                         <TableCell>
                           <Badge>{tax.taxType}</Badge>
                         </TableCell>

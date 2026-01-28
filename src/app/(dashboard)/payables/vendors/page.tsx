@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { VendorsTable } from "@/components/payables/vendors-table";
 import { getAllVendors } from "@/actions/payables/vendors";
+import type { VendorStatus } from "@/types/payables";
 
 export const dynamic = "force-dynamic";
 
@@ -48,10 +49,10 @@ async function VendorsContent({
   const vendors = await getAllVendors({
     search: searchParams.search,
     category: searchParams.category,
-    status: searchParams.status as any,
+    status: searchParams.status as VendorStatus | undefined,
   });
 
-  return <VendorsTable vendors={vendors as any} />;
+  return <VendorsTable vendors={vendors} />;
 }
 
 export default async function VendorsPage({ searchParams }: VendorsPageProps) {

@@ -47,7 +47,7 @@ export async function recordPayment(
   sendEmail = false,
 ) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -191,7 +191,7 @@ export async function recordPayment(
  */
 export async function updatePayment(id: number, data: UpdatePaymentInput) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -347,7 +347,7 @@ export async function updatePayment(id: number, data: UpdatePaymentInput) {
  */
 export async function deletePayment(id: number) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -568,7 +568,7 @@ export async function getAllPayments(filters?: {
  */
 export async function sendPaymentConfirmationEmail(paymentId: number) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),

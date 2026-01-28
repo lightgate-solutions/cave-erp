@@ -312,7 +312,7 @@ export default async function PurchaseOrderDetailPage({
                   </div>
                   <div className="text-sm">
                     Approved by {po.approvedByUser?.name || po.approvedBy} on{" "}
-                    {new Date(po.approvedAt!).toLocaleString()}
+                    {po.approvedAt && new Date(po.approvedAt).toLocaleString()}
                   </div>
                 </div>
               </>

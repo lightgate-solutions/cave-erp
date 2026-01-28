@@ -24,7 +24,7 @@ export const metadata = {
 
 async function AgingAnalysis() {
   const agingData = await getAPAgingSummary();
-  return <APAgingTable agingData={agingData as any} />;
+  return <APAgingTable agingData={agingData} />;
 }
 
 async function OverdueAlert() {
@@ -128,6 +128,7 @@ export default async function APOverviewPage() {
       <Suspense
         fallback={
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {/* biome-ignore lint/suspicious/noArrayIndexKey: static skeleton loader */}
             {[...Array(3)].map((_, i) => (
               <Card key={i} className="animate-pulse">
                 <CardHeader className="space-y-0 pb-2">

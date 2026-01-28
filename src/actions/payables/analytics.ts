@@ -345,7 +345,9 @@ export async function getVendorAnalytics(limit = 10) {
       .from(
         db
           .select({
-            total_spend: sql<number>`SUM(${payablesBills.total})`,
+            total_spend: sql<number>`SUM(${payablesBills.total})`.as(
+              "total_spend",
+            ),
           })
           .from(payablesBills)
           .where(

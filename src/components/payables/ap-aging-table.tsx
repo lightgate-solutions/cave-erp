@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
@@ -13,11 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 
 interface AgingData {
   vendor: {
@@ -141,27 +136,21 @@ export function APAgingTable({ agingData }: APAgingTableProps) {
           </TableHeader>
           <TableBody>
             {agingData.map((row) => (
-              <Collapsible
-                key={row.vendor.id}
-                open={expandedRows.has(row.vendor.id)}
-                asChild
-              >
+              <React.Fragment key={row.vendor.id}>
                 <TableRow>
                   <TableCell>
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-0 h-8 w-8"
-                        onClick={() => toggleRow(row.vendor.id)}
-                      >
-                        {expandedRows.has(row.vendor.id) ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </CollapsibleTrigger>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="p-0 h-8 w-8"
+                      onClick={() => toggleRow(row.vendor.id)}
+                    >
+                      {expandedRows.has(row.vendor.id) ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </Button>
                   </TableCell>
                   <TableCell>
                     <Link
@@ -221,7 +210,7 @@ export function APAgingTable({ agingData }: APAgingTableProps) {
                     ${Number(row.totalOutstanding).toFixed(2)}
                   </TableCell>
                 </TableRow>
-                <CollapsibleContent asChild>
+                {expandedRows.has(row.vendor.id) && (
                   <TableRow>
                     <TableCell colSpan={9} className="bg-muted/50 p-4">
                       <div className="space-y-2">
@@ -239,7 +228,7 @@ export function APAgingTable({ agingData }: APAgingTableProps) {
                           </Button>
                           <Button asChild size="sm" variant="outline">
                             <Link
-                              href={`/payables/bills?vendorId=${row.vendor.id}&status=Approved`}
+                              href={`/payables/bills?vendorId=${row.vendor.id}`}
                             >
                               View Outstanding Bills
                             </Link>
@@ -248,8 +237,8 @@ export function APAgingTable({ agingData }: APAgingTableProps) {
                       </div>
                     </TableCell>
                   </TableRow>
-                </CollapsibleContent>
-              </Collapsible>
+                )}
+              </React.Fragment>
             ))}
             {/* Totals Row */}
             <TableRow className="bg-muted font-bold">

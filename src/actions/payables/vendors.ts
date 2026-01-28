@@ -21,6 +21,7 @@ import type {
   PaymentMethod,
   VendorContact,
   VendorBankAccount,
+  BillStatus,
 } from "@/types/payables";
 
 export interface CreateVendorInput {
@@ -100,7 +101,7 @@ export async function generateVendorCode() {
  */
 export async function createVendor(data: CreateVendorInput) {
   try {
-    const { employee, userId } = await requirePayablesWriteAccess();
+    const { userId } = await requirePayablesWriteAccess();
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -238,7 +239,11 @@ export async function updateVendor(id: number, data: UpdateVendorInput) {
     }
 
     // Build update data (exclude contacts and bankAccounts)
-    const { contacts, bankAccounts, ...updateData } = data;
+    const {
+      contacts: _contacts,
+      bankAccounts: _bankAccounts,
+      ...updateData
+    } = data;
 
     const [updated] = await db
       .update(vendors)
@@ -490,7 +495,7 @@ export async function getVendorBills(
     ];
 
     if (filters?.status) {
-      conditions.push(eq(payablesBills.status, filters.status as any));
+      conditions.push(eq(payablesBills.status, filters.status as BillStatus));
     }
 
     const bills = await db
