@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   Card,
@@ -10,11 +11,26 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import StatsCard from "@/components/dashboard-components/stats-card";
-import ActivityChart from "@/components/dashboard-components/activity-chart";
 import RecentDocuments from "@/components/dashboard-components/recent-documents";
 import RecentNotifications from "@/components/dashboard-components/recent-notifications";
-import BudgetBreakdownChart from "@/components/dashboard-components/budget-breakdown-chart";
 import FleetDashboardWidget from "@/components/fleet/fleet-dashboard-widget";
+
+// Lazy load chart components to reduce initial bundle size (bundle-dynamic-imports)
+const ActivityChart = dynamic(
+  () => import("@/components/dashboard-components/activity-chart"),
+  {
+    loading: () => <div className="h-64 animate-pulse rounded bg-muted" />,
+    ssr: false,
+  },
+);
+
+const BudgetBreakdownChart = dynamic(
+  () => import("@/components/dashboard-components/budget-breakdown-chart"),
+  {
+    loading: () => <div className="h-64 animate-pulse rounded bg-muted" />,
+    ssr: false,
+  },
+);
 import {
   Users,
   FileText,

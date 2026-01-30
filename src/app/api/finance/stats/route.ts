@@ -53,41 +53,50 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [expensesResult] = await db
-      .select({ total: sql<string>`sum(${companyExpenses.amount})` })
-      .from(companyExpenses)
-      .where(
-        and(expenseWhere, eq(companyExpenses.organizationId, organization.id)),
-      );
-
-    const [loansResult] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(loanApplications)
-      .where(
-        and(
-          inArray(loanApplications.status, ["active", "disbursed"]),
-          eq(loanApplications.organizationId, organization.id),
+    // Parallelize all independent database queries (async-parallel)
+    const [expensesResults, loansResults, chartData] = await Promise.all([
+      db
+        .select({ total: sql<string>`sum(${companyExpenses.amount})` })
+        .from(companyExpenses)
+        .where(
+          and(
+            expenseWhere,
+            eq(companyExpenses.organizationId, organization.id),
+          ),
         ),
-      );
 
-    const chartData = await db
-      .select({
-        date: sql<string>`DATE(${balanceTransactions.createdAt})`,
-        type: balanceTransactions.transactionType,
-        amount: sql<string>`sum(${balanceTransactions.amount})`,
-      })
-      .from(balanceTransactions)
-      .where(
-        and(
-          chartWhere,
-          eq(balanceTransactions.organizationId, organization.id),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(loanApplications)
+        .where(
+          and(
+            inArray(loanApplications.status, ["active", "disbursed"]),
+            eq(loanApplications.organizationId, organization.id),
+          ),
         ),
-      )
-      .groupBy(
-        sql`DATE(${balanceTransactions.createdAt})`,
-        balanceTransactions.transactionType,
-      )
-      .orderBy(sql`DATE(${balanceTransactions.createdAt})`);
+
+      db
+        .select({
+          date: sql<string>`DATE(${balanceTransactions.createdAt})`,
+          type: balanceTransactions.transactionType,
+          amount: sql<string>`sum(${balanceTransactions.amount})`,
+        })
+        .from(balanceTransactions)
+        .where(
+          and(
+            chartWhere,
+            eq(balanceTransactions.organizationId, organization.id),
+          ),
+        )
+        .groupBy(
+          sql`DATE(${balanceTransactions.createdAt})`,
+          balanceTransactions.transactionType,
+        )
+        .orderBy(sql`DATE(${balanceTransactions.createdAt})`),
+    ]);
+
+    const [expensesResult] = expensesResults;
+    const [loansResult] = loansResults;
 
     const processedChartData: Record<
       string,

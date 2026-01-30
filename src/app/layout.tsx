@@ -5,8 +5,7 @@ import { ThemeProvider } from "next-themes";
 import NextTopLoader from "nextjs-toploader";
 import QueryProvider from "@/components/providers/query-provider";
 import "./globals.css";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { DeferredAnalytics } from "@/components/deferred-analytics";
 import {
   CircleCheckIcon,
   InfoIcon,
@@ -44,8 +43,7 @@ export default function RootLayout({
           <QueryProvider>
             <div>
               {children}
-              <Analytics mode="production" />
-              <SpeedInsights />
+              <DeferredAnalytics />
             </div>
           </QueryProvider>
           <SonnerToaster

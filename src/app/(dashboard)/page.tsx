@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getUser } from "@/actions/auth/dal";
 import { getUserPreferences } from "@/actions/user-preferences/preferences";
 import AdminDashboard from "@/components/dashboard/AdminDashboard";
@@ -5,6 +6,7 @@ import HrDashboard from "@/components/dashboard/HrDashboard";
 import FinanceDashboard from "@/components/dashboard/FinanceDashboard";
 import StaffDashboard from "@/components/dashboard/StaffDashboard";
 import ManagerDashboard from "@/components/dashboard/ManagerDashboard";
+import { DashboardLoading } from "@/components/dashboard/dashboard-loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -84,26 +86,46 @@ export default async function DashboardPage() {
     if (!organization) {
       redirect("/organizations/create");
     }
-    return <AdminDashboard userId={user.id} organizationId={organization.id} />;
+    return (
+      <Suspense fallback={<DashboardLoading />}>
+        <AdminDashboard userId={user.id} organizationId={organization.id} />
+      </Suspense>
+    );
   }
 
-  // If user has manager flag and is not admin, show manager dashboard
-  if (isManager) {
-    return <ManagerDashboard />;
-  }
-
-  // Role-based dashboards
+  // Department-based dashboards take precedence over manager dashboard
+  // This allows HR managers to see HR dashboard with manager elements
   switch (normalizedDepartment) {
     case "hr":
-      return <HrDashboard />;
+      return (
+        <Suspense fallback={<DashboardLoading />}>
+          <HrDashboard isManager={isManager} />
+        </Suspense>
+      );
     case "finance":
     case "accounting":
     case "accountant":
-      return <FinanceDashboard />;
+      return (
+        <Suspense fallback={<DashboardLoading />}>
+          <FinanceDashboard isManager={isManager} />
+        </Suspense>
+      );
 
     default:
+      // If user has manager flag but no specific department dashboard, show manager dashboard
+      if (isManager) {
+        return (
+          <Suspense fallback={<DashboardLoading />}>
+            <ManagerDashboard />
+          </Suspense>
+        );
+      }
       // Default fallback: Show staff dashboard for any unrecognized role
       // This ensures ALL users get a dashboard, even if their role is not explicitly handled
-      return <StaffDashboard />;
+      return (
+        <Suspense fallback={<DashboardLoading />}>
+          <StaffDashboard />
+        </Suspense>
+      );
   }
 }

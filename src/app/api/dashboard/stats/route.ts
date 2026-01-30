@@ -120,120 +120,115 @@ export async function GET() {
       // Keep default values
     }
 
-    // Document stats - simplified query
+    // Parallelize document, project, email, and notification stats (async-parallel)
     let documentCount = 0;
-    try {
-      if (isAdmin) {
-        // Admin sees all active documents
-        const docResult = await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(document)
-          .where(
-            and(
-              eq(document.status, "active"),
-              eq(document.organizationId, organization.id),
-            ),
-          );
-        documentCount = Number(docResult[0]?.count ?? 0);
-      } else {
-        // Build visibility condition for non-admin users
-        // Users can see documents they uploaded, public documents, departmental documents, or documents they have access to
-        const visibilityCondition = sql`(
-          ${document.uploadedBy} = ${employee.authId}
-          OR ${document.public} = true
-          OR (${document.departmental} = true AND ${document.department} = ${employee.department ?? ""})
-          OR EXISTS (
-            SELECT 1 FROM ${documentAccess}
-            WHERE ${documentAccess.documentId} = ${document.id}
-              AND ${documentAccess.organizationId} = ${organization.id}
-              AND (
-                ${documentAccess.userId} = ${employee.authId}
-                OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${employee.department ?? ""})
-              )
-          )
-        )`;
-
-        const docResult = await db
-          .select({ count: sql<number>`count(distinct ${document.id})::int` })
-          .from(document)
-          .where(
-            and(
-              eq(document.status, "active"),
-              visibilityCondition,
-              eq(document.organizationId, organization.id),
-            ),
-          );
-        documentCount = Number(docResult[0]?.count ?? 0);
-      }
-    } catch {
-      documentCount = 0;
-    }
-
-    // Project stats
     let projectCount = 0;
-    try {
-      const projectResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(projects)
-        .where(eq(projects.organizationId, organization.id));
-      projectCount = Number(projectResult[0]?.count ?? 0);
-    } catch {
-      projectCount = 0;
-    }
-
-    // Email stats
     let emailStats = { unread: 0, inbox: 0 };
-    try {
-      const [unreadResult, inboxResult] = await Promise.all([
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(emailRecipient)
-          .where(
-            and(
-              eq(emailRecipient.recipientId, employee.authId),
-              eq(emailRecipient.isRead, false),
-              eq(emailRecipient.organizationId, organization.id),
-              eq(emailRecipient.isArchived, false),
-              eq(emailRecipient.isDeleted, false),
-            ),
-          ),
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(emailRecipient)
-          .where(
-            and(
-              eq(emailRecipient.recipientId, employee.authId),
-              eq(emailRecipient.isArchived, false),
-              eq(emailRecipient.organizationId, organization.id),
-              eq(emailRecipient.isDeleted, false),
-            ),
-          ),
-      ]);
-
-      emailStats = {
-        unread: Number(unreadResult[0]?.count ?? 0),
-        inbox: Number(inboxResult[0]?.count ?? 0),
-      };
-    } catch {
-      // Keep default values
-    }
-
-    // Notification stats
     let notificationCount = 0;
+
     try {
-      const notifResult = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(notifications)
-        .where(
-          and(
-            eq(notifications.user_id, employee.authId),
-            eq(notifications.organizationId, organization.id),
-            eq(notifications.is_read, false),
-          ),
-        );
+      const [docResult, projectResult, emailResults, notifResult] =
+        await Promise.all([
+          // Document stats - simplified query
+          (async () => {
+            if (isAdmin) {
+              // Admin sees all active documents
+              return db
+                .select({ count: sql<number>`count(*)::int` })
+                .from(document)
+                .where(
+                  and(
+                    eq(document.status, "active"),
+                    eq(document.organizationId, organization.id),
+                  ),
+                );
+            }
+            // Build visibility condition for non-admin users
+            // Users can see documents they uploaded, public documents, departmental documents, or documents they have access to
+            const visibilityCondition = sql`(
+              ${document.uploadedBy} = ${employee.authId}
+              OR ${document.public} = true
+              OR (${document.departmental} = true AND ${document.department} = ${employee.department ?? ""})
+              OR EXISTS (
+                SELECT 1 FROM ${documentAccess}
+                WHERE ${documentAccess.documentId} = ${document.id}
+                  AND ${documentAccess.organizationId} = ${organization.id}
+                  AND (
+                    ${documentAccess.userId} = ${employee.authId}
+                    OR (${documentAccess.department} IS NOT NULL AND ${documentAccess.department} = ${employee.department ?? ""})
+                  )
+              )
+            )`;
+
+            return db
+              .select({
+                count: sql<number>`count(distinct ${document.id})::int`,
+              })
+              .from(document)
+              .where(
+                and(
+                  eq(document.status, "active"),
+                  visibilityCondition,
+                  eq(document.organizationId, organization.id),
+                ),
+              );
+          })(),
+
+          // Project stats
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(projects)
+            .where(eq(projects.organizationId, organization.id)),
+
+          // Email stats (unread and inbox)
+          Promise.all([
+            db
+              .select({ count: sql<number>`count(*)::int` })
+              .from(emailRecipient)
+              .where(
+                and(
+                  eq(emailRecipient.recipientId, employee.authId),
+                  eq(emailRecipient.isRead, false),
+                  eq(emailRecipient.organizationId, organization.id),
+                  eq(emailRecipient.isArchived, false),
+                  eq(emailRecipient.isDeleted, false),
+                ),
+              ),
+            db
+              .select({ count: sql<number>`count(*)::int` })
+              .from(emailRecipient)
+              .where(
+                and(
+                  eq(emailRecipient.recipientId, employee.authId),
+                  eq(emailRecipient.isArchived, false),
+                  eq(emailRecipient.organizationId, organization.id),
+                  eq(emailRecipient.isDeleted, false),
+                ),
+              ),
+          ]),
+
+          // Notification stats
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(notifications)
+            .where(
+              and(
+                eq(notifications.user_id, employee.authId),
+                eq(notifications.organizationId, organization.id),
+                eq(notifications.is_read, false),
+              ),
+            ),
+        ]);
+
+      documentCount = Number(docResult[0]?.count ?? 0);
+      projectCount = Number(projectResult[0]?.count ?? 0);
+      emailStats = {
+        unread: Number(emailResults[0][0]?.count ?? 0),
+        inbox: Number(emailResults[1][0]?.count ?? 0),
+      };
       notificationCount = Number(notifResult[0]?.count ?? 0);
     } catch {
-      // Keep default values
+      // Keep default values (already initialized)
     }
 
     return NextResponse.json(

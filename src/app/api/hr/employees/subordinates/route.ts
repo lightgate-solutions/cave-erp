@@ -8,31 +8,28 @@ import { headers } from "next/headers";
 export async function GET(request: NextRequest) {
   try {
     const h = await headers();
+    const session = await auth.api.getSession({ headers: h });
     const organization = await auth.api.getFullOrganization({ headers: h });
-    if (!organization) {
-      return NextResponse.json(
-        { error: "Organization not found" },
-        { status: 401 },
-      );
+
+    if (!session?.user || !organization) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { searchParams } = request.nextUrl;
     // Note: API query parameter is still "employeeId" for backward compatibility
+    // If not provided, use the current session user
     const userIdParam = searchParams.get("employeeId");
-    const userId = userIdParam ? Number(userIdParam) : 0;
     const q = searchParams.get("q") || "";
-    if (!userId) {
-      return NextResponse.json(
-        { error: "Employee ID is required" },
-        { status: 400 },
-      );
-    }
+
+    // Get employee data - either from parameter or current session user
     const [res] = await db
       .select({ id: employees.id, authId: employees.authId })
       .from(employees)
       .where(
         and(
-          eq(employees.id, userId),
+          userIdParam
+            ? eq(employees.id, Number(userIdParam))
+            : eq(employees.authId, session.user.id),
           eq(employees.organizationId, organization.id),
         ),
       )

@@ -26,17 +26,7 @@ export async function GET(request: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
 
-    // 1. Total vehicle count by status
-    const vehicleStats = await db
-      .select({
-        status: vehicles.status,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(vehicles)
-      .where(eq(vehicles.organizationId, organization.id))
-      .groupBy(vehicles.status);
-
-    // 2. Total fleet expenses
+    // Build where clauses upfront
     const expenseWhere = and(
       eq(companyExpenses.organizationId, organization.id),
       eq(companyExpenses.isFleetExpense, true),
@@ -48,26 +38,6 @@ export async function GET(request: NextRequest) {
         : undefined,
     );
 
-    const [expenseStats] = await db
-      .select({
-        total: sql<string>`COALESCE(SUM(${companyExpenses.amount}), 0)`,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(companyExpenses)
-      .where(expenseWhere);
-
-    // 3. Expense breakdown by fleet category
-    const expenseByCategory = await db
-      .select({
-        category: companyExpenses.fleetExpenseCategory,
-        total: sql<string>`SUM(${companyExpenses.amount})`,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(companyExpenses)
-      .where(expenseWhere)
-      .groupBy(companyExpenses.fleetExpenseCategory);
-
-    // 4. Maintenance costs
     const maintenanceWhere = and(
       eq(fleetMaintenance.organizationId, organization.id),
       from && to
@@ -78,15 +48,6 @@ export async function GET(request: NextRequest) {
         : undefined,
     );
 
-    const [maintenanceStats] = await db
-      .select({
-        total: sql<string>`COALESCE(SUM(${fleetMaintenance.cost}), 0)`,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(fleetMaintenance)
-      .where(maintenanceWhere);
-
-    // 5. Incident statistics
     const incidentWhere = and(
       eq(fleetIncidents.organizationId, organization.id),
       from && to
@@ -97,108 +58,171 @@ export async function GET(request: NextRequest) {
         : undefined,
     );
 
-    const [incidentStats] = await db
-      .select({
-        total: sql<number>`count(*)::int`,
-        resolved: sql<number>`count(*) FILTER (WHERE ${fleetIncidents.resolutionStatus} = 'Resolved')::int`,
-        pending: sql<number>`count(*) FILTER (WHERE ${fleetIncidents.resolutionStatus} != 'Resolved')::int`,
-      })
-      .from(fleetIncidents)
-      .where(incidentWhere);
-
-    // 6. Incident breakdown by severity
-    const incidentBySeverity = await db
-      .select({
-        severity: fleetIncidents.severity,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(fleetIncidents)
-      .where(incidentWhere)
-      .groupBy(fleetIncidents.severity);
-
-    // 7. Compliance alerts (expiring soon - within 30 days)
     const today = new Date();
     const thirtyDaysFromNow = new Date(today);
     thirtyDaysFromNow.setDate(today.getDate() + 30);
 
-    const [complianceAlerts] = await db
-      .select({
-        expiringInsurance: sql<number>`count(*) FILTER (WHERE ${vehicles.insuranceExpiryDate} BETWEEN ${today} AND ${thirtyDaysFromNow})::int`,
-        expiringRegistration: sql<number>`count(*) FILTER (WHERE ${vehicles.registrationExpiryDate} BETWEEN ${today} AND ${thirtyDaysFromNow})::int`,
-        expiredInsurance: sql<number>`count(*) FILTER (WHERE ${vehicles.insuranceExpiryDate} < ${today})::int`,
-        expiredRegistration: sql<number>`count(*) FILTER (WHERE ${vehicles.registrationExpiryDate} < ${today})::int`,
-      })
-      .from(vehicles)
-      .where(eq(vehicles.organizationId, organization.id));
-
-    // 8. Driver license expiry alerts
-    const [driverLicenseAlerts] = await db
-      .select({
-        expiringLicenses: sql<number>`count(*) FILTER (WHERE ${drivers.licenseExpiryDate} BETWEEN ${today} AND ${thirtyDaysFromNow})::int`,
-        expiredLicenses: sql<number>`count(*) FILTER (WHERE ${drivers.licenseExpiryDate} < ${today})::int`,
-      })
-      .from(drivers)
-      .where(
-        and(
-          eq(drivers.organizationId, organization.id),
-          eq(drivers.status, "Active"),
-        ),
-      );
-
-    // 9. Active assignments count
-    const [assignmentStats] = await db
-      .select({
-        total: sql<number>`count(*)::int`,
-      })
-      .from(driverAssignments)
-      .where(
-        and(
-          eq(driverAssignments.organizationId, organization.id),
-          isNull(driverAssignments.endDate),
-        ),
-      );
-
-    // 10. Total driver count by status
-    const driverStats = await db
-      .select({
-        status: drivers.status,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(drivers)
-      .where(eq(drivers.organizationId, organization.id))
-      .groupBy(drivers.status);
-
-    // 11. Maintenance breakdown by type
-    const maintenanceByType = await db
-      .select({
-        type: fleetMaintenance.maintenanceType,
-        count: sql<number>`count(*)::int`,
-        totalCost: sql<string>`SUM(${fleetMaintenance.cost})`,
-      })
-      .from(fleetMaintenance)
-      .where(maintenanceWhere)
-      .groupBy(fleetMaintenance.maintenanceType);
-
-    // 12. Expense trends (last 6 months by month)
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    const expenseTrends = await db
-      .select({
-        month: sql<string>`TO_CHAR(${companyExpenses.expenseDate}, 'YYYY-MM')`,
-        total: sql<string>`SUM(${companyExpenses.amount})`,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(companyExpenses)
-      .where(
-        and(
-          eq(companyExpenses.organizationId, organization.id),
-          eq(companyExpenses.isFleetExpense, true),
-          gte(companyExpenses.expenseDate, sixMonthsAgo),
+    // Parallelize all 12 independent database queries (async-parallel)
+    const [
+      vehicleStats,
+      expenseStatsResult,
+      expenseByCategory,
+      maintenanceStatsResult,
+      incidentStatsResult,
+      incidentBySeverity,
+      complianceAlertsResult,
+      driverLicenseAlertsResult,
+      assignmentStatsResult,
+      driverStats,
+      maintenanceByType,
+      expenseTrends,
+    ] = await Promise.all([
+      // 1. Total vehicle count by status
+      db
+        .select({
+          status: vehicles.status,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(vehicles)
+        .where(eq(vehicles.organizationId, organization.id))
+        .groupBy(vehicles.status),
+
+      // 2. Total fleet expenses
+      db
+        .select({
+          total: sql<string>`COALESCE(SUM(${companyExpenses.amount}), 0)`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(companyExpenses)
+        .where(expenseWhere),
+
+      // 3. Expense breakdown by fleet category
+      db
+        .select({
+          category: companyExpenses.fleetExpenseCategory,
+          total: sql<string>`SUM(${companyExpenses.amount})`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(companyExpenses)
+        .where(expenseWhere)
+        .groupBy(companyExpenses.fleetExpenseCategory),
+
+      // 4. Maintenance costs
+      db
+        .select({
+          total: sql<string>`COALESCE(SUM(${fleetMaintenance.cost}), 0)`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(fleetMaintenance)
+        .where(maintenanceWhere),
+
+      // 5. Incident statistics
+      db
+        .select({
+          total: sql<number>`count(*)::int`,
+          resolved: sql<number>`count(*) FILTER (WHERE ${fleetIncidents.resolutionStatus} = 'Resolved')::int`,
+          pending: sql<number>`count(*) FILTER (WHERE ${fleetIncidents.resolutionStatus} != 'Resolved')::int`,
+        })
+        .from(fleetIncidents)
+        .where(incidentWhere),
+
+      // 6. Incident breakdown by severity
+      db
+        .select({
+          severity: fleetIncidents.severity,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(fleetIncidents)
+        .where(incidentWhere)
+        .groupBy(fleetIncidents.severity),
+
+      // 7. Compliance alerts (expiring soon - within 30 days)
+      db
+        .select({
+          expiringInsurance: sql<number>`count(*) FILTER (WHERE ${vehicles.insuranceExpiryDate} BETWEEN ${today} AND ${thirtyDaysFromNow})::int`,
+          expiringRegistration: sql<number>`count(*) FILTER (WHERE ${vehicles.registrationExpiryDate} BETWEEN ${today} AND ${thirtyDaysFromNow})::int`,
+          expiredInsurance: sql<number>`count(*) FILTER (WHERE ${vehicles.insuranceExpiryDate} < ${today})::int`,
+          expiredRegistration: sql<number>`count(*) FILTER (WHERE ${vehicles.registrationExpiryDate} < ${today})::int`,
+        })
+        .from(vehicles)
+        .where(eq(vehicles.organizationId, organization.id)),
+
+      // 8. Driver license expiry alerts
+      db
+        .select({
+          expiringLicenses: sql<number>`count(*) FILTER (WHERE ${drivers.licenseExpiryDate} BETWEEN ${today} AND ${thirtyDaysFromNow})::int`,
+          expiredLicenses: sql<number>`count(*) FILTER (WHERE ${drivers.licenseExpiryDate} < ${today})::int`,
+        })
+        .from(drivers)
+        .where(
+          and(
+            eq(drivers.organizationId, organization.id),
+            eq(drivers.status, "Active"),
+          ),
         ),
-      )
-      .groupBy(sql`TO_CHAR(${companyExpenses.expenseDate}, 'YYYY-MM')`)
-      .orderBy(sql`TO_CHAR(${companyExpenses.expenseDate}, 'YYYY-MM')`);
+
+      // 9. Active assignments count
+      db
+        .select({
+          total: sql<number>`count(*)::int`,
+        })
+        .from(driverAssignments)
+        .where(
+          and(
+            eq(driverAssignments.organizationId, organization.id),
+            isNull(driverAssignments.endDate),
+          ),
+        ),
+
+      // 10. Total driver count by status
+      db
+        .select({
+          status: drivers.status,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(drivers)
+        .where(eq(drivers.organizationId, organization.id))
+        .groupBy(drivers.status),
+
+      // 11. Maintenance breakdown by type
+      db
+        .select({
+          type: fleetMaintenance.maintenanceType,
+          count: sql<number>`count(*)::int`,
+          totalCost: sql<string>`SUM(${fleetMaintenance.cost})`,
+        })
+        .from(fleetMaintenance)
+        .where(maintenanceWhere)
+        .groupBy(fleetMaintenance.maintenanceType),
+
+      // 12. Expense trends (last 6 months by month)
+      db
+        .select({
+          month: sql<string>`TO_CHAR(${companyExpenses.expenseDate}, 'YYYY-MM')`,
+          total: sql<string>`SUM(${companyExpenses.amount})`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(companyExpenses)
+        .where(
+          and(
+            eq(companyExpenses.organizationId, organization.id),
+            eq(companyExpenses.isFleetExpense, true),
+            gte(companyExpenses.expenseDate, sixMonthsAgo),
+          ),
+        )
+        .groupBy(sql`TO_CHAR(${companyExpenses.expenseDate}, 'YYYY-MM')`)
+        .orderBy(sql`TO_CHAR(${companyExpenses.expenseDate}, 'YYYY-MM')`),
+    ]);
+
+    const [expenseStats] = expenseStatsResult;
+    const [maintenanceStats] = maintenanceStatsResult;
+    const [incidentStats] = incidentStatsResult;
+    const [complianceAlerts] = complianceAlertsResult;
+    const [driverLicenseAlerts] = driverLicenseAlertsResult;
+    const [assignmentStats] = assignmentStatsResult;
 
     return NextResponse.json({
       vehicleStats,
