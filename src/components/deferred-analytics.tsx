@@ -29,9 +29,10 @@ export function DeferredAnalytics() {
 }
 
 function LazyAnalytics() {
-  const [Analytics, setAnalytics] = useState<React.ComponentType<{
-    mode?: string;
-  }> | null>(null);
+  // biome-ignore lint/suspicious/noExplicitAny: Temporary fix for type mismatch
+  const [Analytics, setAnalytics] = useState<React.ComponentType<any> | null>(
+    null,
+  );
 
   useEffect(() => {
     import("@vercel/analytics/next")

@@ -8,11 +8,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "lucide-react";
 
 interface RecentActivity {
-  id: string;
+  id: string | number;
   employeeName: string | null;
   leaveType: string | null;
-  startDate: Date | null;
-  endDate: Date | null;
+  startDate: Date | string | null;
+  endDate: Date | string | null;
   status: string | null;
   createdAt: Date | null;
 }
@@ -42,6 +42,7 @@ export function RecentActivities({
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton list, index is stable
               <div key={i} className="flex items-center gap-4">
                 <Skeleton className="size-10 rounded-full" />
                 <div className="flex-1 space-y-2">
