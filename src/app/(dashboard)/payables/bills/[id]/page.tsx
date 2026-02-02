@@ -19,7 +19,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RecordPaymentDialogWrapper } from "@/components/payables/record-payment-dialog-wrapper";
-import { getBill } from "@/actions/payables/bills";
+import { PostBillPaymentToGLButton } from "@/components/payables/post-bill-payment-to-gl-button";
+import { PostBillToGLButton } from "@/components/payables/post-bill-to-gl-button";
+import { getBill, getBillGLPostingStatus } from "@/actions/payables/bills";
 import { getBillPayments } from "@/actions/payables/payments";
 
 export default async function BillDetailPage({
@@ -29,14 +31,16 @@ export default async function BillDetailPage({
 }) {
   const { id } = await params;
 
-  // Fetch bill data from server
-  const bill = await getBill(Number(id));
+  const billId = Number(id);
+  const [bill, payments, glStatus] = await Promise.all([
+    getBill(billId),
+    getBillPayments(billId),
+    getBillGLPostingStatus(billId),
+  ]);
 
   if (!bill) {
     return null;
   }
-
-  const payments = await getBillPayments(Number(id));
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -71,6 +75,14 @@ export default async function BillDetailPage({
           </div>
         </div>
         <div className="flex gap-2">
+          {(bill.status === "Approved" ||
+            bill.status === "Partially Paid" ||
+            bill.status === "Paid") && (
+            <PostBillToGLButton
+              billId={bill.id}
+              postedToGl={glStatus?.posted ?? false}
+            />
+          )}
           <RecordPaymentDialogWrapper
             billId={bill.id}
             billNumber={bill.billNumber}
@@ -196,6 +208,31 @@ export default async function BillDetailPage({
                   {bill.currency.currencyCode} - {bill.currency.currencyName}
                 </div>
               </div>
+              {(bill.status === "Approved" ||
+                bill.status === "Partially Paid" ||
+                bill.status === "Paid") && (
+                <div className="col-span-2">
+                  <div className="text-sm font-medium text-muted-foreground">
+                    General Ledger
+                  </div>
+                  <div className="text-sm">
+                    {glStatus?.posted ? (
+                      <span className="text-green-600 dark:text-green-400">
+                        Posted
+                        {glStatus.postedAt &&
+                          ` on ${new Date(glStatus.postedAt).toLocaleDateString()}`}
+                        {glStatus.journalNumber &&
+                          ` (${glStatus.journalNumber})`}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Not yet posted (auto-posted when bill is created, or use
+                        &quot;Post to General Ledger&quot; above)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {bill.notes && (
@@ -392,6 +429,9 @@ export default async function BillDetailPage({
                   <TableHead>Reference</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Email Sent</TableHead>
+                  <TableHead className="w-[100px] text-right">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -413,6 +453,9 @@ export default async function BillDetailPage({
                       ) : (
                         <span className="text-gray-500 text-sm">Not sent</span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <PostBillPaymentToGLButton paymentId={payment.id} />
                     </TableCell>
                   </TableRow>
                 ))}

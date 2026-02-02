@@ -9,7 +9,11 @@ import {
   vendors,
   purchaseOrders,
   poLineItems,
+  glAccounts,
+  glJournals,
 } from "@/db/schema";
+import { createJournal } from "../finance/gl/journals";
+import { ensureDefaultGLAccounts } from "../finance/gl/accounts";
 import {
   requirePayablesViewAccess,
   requirePayablesWriteAccess,
@@ -426,6 +430,57 @@ export async function createBill(data: CreateBillInput) {
     // If linked to PO, update PO billed amount
     if (data.poId) {
       await updatePOBilledAmount(data.poId);
+    }
+
+    // Automatic GL posting when bill is created (Dr Expense, Cr AP). Same as invoice: auto-post when record is created.
+    try {
+      await ensureDefaultGLAccounts(organization.id);
+      const apAccount = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organization.id),
+          eq(glAccounts.code, "2000"),
+        ),
+      });
+      const expenseAccount = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organization.id),
+          eq(glAccounts.code, "6000"),
+        ),
+      });
+      if (apAccount && expenseAccount) {
+        const glResult = await createJournal({
+          organizationId: organization.id,
+          transactionDate: new Date(),
+          postingDate: new Date(),
+          description: `Bill: ${result.billNumber}`,
+          reference: result.billNumber,
+          source: "Payables",
+          sourceId: String(result.id),
+          status: "Posted",
+          lines: [
+            {
+              accountId: expenseAccount.id,
+              description: `Bill Expense - ${result.vendorInvoiceNumber}`,
+              debit: Number(result.total),
+              credit: 0,
+            },
+            {
+              accountId: apAccount.id,
+              description: `Accounts Payable - ${vendor.name}`,
+              debit: 0,
+              credit: Number(result.total),
+            },
+          ],
+        });
+        if (!glResult.success) {
+          console.error("Failed to post bill to GL on create:", glResult.error);
+        }
+        revalidatePath("/finance/gl/journals");
+        revalidatePath("/finance/gl/reports");
+        revalidatePath("/finance/gl/accounts");
+      }
+    } catch (glError) {
+      console.error("Failed to post bill to GL on create:", glError);
     }
 
     revalidatePath("/payables/bills");
@@ -934,6 +989,83 @@ export async function updateBillStatus(
       });
     });
 
+    // Post to GL when status is set to Approved (Dr Expense, Cr AP) - same as approveBill
+    if (newStatus === "Approved" && bill.status !== "Approved") {
+      try {
+        const existingJournal = await db.query.glJournals.findFirst({
+          where: and(
+            eq(glJournals.organizationId, organization.id),
+            eq(glJournals.source, "Payables"),
+            eq(glJournals.sourceId, String(id)),
+          ),
+          columns: { id: true },
+        });
+        if (!existingJournal) {
+          await ensureDefaultGLAccounts(organization.id);
+          const apAccount = await db.query.glAccounts.findFirst({
+            where: and(
+              eq(glAccounts.organizationId, organization.id),
+              eq(glAccounts.code, "2000"),
+            ),
+          });
+          const expenseAccount = await db.query.glAccounts.findFirst({
+            where: and(
+              eq(glAccounts.organizationId, organization.id),
+              eq(glAccounts.code, "6000"),
+            ),
+          });
+          const [vendorRow] = await db
+            .select({ name: vendors.name })
+            .from(vendors)
+            .where(
+              and(
+                eq(vendors.id, bill.vendorId),
+                eq(vendors.organizationId, organization.id),
+              ),
+            )
+            .limit(1);
+          const vendorName = vendorRow?.name ?? "Vendor";
+          if (apAccount && expenseAccount) {
+            const glResult = await createJournal({
+              organizationId: organization.id,
+              transactionDate: new Date(),
+              postingDate: new Date(),
+              description: `Bill Approval: ${bill.billNumber}`,
+              reference: bill.billNumber,
+              source: "Payables",
+              sourceId: String(id),
+              status: "Posted",
+              lines: [
+                {
+                  accountId: expenseAccount.id,
+                  description: `Bill Expense - ${bill.vendorInvoiceNumber}`,
+                  debit: Number(bill.total),
+                  credit: 0,
+                },
+                {
+                  accountId: apAccount.id,
+                  description: `Accounts Payable - ${vendorName}`,
+                  debit: 0,
+                  credit: Number(bill.total),
+                },
+              ],
+            });
+            if (!glResult.success) {
+              console.error(
+                "Failed to post bill approval to GL:",
+                glResult.error,
+              );
+            }
+          }
+          revalidatePath("/finance/gl/journals");
+          revalidatePath("/finance/gl/reports");
+          revalidatePath("/finance/gl/accounts");
+        }
+      } catch (glError) {
+        console.error("Failed to post bill approval to GL:", glError);
+      }
+    }
+
     revalidatePath("/payables/bills");
     revalidatePath(`/payables/bills/${id}`);
     revalidatePath(`/payables/vendors/${bill.vendorId}`);
@@ -1021,6 +1153,83 @@ export async function approveBill(id: number) {
       });
     });
 
+    // ---------------------------------------------------------
+    // POST TO GENERAL LEDGER (skip if already posted on create)
+    // ---------------------------------------------------------
+    try {
+      const existingJournal = await db.query.glJournals.findFirst({
+        where: and(
+          eq(glJournals.organizationId, organization.id),
+          eq(glJournals.source, "Payables"),
+          eq(glJournals.sourceId, String(id)),
+        ),
+        columns: { id: true },
+      });
+      if (!existingJournal) {
+        await ensureDefaultGLAccounts(organization.id);
+        const apAccount = await db.query.glAccounts.findFirst({
+          where: and(
+            eq(glAccounts.organizationId, organization.id),
+            eq(glAccounts.code, "2000"),
+          ),
+        });
+
+        const expenseAccount = await db.query.glAccounts.findFirst({
+          where: and(
+            eq(glAccounts.organizationId, organization.id),
+            eq(glAccounts.code, "6000"),
+          ),
+        });
+
+        if (apAccount && expenseAccount) {
+          const [vendorRow] = await db
+            .select({ name: vendors.name })
+            .from(vendors)
+            .where(
+              and(
+                eq(vendors.id, bill.vendorId),
+                eq(vendors.organizationId, organization.id),
+              ),
+            )
+            .limit(1);
+          const vendorName = vendorRow?.name ?? "Vendor";
+          const glResult = await createJournal({
+            organizationId: organization.id,
+            transactionDate: new Date(),
+            postingDate: new Date(),
+            description: `Bill Approval: ${bill.billNumber}`,
+            reference: bill.billNumber,
+            source: "Payables",
+            sourceId: String(bill.id),
+            status: "Posted",
+            lines: [
+              {
+                accountId: expenseAccount.id,
+                description: `Bill Expense - ${bill.vendorInvoiceNumber}`,
+                debit: Number(bill.total),
+                credit: 0,
+              },
+              {
+                accountId: apAccount.id,
+                description: `Accounts Payable - ${vendorName}`,
+                debit: 0,
+                credit: Number(bill.total),
+              },
+            ],
+          });
+          if (!glResult.success) {
+            console.error(
+              "Failed to post bill approval to GL:",
+              glResult.error,
+            );
+          }
+        }
+      }
+    } catch (glError) {
+      console.error("Failed to post bill to GL:", glError);
+      // We don't fail the approval if GL post fails, but we should alert/log.
+    }
+
     revalidatePath("/payables/bills");
     revalidatePath(`/payables/bills/${id}`);
     revalidatePath(`/payables/vendors/${bill.vendorId}`);
@@ -1034,6 +1243,179 @@ export async function approveBill(id: number) {
     return {
       success: null,
       error: { reason: "Failed to approve bill" },
+    };
+  }
+}
+
+/**
+ * Check whether a bill has been posted to the General Ledger (bill approval: Dr Expense, Cr AP).
+ */
+export async function getBillGLPostingStatus(id: number): Promise<{
+  posted: boolean;
+  postedAt?: string;
+  journalNumber?: string;
+} | null> {
+  try {
+    await requirePayablesViewAccess();
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) return null;
+
+    const journal = await db.query.glJournals.findFirst({
+      where: and(
+        eq(glJournals.organizationId, organization.id),
+        eq(glJournals.source, "Payables"),
+        eq(glJournals.sourceId, String(id)),
+      ),
+      columns: {
+        postingDate: true,
+        journalNumber: true,
+      },
+    });
+
+    if (!journal) {
+      return { posted: false };
+    }
+    return {
+      posted: true,
+      postedAt: journal.postingDate ?? undefined,
+      journalNumber: journal.journalNumber ?? undefined,
+    };
+  } catch (error) {
+    console.error("Error fetching bill GL posting status:", error);
+    return null;
+  }
+}
+
+/**
+ * Post bill approval to General Ledger (Dr Expense, Cr AP). Manual option for backfill.
+ * Automatic posting happens when the bill is approved (approveBill / updateBillStatus / createBill with Approved).
+ */
+export async function postBillToGL(id: number): Promise<{
+  success: boolean;
+  error?: string;
+  alreadyPosted?: boolean;
+}> {
+  try {
+    await requirePayablesWriteAccess();
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return { success: false, error: "Organization not found" };
+    }
+
+    const [bill] = await db
+      .select()
+      .from(payablesBills)
+      .where(
+        and(
+          eq(payablesBills.id, id),
+          eq(payablesBills.organizationId, organization.id),
+        ),
+      )
+      .limit(1);
+
+    if (!bill) {
+      return { success: false, error: "Bill not found" };
+    }
+    if (
+      bill.status === "Draft" ||
+      bill.status === "Cancelled" ||
+      bill.status === "Pending"
+    ) {
+      return {
+        success: false,
+        error:
+          "Only approved, partially paid, or paid bills can be posted to the GL.",
+      };
+    }
+
+    const existing = await db.query.glJournals.findFirst({
+      where: and(
+        eq(glJournals.organizationId, organization.id),
+        eq(glJournals.source, "Payables"),
+        eq(glJournals.sourceId, String(id)),
+      ),
+      columns: { id: true },
+    });
+    if (existing) {
+      return { success: true, alreadyPosted: true };
+    }
+
+    await ensureDefaultGLAccounts(organization.id);
+    const apAccount = await db.query.glAccounts.findFirst({
+      where: and(
+        eq(glAccounts.organizationId, organization.id),
+        eq(glAccounts.code, "2000"),
+      ),
+    });
+    const expenseAccount = await db.query.glAccounts.findFirst({
+      where: and(
+        eq(glAccounts.organizationId, organization.id),
+        eq(glAccounts.code, "6000"),
+      ),
+    });
+    if (!apAccount || !expenseAccount) {
+      return { success: false, error: "GL accounts 2000 or 6000 not found." };
+    }
+
+    const [vendorRow] = await db
+      .select({ name: vendors.name })
+      .from(vendors)
+      .where(
+        and(
+          eq(vendors.id, bill.vendorId),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
+      .limit(1);
+    const vendorName = vendorRow?.name ?? "Vendor";
+
+    const glResult = await createJournal({
+      organizationId: organization.id,
+      transactionDate: new Date(),
+      postingDate: new Date(),
+      description: `Bill Approval: ${bill.billNumber}`,
+      reference: bill.billNumber,
+      source: "Payables",
+      sourceId: String(id),
+      status: "Posted",
+      lines: [
+        {
+          accountId: expenseAccount.id,
+          description: `Bill Expense - ${bill.vendorInvoiceNumber}`,
+          debit: Number(bill.total),
+          credit: 0,
+        },
+        {
+          accountId: apAccount.id,
+          description: `Accounts Payable - ${vendorName}`,
+          debit: 0,
+          credit: Number(bill.total),
+        },
+      ],
+    });
+
+    if (!glResult.success) {
+      return { success: false, error: glResult.error };
+    }
+
+    revalidatePath("/payables/bills");
+    revalidatePath(`/payables/bills/${id}`);
+    revalidatePath("/finance/gl/journals");
+    revalidatePath("/finance/gl/reports");
+    revalidatePath("/finance/gl/accounts");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error posting bill to GL:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to post to GL",
     };
   }
 }

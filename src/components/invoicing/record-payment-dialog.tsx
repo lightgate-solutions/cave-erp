@@ -138,31 +138,41 @@ export function RecordPaymentDialog({
             <FormField
               control={form.control}
               name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payment Amount *</FormLabel>
-                  <FormControl>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">
-                        {currencySymbol}
-                      </span>
-                      <Input
-                        {...field}
-                        type="number"
-                        step="0.01"
-                        onChange={(e) =>
-                          field.onChange(Number.parseFloat(e.target.value))
-                        }
-                      />
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    Maximum: {currencySymbol}
-                    {amountDue.toFixed(2)}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const num =
+                  typeof field.value === "number" && !Number.isNaN(field.value)
+                    ? field.value
+                    : "";
+                return (
+                  <FormItem>
+                    <FormLabel>Payment Amount *</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">
+                          {currencySymbol}
+                        </span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={num}
+                          onChange={(e) => {
+                            const v = Number.parseFloat(e.target.value);
+                            field.onChange(Number.isNaN(v) ? 0 : v);
+                          }}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Maximum: {currencySymbol}
+                      {amountDue.toFixed(2)}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <FormField

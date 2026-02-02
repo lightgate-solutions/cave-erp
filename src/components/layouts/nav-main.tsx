@@ -113,9 +113,9 @@ export function NavMain({
                                   "font-medium text-primary bg-primary/10",
                               )}
                             >
-                              <a href={subItem.url}>
+                              <Link href={subItem.url}>
                                 <span>{subItem.title}</span>
-                              </a>
+                              </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         );

@@ -50,13 +50,18 @@ async function BillsContent({
     endDate?: string;
   };
 }) {
-  const bills = await getAllBills({
+  const rawBills = await getAllBills({
     search: searchParams.search,
     status: searchParams.status as BillStatus | undefined,
     vendorId: searchParams.vendorId ? Number(searchParams.vendorId) : undefined,
     startDate: searchParams.startDate,
     endDate: searchParams.endDate,
   });
+
+  const bills = rawBills.map((b) => ({
+    ...b,
+    vendorName: b.vendorName ?? "",
+  }));
 
   return <BillsTable bills={bills} />;
 }

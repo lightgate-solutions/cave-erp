@@ -7,7 +7,11 @@ import {
   billActivityLog,
   vendors,
   vendorContacts,
+  glAccounts,
+  glJournals,
 } from "@/db/schema";
+import { createJournal } from "../finance/gl/journals";
+import { ensureDefaultGLAccounts } from "../finance/gl/accounts";
 import {
   requirePayablesViewAccess,
   requirePayablesWriteAccess,
@@ -60,10 +64,14 @@ export async function recordPayment(
       };
     }
 
-    // Get bill
-    const [bill] = await db
-      .select()
+    // Get bill with vendor for GL description
+    const [billRow] = await db
+      .select({
+        bill: payablesBills,
+        vendorName: vendors.name,
+      })
       .from(payablesBills)
+      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
       .where(
         and(
           eq(payablesBills.id, billId),
@@ -72,12 +80,15 @@ export async function recordPayment(
       )
       .limit(1);
 
-    if (!bill) {
+    if (!billRow) {
       return {
         success: null,
         error: { reason: "Bill not found" },
       };
     }
+
+    const bill = billRow.bill;
+    const vendorName = billRow.vendorName ?? "Vendor";
 
     // Validate payment amount
     const currentAmountDue = Number.parseFloat(bill.amountDue);
@@ -156,6 +167,57 @@ export async function recordPayment(
       return payment;
     });
 
+    // Post to General Ledger: Debit AP (2000), Credit Cash (1000) for payment amount
+    try {
+      await ensureDefaultGLAccounts(organization.id);
+      const apAccount = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organization.id),
+          eq(glAccounts.code, "2000"), // Accounts Payable
+        ),
+      });
+      const cashAccount = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organization.id),
+          eq(glAccounts.code, "1000"), // Cash / Bank
+        ),
+      });
+      if (apAccount && cashAccount) {
+        const glResult = await createJournal({
+          organizationId: organization.id,
+          transactionDate: new Date(data.paymentDate),
+          postingDate: new Date(data.paymentDate),
+          description: `Payment made - ${bill.billNumber}`,
+          reference: data.referenceNumber ?? bill.billNumber,
+          source: "Payables",
+          sourceId: `bill-${billId}-payment-${result.id}`,
+          status: "Posted",
+          lines: [
+            {
+              accountId: apAccount.id,
+              description: `Accounts Payable - ${vendorName} (${data.paymentMethod})`,
+              debit: data.amount,
+              credit: 0,
+            },
+            {
+              accountId: cashAccount.id,
+              description: `Cash - ${bill.billNumber}`,
+              debit: 0,
+              credit: data.amount,
+            },
+          ],
+        });
+        if (!glResult.success) {
+          console.error(
+            "Failed to post bill payment to GL:",
+            glResult.error ?? "Unknown error",
+          );
+        }
+      }
+    } catch (glError) {
+      console.error("Failed to post bill payment to GL:", glError);
+    }
+
     // Send email if requested
     if (sendEmail) {
       const emailResult = await sendPaymentConfirmationEmail(result.id);
@@ -172,6 +234,9 @@ export async function recordPayment(
     revalidatePath(`/payables/bills/${billId}`);
     revalidatePath("/payables/payments");
     revalidatePath(`/payables/vendors/${bill.vendorId}`);
+    revalidatePath("/finance/gl/journals");
+    revalidatePath("/finance/gl/reports");
+    revalidatePath("/finance/gl/accounts");
 
     return {
       success: { data: result },
@@ -494,6 +559,123 @@ export async function getBillPayments(billId: number) {
   } catch (error) {
     console.error("Error fetching bill payments:", error);
     return [];
+  }
+}
+
+/**
+ * Post a single bill payment to the General Ledger (Debit AP, Credit Cash).
+ * Use for payments recorded before GL posting was enabled. Safe to call multiple times (skips if already posted).
+ */
+export async function postBillPaymentToGL(paymentId: number): Promise<{
+  success: boolean;
+  error?: string;
+  alreadyPosted?: boolean;
+}> {
+  try {
+    await requirePayablesWriteAccess();
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return { success: false, error: "Organization not found" };
+    }
+
+    const [row] = await db
+      .select({
+        payment: billPayments,
+        bill: payablesBills,
+        vendorName: vendors.name,
+      })
+      .from(billPayments)
+      .innerJoin(payablesBills, eq(billPayments.billId, payablesBills.id))
+      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
+      .where(
+        and(
+          eq(billPayments.id, paymentId),
+          eq(billPayments.organizationId, organization.id),
+        ),
+      )
+      .limit(1);
+
+    if (!row) {
+      return { success: false, error: "Payment not found" };
+    }
+
+    const { payment, bill, vendorName } = row;
+    const expectedSourceId = `bill-${bill.id}-payment-${payment.id}`;
+
+    const existingJournal = await db.query.glJournals.findFirst({
+      where: and(
+        eq(glJournals.organizationId, organization.id),
+        eq(glJournals.source, "Payables"),
+        eq(glJournals.sourceId, expectedSourceId),
+      ),
+      columns: { id: true },
+    });
+    if (existingJournal) {
+      return { success: true, alreadyPosted: true };
+    }
+
+    await ensureDefaultGLAccounts(organization.id);
+    const apAccount = await db.query.glAccounts.findFirst({
+      where: and(
+        eq(glAccounts.organizationId, organization.id),
+        eq(glAccounts.code, "2000"),
+      ),
+    });
+    const cashAccount = await db.query.glAccounts.findFirst({
+      where: and(
+        eq(glAccounts.organizationId, organization.id),
+        eq(glAccounts.code, "1000"),
+      ),
+    });
+    if (!apAccount || !cashAccount) {
+      return { success: false, error: "GL accounts 2000 or 1000 not found." };
+    }
+
+    const amount = Number.parseFloat(payment.amount);
+    const paymentDate = new Date(payment.paymentDate);
+
+    await createJournal({
+      organizationId: organization.id,
+      transactionDate: paymentDate,
+      postingDate: paymentDate,
+      description: `Payment made - ${bill.billNumber}`,
+      reference: payment.referenceNumber ?? bill.billNumber,
+      source: "Payables",
+      sourceId: expectedSourceId,
+      status: "Posted",
+      lines: [
+        {
+          accountId: apAccount.id,
+          description: `Accounts Payable - ${vendorName ?? "Vendor"} (${payment.paymentMethod})`,
+          debit: amount,
+          credit: 0,
+        },
+        {
+          accountId: cashAccount.id,
+          description: `Cash - ${bill.billNumber}`,
+          debit: 0,
+          credit: amount,
+        },
+      ],
+    });
+
+    revalidatePath("/payables/bills");
+    revalidatePath(`/payables/bills/${bill.id}`);
+    revalidatePath("/payables/payments");
+    revalidatePath("/finance/gl/journals");
+    revalidatePath("/finance/gl/reports");
+    revalidatePath("/finance/gl/accounts");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error posting bill payment to GL:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to post to GL",
+    };
   }
 }
 

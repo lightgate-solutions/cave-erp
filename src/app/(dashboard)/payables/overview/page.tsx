@@ -128,9 +128,8 @@ export default async function APOverviewPage() {
       <Suspense
         fallback={
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {/* biome-ignore lint/suspicious/noArrayIndexKey: static skeleton loader */}
-            {[...Array(3)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
+            {(["s1", "s2", "s3"] as const).map((id) => (
+              <Card key={id} className="animate-pulse">
                 <CardHeader className="space-y-0 pb-2">
                   <div className="h-4 bg-muted rounded w-20" />
                 </CardHeader>

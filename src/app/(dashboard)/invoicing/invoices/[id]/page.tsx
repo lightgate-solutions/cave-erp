@@ -13,7 +13,10 @@ import {
 } from "@/components/ui/card";
 import { Edit, ArrowLeft, Download } from "lucide-react";
 
-import { getInvoice } from "@/actions/invoicing/invoices";
+import {
+  getInvoice,
+  getInvoiceGLPostingStatus,
+} from "@/actions/invoicing/invoices";
 import { getInvoicePayments } from "@/actions/invoicing/payments";
 import { getInvoiceActivityLog } from "@/actions/invoicing/activity-log";
 import { requireInvoicingViewAccess } from "@/actions/auth/dal-invoicing";
@@ -21,6 +24,7 @@ import { RecordPaymentDialog } from "@/components/invoicing/record-payment-dialo
 import { InvoiceStatusBadge } from "@/components/invoicing/invoice-status-badge";
 import { RemindButton } from "@/components/invoicing/remind-button";
 import { SendInvoiceButton } from "@/components/invoicing/send-invoice-button";
+import { PostInvoiceToGLButton } from "@/components/invoicing/post-invoice-to-gl-button";
 
 export default async function InvoiceDetailPage({
   params,
@@ -40,10 +44,11 @@ export default async function InvoiceDetailPage({
     return null;
   }
 
-  const [invoice, payments, activityLog] = await Promise.all([
+  const [invoice, payments, activityLog, glStatus] = await Promise.all([
     getInvoice(invoiceId),
     getInvoicePayments(invoiceId),
     getInvoiceActivityLog(invoiceId),
+    getInvoiceGLPostingStatus(invoiceId),
   ]);
 
   if (!invoice) {
@@ -84,8 +89,13 @@ export default async function InvoiceDetailPage({
           )}
           {(invoice.status === "Sent" ||
             invoice.status === "Overdue" ||
-            invoice.status === "Partially Paid") && (
+            invoice.status === "Partially Paid" ||
+            invoice.status === "Paid") && (
             <>
+              <PostInvoiceToGLButton
+                id={invoice.id}
+                postedToGl={glStatus?.posted ?? false}
+              />
               <RemindButton id={invoice.id} />
               <RecordPaymentDialog
                 invoiceId={invoice.id}
@@ -146,6 +156,30 @@ export default async function InvoiceDetailPage({
                 <p className="text-sm text-muted-foreground">Sent On</p>
                 <p className="font-medium">
                   {new Date(invoice.sentAt).toLocaleString()}
+                </p>
+              </div>
+            )}
+
+            {(invoice.status === "Sent" ||
+              invoice.status === "Overdue" ||
+              invoice.status === "Partially Paid" ||
+              invoice.status === "Paid") && (
+              <div>
+                <p className="text-sm text-muted-foreground">General Ledger</p>
+                <p className="font-medium">
+                  {glStatus?.posted ? (
+                    <span className="text-green-600 dark:text-green-400">
+                      Posted
+                      {glStatus.postedAt &&
+                        ` on ${new Date(glStatus.postedAt).toLocaleDateString()}`}
+                      {glStatus.journalNumber && ` (${glStatus.journalNumber})`}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Not yet posted (auto-posted when sent, or use button
+                      above)
+                    </span>
+                  )}
                 </p>
               </div>
             )}

@@ -596,24 +596,33 @@ export function InvoiceForm({ mode, initialData }: InvoiceFormProps) {
                     <FormField
                       control={form.control}
                       name={`lineItems.${index}.quantity`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Qty</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="number"
-                              step="0.01"
-                              onChange={(e) =>
-                                field.onChange(
-                                  Number.parseFloat(e.target.value),
-                                )
-                              }
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const num =
+                          typeof field.value === "number" &&
+                          !Number.isNaN(field.value)
+                            ? field.value
+                            : "";
+                        return (
+                          <FormItem>
+                            <FormLabel>Qty</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={num}
+                                onChange={(e) => {
+                                  const v = Number.parseFloat(e.target.value);
+                                  field.onChange(Number.isNaN(v) ? 0 : v);
+                                }}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                ref={field.ref}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                   </div>
 
@@ -621,24 +630,33 @@ export function InvoiceForm({ mode, initialData }: InvoiceFormProps) {
                     <FormField
                       control={form.control}
                       name={`lineItems.${index}.unitPrice`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Price</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="number"
-                              step="0.01"
-                              onChange={(e) =>
-                                field.onChange(
-                                  Number.parseFloat(e.target.value),
-                                )
-                              }
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const num =
+                          typeof field.value === "number" &&
+                          !Number.isNaN(field.value)
+                            ? field.value
+                            : "";
+                        return (
+                          <FormItem>
+                            <FormLabel>Price</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={num}
+                                onChange={(e) => {
+                                  const v = Number.parseFloat(e.target.value);
+                                  field.onChange(Number.isNaN(v) ? 0 : v);
+                                }}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                ref={field.ref}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                   </div>
 
@@ -646,15 +664,31 @@ export function InvoiceForm({ mode, initialData }: InvoiceFormProps) {
                     <FormField
                       control={form.control}
                       name={`lineItems.${index}.amount`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Amount</FormLabel>
-                          <FormControl>
-                            <Input {...field} disabled />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const num =
+                          typeof field.value === "number" &&
+                          !Number.isNaN(field.value)
+                            ? field.value
+                            : "";
+                        return (
+                          <FormItem>
+                            <FormLabel>Amount</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                value={num}
+                                disabled
+                                readOnly
+                                name={field.name}
+                                ref={field.ref}
+                                onBlur={field.onBlur}
+                                onChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                   </div>
 
@@ -738,24 +772,33 @@ export function InvoiceForm({ mode, initialData }: InvoiceFormProps) {
                       <FormField
                         control={form.control}
                         name={`taxes.${index}.taxPercentage`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                type="number"
-                                placeholder="%"
-                                step="0.01"
-                                onChange={(e) =>
-                                  field.onChange(
-                                    Number.parseFloat(e.target.value) || 0,
-                                  )
-                                }
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                        render={({ field }) => {
+                          const num =
+                            typeof field.value === "number" &&
+                            !Number.isNaN(field.value)
+                              ? field.value
+                              : "";
+                          return (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="%"
+                                  step="0.01"
+                                  value={num}
+                                  onChange={(e) => {
+                                    const v = Number.parseFloat(e.target.value);
+                                    field.onChange(Number.isNaN(v) ? 0 : v);
+                                  }}
+                                  onBlur={field.onBlur}
+                                  name={field.name}
+                                  ref={field.ref}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
                       />
                     </div>
                     <div className="col-span-2 flex justify-end">
