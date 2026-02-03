@@ -6,6 +6,11 @@ CREATE TYPE "public"."payment_method" AS ENUM('Bank Transfer', 'Wire', 'Check', 
 CREATE TYPE "public"."po_status" AS ENUM('Draft', 'Pending Approval', 'Approved', 'Sent', 'Partially Received', 'Received', 'Closed', 'Cancelled');--> statement-breakpoint
 CREATE TYPE "public"."vendor_category" AS ENUM('Services', 'Goods', 'Utilities', 'Custom');--> statement-breakpoint
 CREATE TYPE "public"."vendor_status" AS ENUM('Active', 'Inactive', 'Suspended', 'Archived');--> statement-breakpoint
+CREATE TYPE "public"."gl_account_class" AS ENUM('Current Asset', 'Non-Current Asset', 'Current Liability', 'Non-Current Liability', 'Equity', 'Revenue', 'Cost of Goods Sold', 'Expense', 'Other Income', 'Other Expense');--> statement-breakpoint
+CREATE TYPE "public"."gl_account_type" AS ENUM('Asset', 'Liability', 'Equity', 'Income', 'Expense');--> statement-breakpoint
+CREATE TYPE "public"."gl_journal_source" AS ENUM('Manual', 'Payables', 'Receivables', 'Payroll', 'Inventory', 'Fixed Assets', 'Banking', 'System');--> statement-breakpoint
+CREATE TYPE "public"."gl_journal_status" AS ENUM('Draft', 'Posted', 'Voided');--> statement-breakpoint
+CREATE TYPE "public"."gl_period_status" AS ENUM('Open', 'Closed', 'Locked');--> statement-breakpoint
 CREATE TABLE "bill_activity_log" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"bill_id" integer NOT NULL,
@@ -237,6 +242,71 @@ CREATE TABLE "vendors" (
 	CONSTRAINT "vendors_vendor_code_unique" UNIQUE("vendor_code")
 );
 --> statement-breakpoint
+CREATE TABLE "gl_accounts" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"code" text NOT NULL,
+	"name" text NOT NULL,
+	"type" "gl_account_type" NOT NULL,
+	"account_class" "gl_account_class",
+	"description" text,
+	"parent_id" integer,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"is_system" boolean DEFAULT false NOT NULL,
+	"allow_manual_journals" boolean DEFAULT true NOT NULL,
+	"current_balance" numeric(15, 2) DEFAULT '0.00' NOT NULL,
+	"currency" text DEFAULT 'NGN' NOT NULL,
+	"organization_id" text NOT NULL,
+	"created_by" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "gl_accounts_org_code_unique" UNIQUE("organization_id","code")
+);
+--> statement-breakpoint
+CREATE TABLE "gl_journal_lines" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"journal_id" integer NOT NULL,
+	"account_id" integer NOT NULL,
+	"description" text,
+	"debit" numeric(15, 2) DEFAULT '0.00' NOT NULL,
+	"credit" numeric(15, 2) DEFAULT '0.00' NOT NULL,
+	"entity_id" text,
+	"organization_id" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "gl_journals" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"journal_number" text NOT NULL,
+	"transaction_date" date NOT NULL,
+	"posting_date" date NOT NULL,
+	"description" text NOT NULL,
+	"reference" text,
+	"source" "gl_journal_source" DEFAULT 'Manual' NOT NULL,
+	"source_id" text,
+	"status" "gl_journal_status" DEFAULT 'Draft' NOT NULL,
+	"total_debits" numeric(15, 2) DEFAULT '0.00' NOT NULL,
+	"total_credits" numeric(15, 2) DEFAULT '0.00' NOT NULL,
+	"organization_id" text NOT NULL,
+	"created_by" text,
+	"posted_by" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "gl_journals_org_number_unique" UNIQUE("organization_id","journal_number")
+);
+--> statement-breakpoint
+CREATE TABLE "gl_periods" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"period_name" text NOT NULL,
+	"start_date" date NOT NULL,
+	"end_date" date NOT NULL,
+	"status" "gl_period_status" DEFAULT 'Open' NOT NULL,
+	"is_year_end" boolean DEFAULT false NOT NULL,
+	"organization_id" text NOT NULL,
+	"closed_by" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "gl_periods_org_name_unique" UNIQUE("organization_id","period_name")
+);
+--> statement-breakpoint
 ALTER TABLE "bill_activity_log" ADD CONSTRAINT "bill_activity_log_bill_id_payables_bills_id_fk" FOREIGN KEY ("bill_id") REFERENCES "public"."payables_bills"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bill_activity_log" ADD CONSTRAINT "bill_activity_log_performed_by_user_id_fk" FOREIGN KEY ("performed_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bill_activity_log" ADD CONSTRAINT "bill_activity_log_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -274,6 +344,16 @@ ALTER TABLE "vendor_contacts" ADD CONSTRAINT "vendor_contacts_organization_id_or
 ALTER TABLE "vendor_custom_categories" ADD CONSTRAINT "vendor_custom_categories_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "vendors" ADD CONSTRAINT "vendors_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "vendors" ADD CONSTRAINT "vendors_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gl_accounts" ADD CONSTRAINT "gl_accounts_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gl_accounts" ADD CONSTRAINT "gl_accounts_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gl_journal_lines" ADD CONSTRAINT "gl_journal_lines_journal_id_gl_journals_id_fk" FOREIGN KEY ("journal_id") REFERENCES "public"."gl_journals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gl_journal_lines" ADD CONSTRAINT "gl_journal_lines_account_id_gl_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."gl_accounts"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gl_journal_lines" ADD CONSTRAINT "gl_journal_lines_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gl_journals" ADD CONSTRAINT "gl_journals_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gl_journals" ADD CONSTRAINT "gl_journals_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gl_journals" ADD CONSTRAINT "gl_journals_posted_by_user_id_fk" FOREIGN KEY ("posted_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gl_periods" ADD CONSTRAINT "gl_periods_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gl_periods" ADD CONSTRAINT "gl_periods_closed_by_user_id_fk" FOREIGN KEY ("closed_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "bill_activity_bill_idx" ON "bill_activity_log" USING btree ("bill_id");--> statement-breakpoint
 CREATE INDEX "bill_activity_type_idx" ON "bill_activity_log" USING btree ("activity_type");--> statement-breakpoint
 CREATE INDEX "bill_activity_organization_idx" ON "bill_activity_log" USING btree ("organization_id");--> statement-breakpoint
@@ -311,4 +391,16 @@ CREATE INDEX "vendor_custom_categories_org_idx" ON "vendor_custom_categories" US
 CREATE INDEX "vendors_email_idx" ON "vendors" USING btree ("email");--> statement-breakpoint
 CREATE INDEX "vendors_organization_idx" ON "vendors" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "vendors_category_idx" ON "vendors" USING btree ("category");--> statement-breakpoint
-CREATE INDEX "vendors_status_idx" ON "vendors" USING btree ("status");
+CREATE INDEX "vendors_status_idx" ON "vendors" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "gl_accounts_org_idx" ON "gl_accounts" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "gl_accounts_code_idx" ON "gl_accounts" USING btree ("organization_id","code");--> statement-breakpoint
+CREATE INDEX "gl_accounts_type_idx" ON "gl_accounts" USING btree ("type");--> statement-breakpoint
+CREATE INDEX "gl_accounts_parent_idx" ON "gl_accounts" USING btree ("parent_id");--> statement-breakpoint
+CREATE INDEX "gl_journal_lines_journal_idx" ON "gl_journal_lines" USING btree ("journal_id");--> statement-breakpoint
+CREATE INDEX "gl_journal_lines_account_idx" ON "gl_journal_lines" USING btree ("account_id");--> statement-breakpoint
+CREATE INDEX "gl_journal_lines_org_idx" ON "gl_journal_lines" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "gl_journals_org_idx" ON "gl_journals" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "gl_journals_date_idx" ON "gl_journals" USING btree ("transaction_date");--> statement-breakpoint
+CREATE INDEX "gl_journals_source_idx" ON "gl_journals" USING btree ("source","source_id");--> statement-breakpoint
+CREATE INDEX "gl_periods_org_idx" ON "gl_periods" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "gl_periods_date_idx" ON "gl_periods" USING btree ("start_date","end_date");
