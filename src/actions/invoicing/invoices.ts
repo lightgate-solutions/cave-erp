@@ -9,7 +9,11 @@ import {
   organizationCurrencies,
   clients,
   companyBankAccounts,
+  glAccounts,
+  glJournals,
 } from "@/db/schema";
+import { createJournal } from "../finance/gl/journals";
+import { ensureDefaultGLAccounts } from "../finance/gl/accounts";
 import {
   requireInvoicingViewAccess,
   requireInvoicingWriteAccess,
@@ -651,10 +655,14 @@ export async function updateInvoiceStatus(
       };
     }
 
-    // Get current invoice
-    const [existing] = await db
-      .select()
+    // Get current invoice with client name for GL description
+    const [row] = await db
+      .select({
+        invoice: receivablesInvoices,
+        clientName: clients.name,
+      })
       .from(receivablesInvoices)
+      .leftJoin(clients, eq(receivablesInvoices.clientId, clients.id))
       .where(
         and(
           eq(receivablesInvoices.id, id),
@@ -663,13 +671,15 @@ export async function updateInvoiceStatus(
       )
       .limit(1);
 
-    if (!existing) {
+    if (!row) {
       return {
         success: null,
         error: { reason: "Invoice not found" },
       };
     }
 
+    const existing = row.invoice;
+    const clientName = row.clientName ?? "Client";
     const oldStatus = existing.status;
 
     await db.transaction(async (tx) => {
@@ -706,6 +716,63 @@ export async function updateInvoiceStatus(
         organizationId: organization.id,
       });
     });
+
+    // ---------------------------------------------------------
+    // POST TO GENERAL LEDGER
+    // ---------------------------------------------------------
+    if (newStatus === "Sent" && oldStatus !== "Sent") {
+      try {
+        await ensureDefaultGLAccounts(organization.id);
+        const arAccount = await db.query.glAccounts.findFirst({
+          where: and(
+            eq(glAccounts.organizationId, organization.id),
+            eq(glAccounts.code, "1200"), // Accounts Receivable
+          ),
+        });
+
+        const revenueAccount = await db.query.glAccounts.findFirst({
+          where: and(
+            eq(glAccounts.organizationId, organization.id),
+            eq(glAccounts.code, "4000"), // Sales Revenue
+          ),
+        });
+
+        if (arAccount && revenueAccount) {
+          const glResult = await createJournal({
+            organizationId: organization.id,
+            transactionDate: new Date(),
+            postingDate: new Date(),
+            description: `Invoice Sent: ${existing.invoiceNumber}`,
+            reference: existing.invoiceNumber,
+            source: "Receivables",
+            sourceId: String(id),
+            status: "Posted",
+            lines: [
+              {
+                accountId: arAccount.id,
+                description: `Accounts Receivable - ${clientName}`,
+                debit: Number(existing.total),
+                credit: 0,
+              },
+              {
+                accountId: revenueAccount.id,
+                description: `Sales Revenue - ${existing.invoiceNumber}`,
+                debit: 0,
+                credit: Number(existing.total),
+              },
+            ],
+          });
+          if (!glResult.success) {
+            console.error(
+              "Failed to post invoice to GL (updateInvoiceStatus):",
+              glResult.error,
+            );
+          }
+        }
+      } catch (glError) {
+        console.error("Failed to post invoice to GL:", glError);
+      }
+    }
 
     revalidatePath("/invoicing");
     revalidatePath("/invoicing/invoices");
@@ -842,8 +909,62 @@ export async function sendInvoice(id: number) {
       });
     });
 
+    // Automatic GL posting when invoice is sent (Dr AR, Cr Sales Revenue). Trackable on invoice detail.
+    try {
+      await ensureDefaultGLAccounts(organization.id);
+      const arAccount = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organization.id),
+          eq(glAccounts.code, "1200"),
+        ),
+      });
+      const revenueAccount = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organization.id),
+          eq(glAccounts.code, "4000"),
+        ),
+      });
+      if (arAccount && revenueAccount) {
+        const glResult = await createJournal({
+          organizationId: organization.id,
+          transactionDate: new Date(),
+          postingDate: new Date(),
+          description: `Invoice Sent: ${invoice.invoiceNumber}`,
+          reference: invoice.invoiceNumber,
+          source: "Receivables",
+          sourceId: String(id),
+          status: "Posted",
+          lines: [
+            {
+              accountId: arAccount.id,
+              description: `Accounts Receivable - ${invoice.client?.name || "Client"}`,
+              debit: Number(invoice.total),
+              credit: 0,
+            },
+            {
+              accountId: revenueAccount.id,
+              description: `Sales Revenue - ${invoice.invoiceNumber}`,
+              debit: 0,
+              credit: Number(invoice.total),
+            },
+          ],
+        });
+        if (!glResult.success) {
+          console.error(
+            "Failed to post invoice to GL (sendInvoice):",
+            glResult.error,
+          );
+        }
+      }
+    } catch (glError) {
+      console.error("Failed to post invoice to GL:", glError);
+    }
+
     revalidatePath("/invoicing");
     revalidatePath(`/invoicing/invoices/${id}`);
+    revalidatePath("/finance/gl/journals");
+    revalidatePath("/finance/gl/reports");
+    revalidatePath("/finance/gl/accounts");
 
     return {
       success: { reason: "Invoice sent successfully" },
@@ -854,6 +975,154 @@ export async function sendInvoice(id: number) {
     return {
       success: null,
       error: { reason: "Failed to send invoice" },
+    };
+  }
+}
+
+/**
+ * Check whether an invoice has been posted to the General Ledger (trackable status).
+ */
+export async function getInvoiceGLPostingStatus(id: number): Promise<{
+  posted: boolean;
+  postedAt?: string;
+  journalNumber?: string;
+} | null> {
+  try {
+    await requireInvoicingViewAccess();
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) return null;
+
+    const journal = await db.query.glJournals.findFirst({
+      where: and(
+        eq(glJournals.organizationId, organization.id),
+        eq(glJournals.source, "Receivables"),
+        eq(glJournals.sourceId, String(id)),
+      ),
+      columns: {
+        postingDate: true,
+        journalNumber: true,
+      },
+    });
+
+    if (!journal) {
+      return { posted: false };
+    }
+    return {
+      posted: true,
+      postedAt: journal.postingDate ?? undefined,
+      journalNumber: journal.journalNumber ?? undefined,
+    };
+  } catch (error) {
+    console.error("Error fetching invoice GL posting status:", error);
+    return null;
+  }
+}
+
+/**
+ * Post "Invoice Sent" to General Ledger (manual option).
+ * Automatic posting already happens when the invoice is sent (sendInvoice / updateInvoiceStatus).
+ * Creates Debit AR, Credit Sales Revenue. Safe to call multiple times (skips if already posted).
+ */
+export async function postInvoiceToGL(id: number): Promise<{
+  success: boolean;
+  error?: string;
+  alreadyPosted?: boolean;
+}> {
+  try {
+    await requireInvoicingWriteAccess();
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) {
+      return { success: false, error: "Organization not found" };
+    }
+
+    const invoice = await getInvoice(id);
+    if (!invoice) {
+      return { success: false, error: "Invoice not found" };
+    }
+    if (invoice.status === "Draft" || invoice.status === "Cancelled") {
+      return {
+        success: false,
+        error:
+          "Only sent, partially paid, or paid invoices can be posted to the GL.",
+      };
+    }
+
+    const existing = await db.query.glJournals.findFirst({
+      where: and(
+        eq(glJournals.organizationId, organization.id),
+        eq(glJournals.source, "Receivables"),
+        eq(glJournals.sourceId, String(id)),
+      ),
+      columns: { id: true },
+    });
+    if (existing) {
+      return { success: true, alreadyPosted: true };
+    }
+
+    await ensureDefaultGLAccounts(organization.id);
+    const arAccount = await db.query.glAccounts.findFirst({
+      where: and(
+        eq(glAccounts.organizationId, organization.id),
+        eq(glAccounts.code, "1200"),
+      ),
+    });
+    const revenueAccount = await db.query.glAccounts.findFirst({
+      where: and(
+        eq(glAccounts.organizationId, organization.id),
+        eq(glAccounts.code, "4000"),
+      ),
+    });
+    if (!arAccount || !revenueAccount) {
+      return { success: false, error: "GL accounts 1200 or 4000 not found." };
+    }
+
+    const transactionDate = invoice.sentAt
+      ? new Date(invoice.sentAt)
+      : new Date(invoice.invoiceDate);
+
+    await createJournal({
+      organizationId: organization.id,
+      transactionDate,
+      postingDate: transactionDate,
+      description: `Invoice Sent: ${invoice.invoiceNumber}`,
+      reference: invoice.invoiceNumber,
+      source: "Receivables",
+      sourceId: String(id),
+      status: "Posted",
+      lines: [
+        {
+          accountId: arAccount.id,
+          description: `Accounts Receivable - ${invoice.client?.name ?? "Client"}`,
+          debit: Number(invoice.total),
+          credit: 0,
+        },
+        {
+          accountId: revenueAccount.id,
+          description: `Sales Revenue - ${invoice.invoiceNumber}`,
+          debit: 0,
+          credit: Number(invoice.total),
+        },
+      ],
+    });
+
+    revalidatePath("/invoicing/invoices");
+    revalidatePath(`/invoicing/invoices/${id}`);
+    revalidatePath("/finance/gl/journals");
+    revalidatePath("/finance/gl/reports");
+    revalidatePath("/finance/gl/accounts");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error posting invoice to GL:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to post to GL",
     };
   }
 }

@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AskHrQuestionDetail } from "@/components/hr/ask-hr/ask-hr-question-detail";
-import { notFound } from "next/navigation";
 
 function QuestionDetailSkeleton() {
   return (
@@ -27,7 +26,7 @@ export default async function QuestionDetailPage({
   const questionId = Number(id);
 
   if (Number.isNaN(questionId) || questionId <= 0) {
-    notFound();
+    return null;
   }
 
   return (

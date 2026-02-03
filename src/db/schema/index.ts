@@ -19,3 +19,5 @@ export * from "./subscriptions";
 export * from "./recruitment";
 export * from "./invoicing";
 export * from "./assets";
+export * from "./payables";
+export * from "./general-ledger";

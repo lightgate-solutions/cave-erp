@@ -388,7 +388,10 @@ export default function AttendanceClient({
                   className="border rounded-md"
                 >
                   <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div
+                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                      suppressHydrationWarning
+                    >
                       <div className="flex items-center gap-2 font-medium">
                         {isOpen ? (
                           <ChevronDown className="h-4 w-4" />

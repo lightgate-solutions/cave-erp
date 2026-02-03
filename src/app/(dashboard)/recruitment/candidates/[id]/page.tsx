@@ -4,7 +4,6 @@ import { getCandidateActivityLog } from "@/actions/recruitment/activity-log";
 import { getCandidateInterviews } from "@/actions/recruitment/interviews";
 import { getCandidateOffers } from "@/actions/recruitment/offers";
 import { CandidateDetails } from "@/components/recruitment/candidate-details";
-import { notFound } from "next/navigation";
 
 export default async function CandidateDetailsPage({
   params,
@@ -17,7 +16,7 @@ export default async function CandidateDetailsPage({
   const candidate = await getCandidate(candidateId);
 
   if (!candidate) {
-    notFound();
+    return null;
   }
 
   const [activityLog, interviews, offers] = await Promise.all([

@@ -9,7 +9,10 @@ import {
   invoiceActivityLog,
   organizationCurrencies,
   clients,
+  glAccounts,
 } from "@/db/schema";
+import { createJournal } from "../finance/gl/journals";
+import { ensureDefaultGLAccounts } from "../finance/gl/accounts";
 import {
   requireInvoicingViewAccess,
   requireInvoicingWriteAccess,
@@ -193,15 +196,67 @@ export async function recordPayment(
         });
       }
 
-      return payment;
+      return {
+        payment,
+        invoiceNumber: invoice.invoice.invoiceNumber,
+        clientName: invoice.client?.name ?? "Client",
+      };
     });
+
+    // Post to General Ledger: Cash/Bank debit, AR credit for payment amount
+    try {
+      await ensureDefaultGLAccounts(organization.id);
+      const cashAccount = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organization.id),
+          eq(glAccounts.code, "1000"), // Cash / Bank
+        ),
+      });
+      const arAccount = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organization.id),
+          eq(glAccounts.code, "1200"), // Accounts Receivable
+        ),
+      });
+      if (cashAccount && arAccount) {
+        await createJournal({
+          organizationId: organization.id,
+          transactionDate: new Date(data.paymentDate),
+          postingDate: new Date(data.paymentDate),
+          description: `Payment received - ${result.invoiceNumber}`,
+          reference: data.referenceNumber ?? result.invoiceNumber,
+          source: "Receivables",
+          sourceId: `invoice-${invoiceId}-payment-${result.payment.id}`,
+          status: "Posted",
+          lines: [
+            {
+              accountId: cashAccount.id,
+              description: `Payment - ${result.clientName} (${data.paymentMethod})`,
+              debit: data.amount,
+              credit: 0,
+            },
+            {
+              accountId: arAccount.id,
+              description: `Accounts Receivable - ${result.invoiceNumber}`,
+              debit: 0,
+              credit: data.amount,
+            },
+          ],
+        });
+      }
+    } catch (glError) {
+      console.error("Failed to post payment to GL:", glError);
+    }
 
     revalidatePath("/invoicing/invoices");
     revalidatePath(`/invoicing/invoices/${invoiceId}`);
     revalidatePath("/invoicing/payments");
+    revalidatePath("/finance/gl/journals");
+    revalidatePath("/finance/gl/reports");
+    revalidatePath("/finance/gl/accounts");
 
     return {
-      success: { data: result },
+      success: { data: result.payment },
       error: null,
     };
   } catch (error) {

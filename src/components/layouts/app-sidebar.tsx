@@ -26,6 +26,7 @@ import {
   Car,
   Receipt,
   Package,
+  BookOpen, // Added for General Ledger
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -94,6 +95,34 @@ const data = {
       url: "/finance",
       icon: Landmark,
       module: MODULES.FINANCE,
+    },
+    {
+      title: "General Ledger",
+      url: "/finance/gl",
+      icon: BookOpen,
+      module: MODULES.FINANCE,
+      items: [
+        {
+          title: "Dashboard",
+          url: "/finance/gl",
+        },
+        {
+          title: "Chart of Accounts",
+          url: "/finance/gl/accounts",
+        },
+        {
+          title: "Journal Entries",
+          url: "/finance/gl/journals",
+        },
+        {
+          title: "Financial Reports",
+          url: "/finance/gl/reports",
+        },
+        {
+          title: "Fiscal Periods",
+          url: "/finance/gl/periods",
+        },
+      ],
     },
     // Task/Performance is customized per role at runtime
     {
@@ -191,6 +220,46 @@ const data = {
         {
           title: "Settings",
           url: "/invoicing/settings",
+        },
+      ],
+    },
+    {
+      title: "Payables",
+      url: "/payables",
+      icon: DollarSign,
+      module: MODULES.PAYABLES,
+      items: [
+        {
+          title: "Dashboard",
+          url: "/payables",
+        },
+        {
+          title: "Purchase Orders",
+          url: "/payables/purchase-orders",
+        },
+        {
+          title: "Bills",
+          url: "/payables/bills",
+        },
+        {
+          title: "Vendors",
+          url: "/payables/vendors",
+        },
+        {
+          title: "Payments",
+          url: "/payables/payments",
+        },
+        {
+          title: "AP Overview",
+          url: "/payables/overview",
+        },
+        {
+          title: "Reports",
+          url: "/payables/reports",
+        },
+        {
+          title: "Settings",
+          url: "/payables/settings",
         },
       ],
     },
@@ -466,7 +535,11 @@ export function AppSidebar({
         ].includes(item.title)
       ) {
         groups.management.push(item);
-      } else if (["Receivables", "Finance"].includes(item.title)) {
+      } else if (
+        ["Receivables", "Finance", "Payables", "General Ledger"].includes(
+          item.title,
+        )
+      ) {
         groups.accounting.push(item);
       } else {
         groups.system.push(item);

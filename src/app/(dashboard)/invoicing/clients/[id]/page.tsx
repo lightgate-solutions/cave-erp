@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,7 +36,7 @@ export default async function ClientDetailPage({
 
   const clientId = Number.parseInt(id);
   if (Number.isNaN(clientId)) {
-    notFound();
+    return null;
   }
 
   const [client, invoices] = await Promise.all([
@@ -45,7 +45,6 @@ export default async function ClientDetailPage({
   ]);
 
   if (!client) {
-    notFound();
     return null;
   }
 

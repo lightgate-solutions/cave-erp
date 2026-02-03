@@ -40,6 +40,7 @@ function SelectTrigger({
         className,
       )}
       {...props}
+      suppressHydrationWarning
     >
       {children}
       <SelectPrimitive.Icon asChild>

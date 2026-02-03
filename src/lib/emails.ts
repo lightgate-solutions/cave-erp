@@ -616,3 +616,147 @@ export async function sendOverdueInvoiceEmail({
     text: `Hello ${userName},\n\nThis is a friendly reminder that we haven't received payment for invoice #${invoiceId}, which was due on ${dueDate}.\n\nAmount Due: ${formattedAmount}\nDays Overdue: ${daysOverdue}\n\nPlease make the payment as soon as possible to avoid any service interruption.\n\nPay Now: ${payButtonUrl}\n\nIf you have already made this payment, please disregard this email.\n\nThe Cave Team`,
   });
 }
+
+export async function sendPaymentConfirmationEmail({
+  to,
+  vendorName,
+  paymentDetails,
+  organizationName,
+}: {
+  to: string;
+  vendorName: string;
+  paymentDetails: {
+    billNumber: string;
+    amount: number;
+    paymentDate: string;
+    referenceNumber?: string;
+  };
+  organizationName: string;
+}) {
+  const currencyFormatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  });
+
+  const formattedAmount = currencyFormatter.format(paymentDetails.amount);
+
+  await sendEmail({
+    to,
+    subject: `Payment Confirmation - ${paymentDetails.billNumber}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #d1e7dd; padding: 24px; text-align: center; border-radius: 8px 8px 0 0; border-bottom: 1px solid #badbcc;">
+          <h2 style="color: #0f5132; margin: 0;">Payment Sent</h2>
+          <p style="color: #0f5132; margin-top: 8px;">Bill #${paymentDetails.billNumber}</p>
+        </div>
+        
+        <div style="padding: 24px; border: 1px solid #eee; border-top: none; background-color: white;">
+          <p>Hello ${vendorName},</p>
+          <p>We have processed a payment for bill <strong>#${paymentDetails.billNumber}</strong>.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 4px; margin: 24px 0;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: #666;">Amount Paid:</span>
+              <span style="font-weight: bold; color: #198754;">${formattedAmount}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: #666;">Payment Date:</span>
+              <span style="font-weight: 500;">${paymentDetails.paymentDate}</span>
+            </div>
+            ${
+              paymentDetails.referenceNumber
+                ? `
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #666;">Reference:</span>
+              <span style="font-weight: 500;">${paymentDetails.referenceNumber}</span>
+            </div>
+            `
+                : ""
+            }
+          </div>
+
+          <p>Please check your account for the deposit.</p>
+        </div>
+        
+        <div style="padding: 16px; text-align: center; color: #999; font-size: 12px;">
+          <p>${organizationName}</p>
+        </div>
+      </div>
+    `,
+    text: `Hello ${vendorName},\n\nWe have processed a payment for bill #${
+      paymentDetails.billNumber
+    }.\n\nAmount Paid: ${formattedAmount}\nPayment Date: ${
+      paymentDetails.paymentDate
+    }${
+      paymentDetails.referenceNumber
+        ? `\nReference: ${paymentDetails.referenceNumber}`
+        : ""
+    }\n\nPlease check your account for the deposit.\n\n${organizationName}`,
+  });
+}
+
+export async function sendBillReceivedConfirmationEmail({
+  to,
+  vendorName,
+  billDetails,
+  organizationName,
+}: {
+  to: string;
+  vendorName: string;
+  billDetails: {
+    billNumber: string;
+    vendorInvoiceNumber: string;
+    amount: string;
+    dueDate: string;
+  };
+  organizationName: string;
+}) {
+  const currencyFormatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  });
+
+  const formattedAmount = currencyFormatter.format(
+    Number.parseFloat(billDetails.amount),
+  );
+
+  await sendEmail({
+    to,
+    subject: `Bill Received - ${billDetails.vendorInvoiceNumber}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 24px; text-align: center; border-radius: 8px 8px 0 0; border-bottom: 1px solid #dee2e6;">
+          <h2 style="color: #333; margin: 0;">Bill Received</h2>
+          <p style="color: #666; margin-top: 8px;">Invoice #${billDetails.vendorInvoiceNumber}</p>
+        </div>
+        
+        <div style="padding: 24px; border: 1px solid #eee; border-top: none; background-color: white;">
+          <p>Hello ${vendorName},</p>
+          <p>We have received your invoice <strong>#${billDetails.vendorInvoiceNumber}</strong> and it has been entered into our system.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 4px; margin: 24px 0;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: #666;">Our Ref:</span>
+              <span style="font-weight: 500;">${billDetails.billNumber}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: #666;">Amount:</span>
+              <span style="font-weight: bold;">${formattedAmount}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #666;">Due Date:</span>
+              <span style="font-weight: 500;">${billDetails.dueDate}</span>
+            </div>
+          </div>
+
+          <p>We will process the payment according to the agreed terms.</p>
+        </div>
+        
+        <div style="padding: 16px; text-align: center; color: #999; font-size: 12px;">
+          <p>${organizationName}</p>
+        </div>
+      </div>
+    `,
+    text: `Hello ${vendorName},\n\nWe have received your invoice #${billDetails.vendorInvoiceNumber} and it has been entered into our system.\n\nOur Ref: ${billDetails.billNumber}\nAmount: ${formattedAmount}\nDue Date: ${billDetails.dueDate}\n\nWe will process the payment according to the agreed terms.\n\n${organizationName}`,
+  });
+}

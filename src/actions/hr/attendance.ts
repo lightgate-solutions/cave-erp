@@ -537,7 +537,13 @@ export async function getAttendanceRecords(filters?: {
   const totalResult = await db
     .select({ count: count() })
     .from(attendance)
-    .leftJoin(employees, eq(attendance.userId, employees.authId)) // Need join for manager filter
+    .leftJoin(
+      employees,
+      and(
+        eq(attendance.userId, employees.authId),
+        eq(employees.organizationId, organization.id),
+      ),
+    ) // Need join for manager filter
     .where(whereClause);
 
   const total = totalResult[0]?.count || 0;
@@ -560,7 +566,13 @@ export async function getAttendanceRecords(filters?: {
       rejectedByUserId: attendance.rejectedByUserId,
     })
     .from(attendance)
-    .leftJoin(employees, eq(attendance.userId, employees.authId))
+    .leftJoin(
+      employees,
+      and(
+        eq(attendance.userId, employees.authId),
+        eq(employees.organizationId, organization.id),
+      ),
+    )
     .where(whereClause)
     .orderBy(desc(attendance.date), desc(attendance.signInTime))
     .limit(limit)

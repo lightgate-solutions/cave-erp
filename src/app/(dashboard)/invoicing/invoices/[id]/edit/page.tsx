@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { InvoiceForm } from "@/components/invoicing/invoice-form";
 import { getInvoice } from "@/actions/invoicing/invoices";
 import { requireInvoicingWriteAccess } from "@/actions/auth/dal-invoicing";
@@ -18,13 +18,12 @@ export default async function EditInvoicePage({
 
   const invoiceId = Number.parseInt(id);
   if (Number.isNaN(invoiceId)) {
-    notFound();
+    return null;
   }
 
   const invoice = await getInvoice(invoiceId);
 
   if (!invoice) {
-    notFound();
     return null;
   }
 
