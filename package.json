@@ -14,7 +14,10 @@
     "db:stop": "docker compose stop",
     "db:studio": "drizzle-kit studio --port=5678 --host=127.0.0.1",
     "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@arcjet/ip": "1.0.0-beta.15",
@@ -93,13 +96,15 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^11.0.0",
+    "@vitest/coverage-v8": "^4.0.18",
     "drizzle-kit": "^0.31.8",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.3",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
     "tw-animate-css": "^1.4.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   },
   "lint-staged": {
     "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
