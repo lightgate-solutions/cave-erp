@@ -211,9 +211,11 @@ export const mockGenerateId = vi.fn().mockReturnValue("generated-id-001");
 vi.mock("better-auth", () => ({
     generateId: (...args: unknown[]) => mockGenerateId(...args),
     APIError: class APIError extends Error {
-        constructor(message: string) {
-            super(message);
+        status: string;
+        constructor(status: string, options?: { message?: string }) {
+            super(options?.message ?? status);
             this.name = "APIError";
+            this.status = status;
         }
     },
 }));

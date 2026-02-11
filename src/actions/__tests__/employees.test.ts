@@ -286,7 +286,7 @@ describe("createEmployee", () => {
         mockOrgApi();
 
         const { APIError } = await import("better-auth");
-        mockTransaction.mockRejectedValue(new APIError("Email already exists"));
+        mockTransaction.mockRejectedValue(new APIError("BAD_REQUEST", { message: "Email already exists" }));
 
         const result = await createEmployee(validData);
 
