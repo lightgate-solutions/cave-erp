@@ -10,6 +10,7 @@ import {
   formatVendorStatus,
   formatBillStatus,
   formatPOStatus,
+  forecastCashFlow,
 } from "../payables-utils";
 
 describe("payables-utils", () => {
@@ -299,6 +300,123 @@ describe("payables-utils", () => {
       expect(formatPOStatus("Received").color).toBe("green");
       expect(formatPOStatus("Cancelled").color).toBe("red");
       expect(formatPOStatus("Pending Approval").color).toBe("yellow");
+    });
+  });
+
+  describe("forecastCashFlow", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2024-03-15T12:00:00Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("should forecast pending bills within the window", () => {
+      const bills = [
+        { dueDate: "2024-04-01", amountDue: "5000", status: "Pending" },
+        { dueDate: "2024-05-01", amountDue: "3000", status: "Approved" },
+      ];
+      const result = forecastCashFlow(bills, 3);
+
+      expect(result.length).toBe(2);
+      expect(result[0].totalDue).toBe(5000);
+      expect(result[0].billCount).toBe(1);
+      expect(result[1].totalDue).toBe(3000);
+    });
+
+    it("should exclude bills with non-actionable statuses", () => {
+      const bills = [
+        { dueDate: "2024-04-01", amountDue: "5000", status: "Paid" },
+        { dueDate: "2024-04-01", amountDue: "3000", status: "Cancelled" },
+        { dueDate: "2024-04-01", amountDue: "2000", status: "Pending" },
+      ];
+      const result = forecastCashFlow(bills, 3);
+
+      expect(result.length).toBe(1);
+      expect(result[0].totalDue).toBe(2000);
+      expect(result[0].billCount).toBe(1);
+    });
+
+    it("should include Overdue and Partially Paid statuses", () => {
+      const bills = [
+        { dueDate: "2024-03-10", amountDue: "1000", status: "Overdue" },
+        {
+          dueDate: "2024-04-01",
+          amountDue: "2000",
+          status: "Partially Paid",
+        },
+      ];
+      const result = forecastCashFlow(bills, 3);
+
+      const totalBills = result.reduce((sum, m) => sum + m.billCount, 0);
+      expect(totalBills).toBe(2);
+    });
+
+    it("should group bills in the same month", () => {
+      const bills = [
+        { dueDate: "2024-04-05", amountDue: "1000", status: "Pending" },
+        { dueDate: "2024-04-20", amountDue: "2000", status: "Pending" },
+      ];
+      const result = forecastCashFlow(bills, 3);
+
+      expect(result.length).toBe(1);
+      expect(result[0].totalDue).toBe(3000);
+      expect(result[0].billCount).toBe(2);
+    });
+
+    it("should return empty array for no bills", () => {
+      const result = forecastCashFlow([], 3);
+      expect(result).toEqual([]);
+    });
+
+    it("should exclude bills beyond the forecast window", () => {
+      const bills = [
+        { dueDate: "2024-04-01", amountDue: "1000", status: "Pending" },
+        { dueDate: "2025-01-01", amountDue: "5000", status: "Pending" },
+      ];
+      const result = forecastCashFlow(bills, 3);
+
+      expect(result.length).toBe(1);
+      expect(result[0].totalDue).toBe(1000);
+    });
+
+    it("should respect custom forecastMonths parameter", () => {
+      const bills = [
+        { dueDate: "2024-04-01", amountDue: "1000", status: "Pending" },
+        { dueDate: "2024-09-01", amountDue: "2000", status: "Pending" },
+      ];
+      // 1 month window: only April bill
+      const result1 = forecastCashFlow(bills, 1);
+      expect(result1.length).toBe(1);
+
+      // 6+ month window: both bills
+      const result6 = forecastCashFlow(bills, 7);
+      expect(result6.length).toBe(2);
+    });
+
+    it("should handle string amounts", () => {
+      const bills = [
+        { dueDate: "2024-04-01", amountDue: "1500.50", status: "Pending" },
+      ];
+      const result = forecastCashFlow(bills, 3);
+      expect(result[0].totalDue).toBe(1500.5);
+    });
+
+    it("should return results for each month with bills", () => {
+      const bills = [
+        { dueDate: "2024-06-01", amountDue: "3000", status: "Pending" },
+        { dueDate: "2024-04-01", amountDue: "1000", status: "Pending" },
+        { dueDate: "2024-05-01", amountDue: "2000", status: "Pending" },
+      ];
+      const result = forecastCashFlow(bills, 3);
+
+      expect(result).toHaveLength(3);
+      const months = result.map((r) => r.month);
+      expect(months).toContain("Apr");
+      expect(months).toContain("May");
+      expect(months).toContain("Jun");
     });
   });
 });

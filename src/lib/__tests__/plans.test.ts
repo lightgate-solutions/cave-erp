@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   getPlan,
+  getAllPlans,
   getPlanPrice,
   getPlanPriceKobo,
   getPlanDisplayName,
@@ -17,6 +18,45 @@ describe("plans-utils", () => {
       const plan = getPlan("pro");
       expect(plan.id).toBe("pro");
       expect(plan.displayName).toBe("Pro");
+    });
+  });
+
+  describe("getAllPlans", () => {
+    it("should return all 5 plans", () => {
+      const plans = getAllPlans();
+      expect(plans).toHaveLength(5);
+    });
+
+    it("should include all plan tiers", () => {
+      const plans = getAllPlans();
+      const ids = plans.map((p) => p.id);
+      expect(ids).toContain("free");
+      expect(ids).toContain("pro");
+      expect(ids).toContain("proAI");
+      expect(ids).toContain("premium");
+      expect(ids).toContain("premiumAI");
+    });
+
+    it("should return plans with complete structure", () => {
+      const plans = getAllPlans();
+      for (const plan of plans) {
+        expect(plan).toHaveProperty("id");
+        expect(plan).toHaveProperty("displayName");
+        expect(plan).toHaveProperty("pricing");
+        expect(plan).toHaveProperty("limits");
+        expect(plan).toHaveProperty("featureFlags");
+        expect(plan).toHaveProperty("ui");
+      }
+    });
+  });
+
+  describe("getPlanDisplayName", () => {
+    it("should return correct display names", () => {
+      expect(getPlanDisplayName("free")).toBe("Free");
+      expect(getPlanDisplayName("pro")).toBe("Pro");
+      expect(getPlanDisplayName("proAI")).toBe("Pro - AI Included");
+      expect(getPlanDisplayName("premium")).toBe("Premium");
+      expect(getPlanDisplayName("premiumAI")).toBe("Premium - AI Included");
     });
   });
 
