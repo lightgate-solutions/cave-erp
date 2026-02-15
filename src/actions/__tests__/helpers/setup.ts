@@ -119,12 +119,13 @@ vi.mock("@/lib/auth", () => ({
 
 export const mockRequireAuth = vi.fn();
 export const mockRequireHROrAdmin = vi.fn();
+export const mockGetUser = vi.fn();
 
 vi.mock("@/actions/auth/dal", () => ({
     requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
     requireHROrAdmin: (...args: unknown[]) => mockRequireHROrAdmin(...args),
     verifySession: vi.fn(),
-    getUser: vi.fn(),
+    getUser: (...args: unknown[]) => mockGetUser(...args),
     getSessionRole: vi.fn(),
     requireAdmin: vi.fn(),
     requireManager: vi.fn(),
@@ -301,6 +302,73 @@ vi.mock("@/db/schema", () => {
         member: makeTable("member", [
             "id", "organizationId", "userId", "role", "createdAt",
         ]),
+        // ── Invoicing tables ────────────────────────────────────────────
+        receivablesInvoices: makeTable("receivablesInvoices", [
+            "id", "invoiceNumber", "clientId", "currencyId", "bankAccountId",
+            "invoiceDate", "dueDate", "status", "subtotal", "taxAmount", "total",
+            "amountPaid", "amountDue", "notes", "termsAndConditions", "footerNote",
+            "template", "organizationId", "createdBy", "updatedBy", "sentAt",
+            "cancelledAt", "createdAt",
+        ]),
+        invoiceLineItems: makeTable("invoiceLineItems", [
+            "id", "invoiceId", "description", "quantity", "unitPrice", "amount",
+            "sortOrder", "organizationId",
+        ]),
+        invoiceTaxes: makeTable("invoiceTaxes", [
+            "id", "invoiceId", "taxName", "taxPercentage", "taxAmount",
+            "organizationId",
+        ]),
+        invoiceActivityLog: makeTable("invoiceActivityLog", [
+            "id", "invoiceId", "activityType", "description", "performedBy",
+            "metadata", "organizationId", "createdAt",
+        ]),
+        organizationCurrencies: makeTable("organizationCurrencies", [
+            "id", "currencySymbol", "organizationId",
+        ]),
+        clients: makeTable("clients", [
+            "id", "name", "email", "companyName", "organizationId",
+        ]),
+        companyBankAccounts: makeTable("companyBankAccounts", [
+            "id", "organizationId",
+        ]),
+        glAccounts: makeTable("glAccounts", [
+            "id", "code", "name", "organizationId",
+        ]),
+        glJournals: makeTable("glJournals", [
+            "id", "organizationId", "source", "sourceId",
+        ]),
+        // ── Payables tables ─────────────────────────────────────────────
+        payablesBills: makeTable("payablesBills", [
+            "id", "billNumber", "vendorInvoiceNumber", "vendorId", "poId",
+            "bankAccountId", "billDate", "dueDate", "receivedDate", "status",
+            "currencyId", "subtotal", "taxAmount", "total", "amountPaid",
+            "amountDue", "notes", "paymentTerms", "isRecurring",
+            "recurringFrequency", "recurringEndDate", "duplicateCheckHash",
+            "organizationId", "createdBy", "updatedBy", "createdAt",
+        ]),
+        billLineItems: makeTable("billLineItems", [
+            "id", "billId", "poLineItemId", "description", "quantity",
+            "poUnitPrice", "poAmount", "unitPrice", "amount", "sortOrder",
+            "organizationId",
+        ]),
+        billTaxes: makeTable("billTaxes", [
+            "id", "billId", "taxType", "taxName", "taxPercentage",
+            "taxAmount", "isWithholdingTax", "whtCertificateNumber",
+            "organizationId",
+        ]),
+        billActivityLog: makeTable("billActivityLog", [
+            "id", "billId", "activityType", "description", "performedBy",
+            "metadata", "organizationId", "createdAt",
+        ]),
+        vendors: makeTable("vendors", [
+            "id", "name", "email", "organizationId",
+        ]),
+        purchaseOrders: makeTable("purchaseOrders", [
+            "id", "status", "organizationId",
+        ]),
+        poLineItems: makeTable("poLineItems", [
+            "id", "poId", "description", "quantity", "unitPrice", "amount",
+        ]),
     };
 });
 
@@ -324,6 +392,234 @@ vi.mock("@/db/schema/hr", () => {
         ]),
     };
 });
+
+// ─── Mock: @/actions/auth/dal-invoicing ─────────────────────────────────────
+
+export const mockRequireInvoicingViewAccess = vi.fn();
+export const mockRequireInvoicingWriteAccess = vi.fn();
+
+vi.mock("@/actions/auth/dal-invoicing", () => ({
+    requireInvoicingViewAccess: (...args: unknown[]) =>
+        mockRequireInvoicingViewAccess(...args),
+    requireInvoicingWriteAccess: (...args: unknown[]) =>
+        mockRequireInvoicingWriteAccess(...args),
+}));
+
+// ─── Mock: @/actions/auth/dal-payables ──────────────────────────────────────
+
+export const mockRequirePayablesViewAccess = vi.fn();
+export const mockRequirePayablesWriteAccess = vi.fn();
+export const mockRequirePayablesApprovalAccess = vi.fn();
+
+vi.mock("@/actions/auth/dal-payables", () => ({
+    requirePayablesViewAccess: (...args: unknown[]) =>
+        mockRequirePayablesViewAccess(...args),
+    requirePayablesWriteAccess: (...args: unknown[]) =>
+        mockRequirePayablesWriteAccess(...args),
+    requirePayablesApprovalAccess: (...args: unknown[]) =>
+        mockRequirePayablesApprovalAccess(...args),
+}));
+
+// ─── Mock: @/actions/finance/gl/journals ────────────────────────────────────
+
+export const mockCreateJournal = vi.fn().mockResolvedValue({ success: true });
+
+vi.mock("@/actions/finance/gl/journals", () => ({
+    createJournal: (...args: unknown[]) => mockCreateJournal(...args),
+}));
+
+// ─── Mock: @/actions/finance/gl/accounts ────────────────────────────────────
+
+export const mockEnsureDefaultGLAccounts = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@/actions/finance/gl/accounts", () => ({
+    ensureDefaultGLAccounts: (...args: unknown[]) =>
+        mockEnsureDefaultGLAccounts(...args),
+}));
+
+// ─── Mock: @/lib/billing-utils ──────────────────────────────────────────────
+
+export const mockCalculateAnniversaryDay = vi.fn().mockReturnValue(15);
+export const mockCalculateNextPeriodEnd = vi.fn().mockReturnValue(
+    new Date("2026-03-15"),
+);
+export const mockCalculatePlanChangeProration = vi.fn().mockReturnValue({
+    netAmount: 5000,
+    remainingDays: 15,
+    totalDays: 30,
+});
+
+vi.mock("@/lib/billing-utils", () => ({
+    calculateAnniversaryDay: (...args: unknown[]) =>
+        mockCalculateAnniversaryDay(...args),
+    calculateNextPeriodEnd: (...args: unknown[]) =>
+        mockCalculateNextPeriodEnd(...args),
+    calculatePlanChangeProration: (...args: unknown[]) =>
+        mockCalculatePlanChangeProration(...args),
+}));
+
+// ─── Mock: @/lib/invoicing-utils ────────────────────────────────────────────
+
+export const mockCalculateInvoiceAmounts = vi.fn().mockReturnValue({
+    subtotal: 1000,
+    taxAmount: 75,
+    total: 1075,
+});
+
+vi.mock("@/lib/invoicing-utils", () => ({
+    calculateInvoiceAmounts: (...args: unknown[]) =>
+        mockCalculateInvoiceAmounts(...args),
+}));
+
+// ─── Mock: @/lib/payables-utils ─────────────────────────────────────────────
+
+export const mockCalculateBillAmounts = vi.fn().mockReturnValue({
+    subtotal: 2000,
+    taxAmount: 150,
+    total: 2150,
+});
+export const mockGenerateDuplicateCheckHash = vi.fn().mockReturnValue("hash-abc");
+export const mockCalculateDuplicateSimilarity = vi.fn().mockReturnValue({
+    similarity: 0.95,
+});
+export const mockCalculateStringSimilarity = vi.fn().mockReturnValue(0.9);
+
+vi.mock("@/lib/payables-utils", () => ({
+    calculateBillAmounts: (...args: unknown[]) =>
+        mockCalculateBillAmounts(...args),
+    generateDuplicateCheckHash: (...args: unknown[]) =>
+        mockGenerateDuplicateCheckHash(...args),
+    calculateDuplicateSimilarity: (...args: unknown[]) =>
+        mockCalculateDuplicateSimilarity(...args),
+    calculateStringSimilarity: (...args: unknown[]) =>
+        mockCalculateStringSimilarity(...args),
+}));
+
+// ─── Mock: @/lib/pdf/invoice-pdf ────────────────────────────────────────────
+
+export const mockGenerateInvoicePdf = vi.fn().mockResolvedValue(
+    new Uint8Array([37, 80, 68, 70]),  // fake PDF bytes
+);
+
+vi.mock("@/lib/pdf/invoice-pdf", () => ({
+    generateInvoicePdf: (...args: unknown[]) =>
+        mockGenerateInvoicePdf(...args),
+}));
+
+// ─── Mock: @aws-sdk/client-s3 ───────────────────────────────────────────────
+
+export const MockPutObjectCommand = vi.fn();
+
+vi.mock("@aws-sdk/client-s3", () => ({
+    PutObjectCommand: MockPutObjectCommand,
+}));
+
+// ─── Mock: @/lib/r2Client ───────────────────────────────────────────────────
+
+export const mockR2Send = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@/lib/r2Client", () => ({
+    r2Client: { send: (...args: unknown[]) => mockR2Send(...args) },
+}));
+
+// ─── Mock: @/lib/emails ─────────────────────────────────────────────────────
+
+export const mockSendInvoiceEmail = vi.fn().mockResolvedValue(undefined);
+export const mockSendBillReceivedConfirmationEmail = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@/lib/emails", () => ({
+    sendInvoiceEmail: (...args: unknown[]) => mockSendInvoiceEmail(...args),
+    sendBillReceivedConfirmationEmail: (...args: unknown[]) =>
+        mockSendBillReceivedConfirmationEmail(...args),
+}));
+
+// ─── Mock: next/navigation ──────────────────────────────────────────────────
+
+export const mockRedirect = vi.fn();
+
+vi.mock("next/navigation", () => ({
+    redirect: (...args: unknown[]) => mockRedirect(...args),
+}));
+
+// ─── Mock: @/actions/payables/purchase-orders ───────────────────────────────
+
+export const mockUpdatePOBilledAmount = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@/actions/payables/purchase-orders", () => ({
+    updatePOBilledAmount: (...args: unknown[]) =>
+        mockUpdatePOBilledAmount(...args),
+}));
+
+// ─── Mock: @/db/schema/subscriptions ────────────────────────────────────────
+
+vi.mock("@/db/schema/subscriptions", () => {
+    const makeTable = (name: string, cols: string[]) => {
+        const table: Record<string, string> = {};
+        for (const col of cols) {
+            table[col] = `${name}.${col}`;
+        }
+        return table;
+    };
+    return {
+        subscriptions: makeTable("subscriptions", [
+            "id", "userId", "plan", "status", "pricePerMember",
+            "currentPeriodStart", "currentPeriodEnd",
+            "billingAnniversaryDay", "lastInvoicedAt",
+            "cancelAtPeriodEnd", "canceledAt",
+        ]),
+        invoices: makeTable("invoices", [
+            "id", "subscriptionId", "status", "amount", "currency",
+            "billingPeriodStart", "billingPeriodEnd", "dueDate", "createdAt",
+        ]),
+        invoiceItems: makeTable("invoiceItems", [
+            "id", "invoiceId", "memberId", "organizationId",
+            "description", "amount", "prorated",
+            "billingPeriodStart", "billingPeriodEnd",
+        ]),
+    };
+});
+
+// ─── Mock: @/db/schema/auth ─────────────────────────────────────────────────
+
+vi.mock("@/db/schema/auth", () => {
+    const makeTable = (name: string, cols: string[]) => {
+        const table: Record<string, string> = {};
+        for (const col of cols) {
+            table[col] = `${name}.${col}`;
+        }
+        return table;
+    };
+    return {
+        organization: makeTable("organization", ["id", "ownerId", "membersCount"]),
+        member: makeTable("member", [
+            "id", "organizationId", "userId", "role", "createdAt",
+        ]),
+    };
+});
+
+// ─── Mock: dayjs ────────────────────────────────────────────────────────────
+// billing.ts uses dayjs.extend(utc) and dayjs.utc().add().format()
+
+vi.mock("dayjs/plugin/utc", () => ({ default: vi.fn() }));
+
+const dayjsChain = {
+    add: vi.fn().mockReturnThis(),
+    format: vi.fn().mockReturnValue("2026-03-15"),
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dayjsMock: any = Object.assign(
+    (..._args: unknown[]) => dayjsChain,
+    {
+        extend: vi.fn(),
+        utc: vi.fn().mockReturnValue(dayjsChain),
+    },
+);
+
+vi.mock("dayjs", () => ({ default: dayjsMock }));
+
+// ─── Mock: @/types/* ────────────────────────────────────────────────────────
+// Type-only imports do not need mocking.
 
 // ─── Mock: server-only ──────────────────────────────────────────────────────
 
@@ -376,6 +672,11 @@ export function mockDbResult(value: unknown) {
 
 beforeEach(() => {
     vi.clearAllMocks();
+
+    // Reset the one-time value queues for query mocks that use
+    // mockResolvedValueOnce – clearAllMocks does NOT clear these queues.
+    mockQueryFindFirst.mockReset();
+    mockQueryFindMany.mockReset();
 
     // Re-apply sensible defaults after clearing
     mockHeaders.mockResolvedValue(new Headers());
