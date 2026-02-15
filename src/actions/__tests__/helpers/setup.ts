@@ -91,6 +91,12 @@ vi.mock("next/cache", () => ({
 
 export const mockGetSession = vi.fn();
 export const mockGetFullOrganization = vi.fn();
+export const mockAuthApiBanUser = vi.fn();
+export const mockAuthApiUnbanUser = vi.fn();
+export const mockAuthApiRemoveUser = vi.fn();
+export const mockAuthApiRevokeUserSessions = vi.fn();
+export const mockAuthApiCreateUser = vi.fn();
+export const mockAuthApiSetRole = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
     auth: {
@@ -98,6 +104,13 @@ vi.mock("@/lib/auth", () => ({
             getSession: (...args: unknown[]) => mockGetSession(...args),
             getFullOrganization: (...args: unknown[]) =>
                 mockGetFullOrganization(...args),
+            banUser: (...args: unknown[]) => mockAuthApiBanUser(...args),
+            unbanUser: (...args: unknown[]) => mockAuthApiUnbanUser(...args),
+            removeUser: (...args: unknown[]) => mockAuthApiRemoveUser(...args),
+            revokeUserSessions: (...args: unknown[]) =>
+                mockAuthApiRevokeUserSessions(...args),
+            createUser: (...args: unknown[]) => mockAuthApiCreateUser(...args),
+            setRole: (...args: unknown[]) => mockAuthApiSetRole(...args),
         },
     },
 }));
@@ -208,16 +221,38 @@ vi.mock("@/lib/plan-utils", () => ({
 
 export const mockGenerateId = vi.fn().mockReturnValue("generated-id-001");
 
+class MockAPIError extends Error {
+    status: string;
+    constructor(status: string, options?: { message?: string }) {
+        super(options?.message ?? status);
+        this.name = "APIError";
+        this.status = status;
+    }
+}
+
 vi.mock("better-auth", () => ({
     generateId: (...args: unknown[]) => mockGenerateId(...args),
-    APIError: class APIError extends Error {
-        status: string;
-        constructor(status: string, options?: { message?: string }) {
-            super(options?.message ?? status);
-            this.name = "APIError";
-            this.status = status;
-        }
-    },
+    APIError: MockAPIError,
+}));
+
+// ─── Mock: better-auth/api ──────────────────────────────────────────────────
+// auth.ts imports APIError from "better-auth/api" — re-export the same class.
+
+vi.mock("better-auth/api", () => ({
+    APIError: MockAPIError,
+}));
+
+// ─── Mock: @/actions/notification/notification ──────────────────────────────
+
+export const mockCreateNotification = vi.fn().mockResolvedValue({
+    success: true,
+    data: null,
+    error: null,
+});
+
+vi.mock("@/actions/notification/notification", () => ({
+    createNotification: (...args: unknown[]) =>
+        mockCreateNotification(...args),
 }));
 
 // ─── Mock: @/db/schema ──────────────────────────────────────────────────────
@@ -265,6 +300,27 @@ vi.mock("@/db/schema", () => {
         ]),
         member: makeTable("member", [
             "id", "organizationId", "userId", "role", "createdAt",
+        ]),
+    };
+});
+
+// ─── Mock: @/db/schema/hr ───────────────────────────────────────────────────
+// auth.ts imports employees from this sub-path.
+
+vi.mock("@/db/schema/hr", () => {
+    const makeTable = (name: string, cols: string[]) => {
+        const table: Record<string, string> = {};
+        for (const col of cols) {
+            table[col] = `${name}.${col}`;
+        }
+        return table;
+    };
+    return {
+        employees: makeTable("employees", [
+            "authId", "email", "role", "name", "department", "employmentType",
+            "phone", "isManager", "dateOfBirth", "staffNumber", "status",
+            "maritalStatus", "organizationId", "managerId", "documentCount",
+            "address", "createdAt", "updatedAt",
         ]),
     };
 });
