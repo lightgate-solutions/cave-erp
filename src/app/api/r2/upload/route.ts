@@ -6,6 +6,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { r2Client } from "@/lib/r2Client";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 const uploadRequestSchema = z.object({
   filename: z.string(),
@@ -22,6 +24,11 @@ function constructCloudflareR2Url(key: string, customDomain?: string): string {
 }
 export async function POST(request: Request) {
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const validation = uploadRequestSchema.safeParse(body);
 
