@@ -237,6 +237,28 @@ export async function applyForLeave(data: {
     };
   }
 
+  // When applying on behalf of another user, verify they belong to the same organization
+  if (authData.userId !== data.userId) {
+    const targetEmployee = await db
+      .select({ authId: employees.authId })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.authId, data.userId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1)
+      .then((r) => r[0]);
+
+    if (!targetEmployee) {
+      return {
+        success: null,
+        error: { reason: "User not found in your organization" },
+      };
+    }
+  }
+
   try {
     const start = new Date(data.startDate);
     const end = new Date(data.endDate);

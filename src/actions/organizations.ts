@@ -142,6 +142,14 @@ export async function acceptInvitationAndCreateEmployee(invitationId: string) {
       };
     }
 
+    // Verify the invitation was sent to the authenticated user's email
+    if (session.user.email !== inviteDetails.email) {
+      return {
+        success: false,
+        error: "This invitation was not sent to your email address",
+      };
+    }
+
     // Perform all operations in a single atomic transaction
     // This ensures either ALL operations succeed or ALL fail together
     const result = await db.transaction(async (tx) => {
