@@ -108,17 +108,29 @@ describe("updateEmployee", () => {
         mockSessionApi();
         mockOrgApi();
 
-        // Transaction mock: the tx chain needs .returning() to resolve
+        // Transaction mock: tx has two update calls.
+        // 1st: tx.update(employees).set(...).where(...).returning() → resolves with emp
+        // 2nd: tx.update(user).set(...).where(...) → no .returning(), must be awaitable
         const txChain: Record<string, ReturnType<typeof vi.fn>> = {};
         const txMethods = [
-            "update", "insert", "set", "values", "where", "returning",
+            "update", "insert", "set", "values", "returning",
             "from", "select", "leftJoin", "limit",
         ];
         for (const m of txMethods) {
             txChain[m] = vi.fn().mockReturnValue(txChain);
         }
         txChain.returning.mockResolvedValue([{ authId: DEFAULT_USER_ID }]);
-        txChain.where.mockImplementation(() => txChain);
+
+        // where() must return txChain for first call (.returning() follows),
+        // but return a resolved Promise for second call (bare await without .returning())
+        let whereCallCount = 0;
+        txChain.where = vi.fn().mockImplementation(() => {
+            whereCallCount++;
+            if (whereCallCount <= 1) {
+                return txChain; // first where → .returning() follows
+            }
+            return Promise.resolve(undefined); // second where → awaited directly
+        });
 
         mockTransaction.mockImplementation(async (cb) => cb(txChain));
 
@@ -129,6 +141,8 @@ describe("updateEmployee", () => {
             error: null,
         });
         expect(mockRevalidatePath).toHaveBeenCalledWith("/hr/employees");
+        // Verify both update calls were made in the transaction
+        expect(txChain.update).toHaveBeenCalledTimes(2);
     });
 
     it("should return error when organization not found", async () => {
@@ -227,8 +241,9 @@ describe("createEmployee", () => {
 
         mockTransaction.mockImplementation(async (cb) => cb(txChain));
 
-        // Also mock the outer db.update().set().where() used outside the tx
-        mockDbChain.where.mockResolvedValue(undefined);
+        // createEmployee calls db.update(user).set().where() OUTSIDE the tx
+        // (using global db, not tx) — use mockResolvedValueOnce to avoid leaking
+        mockDbChain.where.mockResolvedValueOnce(undefined);
 
         const result = await createEmployee(validData);
 
@@ -254,7 +269,8 @@ describe("createEmployee", () => {
         txChain.where.mockImplementation(() => txChain);
 
         mockTransaction.mockImplementation(async (cb) => cb(txChain));
-        mockDbChain.where.mockResolvedValue(undefined);
+        // db.update(user) outside tx — use mockResolvedValueOnce
+        mockDbChain.where.mockResolvedValueOnce(undefined);
 
         const result = await createEmployee({
             ...validData,
