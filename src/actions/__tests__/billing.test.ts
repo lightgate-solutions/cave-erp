@@ -236,6 +236,60 @@ describe("payInvoice", () => {
         globalThis.fetch = originalFetch;
         delete process.env.PAYSTACK_SECRET_KEY;
     });
+
+    it("should convert amount to Kobo and send correct payload to Paystack", async () => {
+        mockUser();
+        mockQueryFindFirst
+            .mockResolvedValueOnce({ id: "sub-1" })
+            .mockResolvedValueOnce({
+                id: "inv-1",
+                amount: "5000",
+                subscriptionId: "sub-1",
+                status: "open",
+            });
+        process.env.PAYSTACK_SECRET_KEY = "sk_test_key";
+
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            json: vi.fn().mockResolvedValue({
+                status: true,
+                data: { authorization_url: "https://paystack.co/pay/abc123" },
+            }),
+        });
+
+        // redirect throws NEXT_REDIRECT so we catch it
+        try {
+            await payInvoice("inv-1");
+        } catch {
+            // redirect throws — expected
+        }
+
+        // Verify Kobo conversion: 5000 NGN → 500000 kobo
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            "https://api.paystack.co/transaction/initialize",
+            expect.objectContaining({
+                method: "POST",
+                body: expect.stringContaining('"amount":500000'),
+            }),
+        );
+
+        // Verify metadata in payload
+        const callBody = JSON.parse(
+            (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body,
+        );
+        expect(callBody).toEqual({
+            email: "user@test.com",
+            amount: 500000,
+            metadata: {
+                invoice_id: "inv-1",
+                user_id: DEFAULT_USER_ID,
+                type: "invoice-payment",
+            },
+        });
+
+        globalThis.fetch = originalFetch;
+        delete process.env.PAYSTACK_SECRET_KEY;
+    });
 });
 
 // ─── createCheckoutSession ──────────────────────────────────────────────────
@@ -340,14 +394,14 @@ describe("changePlan", () => {
         });
     });
 
-    it("should return success with proration invoice", async () => {
+    it("should return success with proration invoice (downgrade)", async () => {
         mockUser();
         mockQueryFindFirst.mockResolvedValue({
             id: "sub-1",
             plan: "premium",
             pricePerMember: "45000.00",
-            currentPeriodStart: new Date("2026-02-01"),
-            currentPeriodEnd: new Date("2026-03-01"),
+            currentPeriodStart: new Date(Date.UTC(2026, 1, 1)),
+            currentPeriodEnd: new Date(Date.UTC(2026, 2, 1)),
         });
         // findMany: orgs, then members
         mockQueryFindMany
@@ -369,6 +423,70 @@ describe("changePlan", () => {
             success: true,
             prorationInvoiceId: "inv-new",
         });
+        // Downgrade: no email or Paystack link should be generated
+        expect(mockSendInvoiceEmail).not.toHaveBeenCalled();
+    });
+
+    it("should send email and generate Paystack link on upgrade", async () => {
+        mockUser();
+        mockQueryFindFirst.mockResolvedValue({
+            id: "sub-1",
+            plan: "pro",
+            pricePerMember: "9000.00",
+            currentPeriodStart: new Date(Date.UTC(2026, 1, 1)),
+            currentPeriodEnd: new Date(Date.UTC(2026, 2, 1)),
+        });
+        mockQueryFindMany
+            .mockResolvedValueOnce([{ id: "org-1" }])
+            .mockResolvedValueOnce([{ userId: "u1" }, { userId: "u2" }]);
+
+        // Positive netAmount = upgrade
+        mockCalculatePlanChangeProration.mockReturnValue({
+            netAmount: 36000,
+            remainingDays: 15,
+            totalDays: 30,
+        });
+
+        // Invoice creation via chain
+        mockDbChain.returning.mockResolvedValue([{ id: "inv-upgrade" }]);
+
+        // generatePaystackLink is a local function that calls fetch
+        process.env.PAYSTACK_SECRET_KEY = "sk_test_key";
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            json: vi.fn().mockResolvedValue({
+                status: true,
+                data: { authorization_url: "https://paystack.co/pay/xyz" },
+            }),
+        });
+
+        const result = await changePlan("premium");
+
+        expect(result).toEqual({
+            success: true,
+            prorationInvoiceId: "inv-upgrade",
+        });
+        // Email should be sent for upgrades
+        expect(mockSendInvoiceEmail).toHaveBeenCalledWith(
+            expect.objectContaining({
+                to: "user@test.com",
+                invoiceDetails: expect.objectContaining({
+                    invoiceId: "inv-upgrade",
+                    amount: 36000,
+                    paymentLink: "https://paystack.co/pay/xyz",
+                }),
+            }),
+        );
+        // Paystack fetch should have been called with Kobo amount
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            "https://api.paystack.co/transaction/initialize",
+            expect.objectContaining({
+                body: expect.stringContaining('"amount":3600000'),
+            }),
+        );
+
+        globalThis.fetch = originalFetch;
+        delete process.env.PAYSTACK_SECRET_KEY;
     });
 
     it("should return error on failure", async () => {
