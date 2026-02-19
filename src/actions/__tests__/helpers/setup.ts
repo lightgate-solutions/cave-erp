@@ -380,6 +380,15 @@ vi.mock("@/db/schema", () => {
         vendors: makeTable("vendors", [
             "id", "name", "email", "organizationId",
         ]),
+        vendorContacts: makeTable("vendorContacts", [
+            "id", "vendorId", "name", "email", "phone", "role", "isPrimary",
+            "organizationId",
+        ]),
+        vendorBankAccounts: makeTable("vendorBankAccounts", [
+            "id", "vendorId", "accountName", "bankName", "accountNumber",
+            "routingNumber", "swiftCode", "iban", "currency", "isDefault",
+            "isActive", "organizationId",
+        ]),
         purchaseOrders: makeTable("purchaseOrders", [
             "id", "status", "organizationId",
         ]),
