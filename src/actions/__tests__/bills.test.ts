@@ -12,6 +12,7 @@ import {
     mockEnsureDefaultGLAccounts,
     mockCalculateBillAmounts,
     mockGenerateDuplicateCheckHash,
+    mockCalculateDuplicateSimilarity,
     mockUpdatePOBilledAmount,
     mockSendBillReceivedConfirmationEmail,
     mockCalculateStringSimilarity,
@@ -154,6 +155,39 @@ describe("checkForDuplicateBill", () => {
         expect(result.confidence).toBe("high");
     });
 
+    it("should detect medium confidence duplicate by similar amount and date", async () => {
+        setupPayablesMocks();
+        // First chain call = exact match (returns empty = no exact match)
+        // Second chain call = similar match (returns result)
+        let chainCallCount = 0;
+        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) => {
+            chainCallCount++;
+            if (chainCallCount === 1) {
+                // Exact match query returns nothing
+                return Promise.resolve(resolve([]));
+            }
+            // Similar match query returns a similar bill
+            return Promise.resolve(resolve([{
+                id: 7,
+                billNumber: "BILL-2026-0010",
+                vendorInvoiceNumber: "VINV-099",
+                vendorId: 1,
+                total: "2160.00",
+                billDate: "2026-02-05",
+                status: "Approved",
+            }]));
+        }) as (...a: unknown[]) => unknown);
+
+        mockCalculateDuplicateSimilarity.mockReturnValue({ similarity: 0.85 });
+
+        const result = await checkForDuplicateBill(1, "VINV-NEW", 2150, "2026-02-01");
+
+        expect(result.isDuplicate).toBe(true);
+        expect(result.confidence).toBe("medium");
+        expect(result.matches[0].similarity).toBe(0.85);
+        expect(result.matches[0].reason).toContain("Similar amount");
+    });
+
     it("should return no duplicate when none found", async () => {
         setupPayablesMocks();
         // Both exact and similar matches return empty via chain mock (default [])
@@ -204,17 +238,25 @@ describe("createBill", () => {
                     values: vi.fn().mockReturnValue({
                         returning: vi.fn().mockResolvedValue([{
                             id: 1, billNumber: "BILL-2026-0001",
+                            vendorInvoiceNumber: "VINV-001", total: "2150.00",
                         }]),
                     }),
                 }),
             };
             return cb(tx);
         });
+        // GL posting after create: AP account + Expense account lookups
+        mockQueryFindFirst
+            .mockResolvedValueOnce({ id: 10, code: "2000" })   // AP account
+            .mockResolvedValueOnce({ id: 20, code: "6000" });  // Expense account
 
         const result = await createBill(sampleBillInput);
 
         expect(result.error).toBeNull();
         expect(result.success).toBeTruthy();
+        // Verify GL posting side-effects
+        expect(mockEnsureDefaultGLAccounts).toHaveBeenCalledWith(DEFAULT_ORG_ID);
+        expect(mockCreateJournal).toHaveBeenCalled();
     });
 
     it("should return error when org not found", async () => {
@@ -588,6 +630,18 @@ describe("approveBill", () => {
         });
     });
 
+    it("should return error when bill is cancelled", async () => {
+        setupPayablesMocks();
+        resolveChain([{ id: 1, status: "Cancelled" }]);
+
+        const result = await approveBill(1);
+
+        expect(result).toEqual({
+            success: null,
+            error: { reason: "Only pending or draft bills can be approved" },
+        });
+    });
+
     it("should return error on generic failure", async () => {
         mockRequirePayablesApprovalAccess.mockRejectedValue(new Error("fail"));
 
@@ -770,6 +824,21 @@ describe("matchBillToPO", () => {
             error: null,
         });
         expect(mockUpdatePOBilledAmount).toHaveBeenCalledWith(5);
+        // Verify transaction was called with line item updates
+        const txCb = mockTransaction.mock.calls[0][0];
+        const txMock = {
+            update: vi.fn().mockReturnValue({
+                set: vi.fn().mockReturnValue({
+                    where: vi.fn().mockResolvedValue(undefined),
+                }),
+            }),
+            insert: vi.fn().mockReturnValue({
+                values: vi.fn().mockResolvedValue(undefined),
+            }),
+        };
+        await txCb(txMock);
+        // update is called 3 times: bill PO ref, bill line item, PO line item billedQuantity
+        expect(txMock.update).toHaveBeenCalledTimes(3);
     });
 
     it("should return error when PO not found", async () => {
