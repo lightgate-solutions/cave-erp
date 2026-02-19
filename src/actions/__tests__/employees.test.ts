@@ -226,24 +226,18 @@ describe("createEmployee", () => {
         mockSessionApi();
         mockOrgApi();
 
-        // Transaction mock
-        const txChain: Record<string, ReturnType<typeof vi.fn>> = {};
-        const txMethods = [
-            "insert", "update", "set", "values", "where", "returning", "from",
-        ];
-        for (const m of txMethods) {
+        const txChain: any = {};
+        for (const m of ["insert", "values", "returning", "update", "set", "where"]) {
             txChain[m] = vi.fn().mockReturnValue(txChain);
         }
         txChain.returning.mockResolvedValue([
             { authId: validData.authId, department: "hr" },
         ]);
-        txChain.where.mockImplementation(() => txChain);
+
+        // Make inserts/updates without `.returning()` awaitable
+        txChain.then = (resolve: any) => Promise.resolve(resolve(undefined));
 
         mockTransaction.mockImplementation(async (cb) => cb(txChain));
-
-        // createEmployee calls db.update(user).set().where() OUTSIDE the tx
-        // (using global db, not tx) — use mockResolvedValueOnce to avoid leaking
-        mockDbChain.where.mockResolvedValueOnce(undefined);
 
         const result = await createEmployee(validData);
 
@@ -252,25 +246,23 @@ describe("createEmployee", () => {
             error: null,
             data: null,
         });
+        expect(mockDbChain.update).toHaveBeenCalled(); // db.update(user) path executed
     });
 
     it("should return success when organizationId is passed directly", async () => {
         // No need for session/org mock since orgId is provided
-        const txChain: Record<string, ReturnType<typeof vi.fn>> = {};
-        const txMethods = [
-            "insert", "update", "set", "values", "where", "returning", "from",
-        ];
-        for (const m of txMethods) {
+        const txChain: any = {};
+        for (const m of ["insert", "values", "returning", "update", "set", "where"]) {
             txChain[m] = vi.fn().mockReturnValue(txChain);
         }
         txChain.returning.mockResolvedValue([
             { authId: validData.authId, department: "hr" },
         ]);
-        txChain.where.mockImplementation(() => txChain);
+
+        // Make inserts/updates without `.returning()` awaitable
+        txChain.then = (resolve: any) => Promise.resolve(resolve(undefined));
 
         mockTransaction.mockImplementation(async (cb) => cb(txChain));
-        // db.update(user) outside tx — use mockResolvedValueOnce
-        mockDbChain.where.mockResolvedValueOnce(undefined);
 
         const result = await createEmployee({
             ...validData,
@@ -282,6 +274,7 @@ describe("createEmployee", () => {
             error: null,
             data: null,
         });
+        expect(mockDbChain.update).toHaveBeenCalled(); // db.update(user) path executed
     });
 
     it("should return error when organization not found and no orgId", async () => {
