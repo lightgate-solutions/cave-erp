@@ -184,23 +184,21 @@ describe("acceptInvitationAndCreateEmployee", () => {
         mockSessionApi();
         mockQueryFindFirst.mockResolvedValue(pendingInvitation);
 
-        // Transaction mock
-        const txChain: Record<string, ReturnType<typeof vi.fn>> = {};
-        const txMethods = [
-            "insert", "update", "set", "values", "where", "returning", "from",
-        ];
-        for (const m of txMethods) {
+        const txChain: any = {};
+        for (const m of ["insert", "update", "set", "values", "where", "returning"]) {
             txChain[m] = vi.fn().mockReturnValue(txChain);
         }
-        txChain.returning.mockResolvedValue([
+
+        // returning() is only used once (employees insert)
+        txChain.returning.mockResolvedValueOnce([
             { authId: DEFAULT_USER_ID, department: "hr" },
         ]);
-        txChain.where.mockImplementation(() => txChain);
 
-        mockTransaction.mockImplementation(async (cb) => {
-            const result = await cb(txChain);
-            return { organizationId: pendingInvitation.organizationId };
-        });
+        // make every "await tx...." work even when there's no .returning()
+        txChain.then = (resolve: any) => Promise.resolve(resolve(undefined));
+
+        mockTransaction.mockImplementation(async (cb) => cb(txChain));
+        mockGenerateId.mockReturnValue("generated-id-001");
 
         const result =
             await acceptInvitationAndCreateEmployee("inv-001");
@@ -209,6 +207,9 @@ describe("acceptInvitationAndCreateEmployee", () => {
             success: true,
             organizationId: DEFAULT_ORG_ID,
         });
+        expect(txChain.insert).toHaveBeenCalled();  // employees + folders + prefs + member
+        expect(txChain.update).toHaveBeenCalled();  // user + invitation + organization
+        expect(mockGenerateId).toHaveBeenCalled();  // member.id generation
     });
 
     it("should return error when unauthenticated", async () => {
