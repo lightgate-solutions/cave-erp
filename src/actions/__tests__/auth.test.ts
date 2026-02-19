@@ -100,6 +100,25 @@ describe("unbanUser", () => {
         );
     });
 
+    it("should succeed without notification when employee not found", async () => {
+        mockOrgApi();
+        mockAuthApiUnbanUser.mockResolvedValue({
+            user: { name: "External User" },
+        });
+        // Empty array = no matching employee record
+        mockDbResult([]);
+
+        const result = await unbanUser("u1");
+
+        expect(result).toEqual({
+            success: { reason: "User External User has been unbanned successful!" },
+            error: null,
+            data: undefined,
+        });
+        // Notification should NOT have been called
+        expect(mockCreateNotification).not.toHaveBeenCalled();
+    });
+
     it("should return error when organization not found", async () => {
         mockGetFullOrganization.mockResolvedValue(null);
 
@@ -289,6 +308,46 @@ describe("createUser", () => {
             data: null,
         });
         expect(mockAuthApiCreateUser).toHaveBeenCalled();
+    });
+
+    it("should pass emailVerified when autoVerify is true", async () => {
+        mockOrgApi();
+        mockAuthApiCreateUser.mockResolvedValue({
+            user: { id: "verified-id", role: "user" },
+        });
+
+        // Transaction mock
+        const txChain: Record<string, ReturnType<typeof import("vitest").vi.fn>> = {};
+        const txMethods = [
+            "insert", "update", "set", "values", "where", "returning", "from",
+        ];
+        for (const m of txMethods) {
+            txChain[m] = (await import("vitest")).vi.fn().mockReturnValue(txChain);
+        }
+        txChain.returning.mockResolvedValue([
+            { authId: "verified-id", department: "hr" },
+        ]);
+        txChain.where.mockImplementation(() => txChain);
+
+        mockTransaction.mockImplementation(async (cb) => cb(txChain));
+
+        const result = await createUser({ ...validData, autoVerify: true });
+
+        expect(result).toEqual({
+            success: { reason: "User created successfully" },
+            error: null,
+            data: null,
+        });
+        // Verify autoVerify causes emailVerified: true in the API call body
+        expect(mockAuthApiCreateUser).toHaveBeenCalledWith(
+            expect.objectContaining({
+                body: expect.objectContaining({
+                    data: expect.objectContaining({
+                        emailVerified: true,
+                    }),
+                }),
+            }),
+        );
     });
 
     it("should return error when organization not found", async () => {
