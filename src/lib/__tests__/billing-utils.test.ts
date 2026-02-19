@@ -157,23 +157,24 @@ describe("billing-utils", () => {
 
   describe("calculateDaysOverdue", () => {
     it("should return 0 for future due dates", () => {
-      const futureDate = dayjs().add(5, "day").toDate();
-      expect(calculateDaysOverdue(futureDate)).toBe(0);
+      const now = new Date("2024-03-10T00:00:00Z");
+      const future = new Date("2024-03-15T00:00:00Z");
+      expect(calculateDaysOverdue(future, now)).toBe(0);
     });
 
     it("should return 0 for today's due date", () => {
-      const today = new Date();
+      const today = new Date("2024-03-10T00:00:00Z");
       expect(calculateDaysOverdue(today, today)).toBe(0);
     });
 
     it("should return correct days for past due dates", () => {
-      const pastDate = new Date("2024-03-01");
-      const currentDate = new Date("2024-03-10");
+      const pastDate = new Date("2024-03-01T00:00:00Z");
+      const currentDate = new Date("2024-03-10T00:00:00Z");
       expect(calculateDaysOverdue(pastDate, currentDate)).toBe(9);
     });
 
     it("should handle string dates", () => {
-      const result = calculateDaysOverdue("2024-03-01", new Date("2024-03-05"));
+      const result = calculateDaysOverdue("2024-03-01", new Date("2024-03-05T00:00:00Z"));
       expect(result).toBe(4);
     });
   });
