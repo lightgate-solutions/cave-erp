@@ -14,6 +14,7 @@ import {
     mockEnsureDefaultGLAccounts,
     mockCalculateInvoiceAmounts,
     mockOrgApi,
+    mockRevalidatePath,
     DEFAULT_USER_ID,
     DEFAULT_ORG_ID,
 } from "./helpers/setup";
@@ -53,6 +54,12 @@ function setupInvoicingMocks() {
         employee: defaultEmployee,
     });
     mockGetFullOrganization.mockResolvedValue(defaultOrg);
+}
+
+/** Shorthand to resolve the db chain (db.select().from()...then) with a value */
+function resolveChain(value: unknown) {
+    mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
+        Promise.resolve(resolve(value))) as (...a: unknown[]) => unknown);
 }
 
 const sampleInvoiceInput = {
@@ -97,9 +104,7 @@ const richInvoice = {
 describe("generateInvoiceNumber", () => {
     it("should return first invoice number when none exist", async () => {
         mockGetFullOrganization.mockResolvedValue(defaultOrg);
-        // db chain resolves to [] (no existing invoices)
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([]))) as (...a: unknown[]) => unknown);
+        resolveChain([]);
 
         const result = await generateInvoiceNumber(DEFAULT_ORG_ID);
 
@@ -110,10 +115,7 @@ describe("generateInvoiceNumber", () => {
     it("should increment existing invoice number", async () => {
         mockGetFullOrganization.mockResolvedValue(defaultOrg);
         const year = new Date().getFullYear();
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([
-                { invoiceNumber: `TES-${year}-0005` },
-            ]))) as (...a: unknown[]) => unknown);
+        resolveChain([{ invoiceNumber: `TES-${year}-0005` }]);
 
         const result = await generateInvoiceNumber(DEFAULT_ORG_ID);
 
@@ -145,25 +147,32 @@ describe("createInvoice", () => {
         mockCalculateInvoiceAmounts.mockReturnValue({
             subtotal: 1000, taxAmount: 75, total: 1075,
         });
-        // generateInvoiceNumber: chain resolves to [] (first invoice)
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([]))) as (...a: unknown[]) => unknown);
-        // Transaction returning new invoice
-        mockTransaction.mockImplementation(async (cb: (tx: unknown) => unknown) => {
-            const tx = {
-                insert: vi.fn().mockReturnValue({
-                    values: vi.fn().mockReturnValue({
-                        returning: vi.fn().mockResolvedValue([{ id: 1, invoiceNumber: "TES-2026-0001" }]),
-                    }),
-                }),
-            };
-            return cb(tx);
-        });
+
+        // generateInvoiceNumber query → no existing invoices
+        // tx.insert().values().returning() → new invoice (same chain terminal)
+        let thenCallCount = 0;
+        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) => {
+            thenCallCount++;
+            if (thenCallCount === 1) {
+                // generateInvoiceNumber: no existing invoices
+                return Promise.resolve(resolve([]));
+            }
+            // tx.insert().returning() → new invoice
+            return Promise.resolve(resolve([{
+                id: 1,
+                invoiceNumber: "TES-2026-0001",
+            }]));
+        }) as (...a: unknown[]) => unknown);
 
         const result = await createInvoice(sampleInvoiceInput);
 
         expect(result.error).toBeNull();
         expect(result.success).toBeTruthy();
+        // Verify activity log / line item inserts went through
+        expect(mockDbChain.insert).toHaveBeenCalled();
+        expect(mockDbChain.values).toHaveBeenCalled();
+        expect(mockRevalidatePath).toHaveBeenCalledWith("/invoicing");
+        expect(mockRevalidatePath).toHaveBeenCalledWith("/invoicing/invoices");
     });
 
     it("should return error when org not found", async () => {
@@ -198,29 +207,38 @@ describe("updateInvoice", () => {
     it("should update invoice successfully", async () => {
         setupInvoicingMocks();
         // Chain resolves to a draft invoice
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([{ id: 1, status: "Draft" }]))) as (...a: unknown[]) => unknown);
-        // Transaction mock
-        mockTransaction.mockImplementation(async (cb: (tx: unknown) => unknown) => {
-            const tx = {
-                update: vi.fn().mockReturnValue({
-                    set: vi.fn().mockReturnValue({
-                        where: vi.fn().mockReturnValue({
-                            returning: vi.fn().mockResolvedValue([{ id: 1 }]),
-                        }),
-                    }),
-                }),
-                delete: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue(undefined),
-                }),
-                insert: vi.fn().mockReturnValue({
-                    values: vi.fn().mockResolvedValue(undefined),
-                }),
-            };
-            return cb(tx);
-        });
+        resolveChain([{ id: 1, status: "Draft" }]);
+        // Transaction mock — use chainable tx with awaitable .then
+        const tx: any = {
+            insert: vi.fn().mockReturnValue(mockDbChain),
+            update: vi.fn().mockReturnValue(mockDbChain),
+            delete: vi.fn().mockReturnValue(mockDbChain),
+        };
+        mockTransaction.mockImplementation(async (cb) => cb(tx));
 
         const result = await updateInvoice(1, { notes: "Updated" });
+
+        expect(result.error).toBeNull();
+        expect(result.success).toBeTruthy();
+    });
+
+    it("should handle lineItems and taxes update branch", async () => {
+        setupInvoicingMocks();
+        resolveChain([{ id: 1, status: "Draft" }]);
+        // updateInvoice refetches via db.query when lineItems or taxes provided
+        mockQueryFindFirst.mockResolvedValueOnce({ lineItems: [], taxes: [] });
+
+        const tx: any = {
+            insert: vi.fn().mockReturnValue(mockDbChain),
+            update: vi.fn().mockReturnValue(mockDbChain),
+            delete: vi.fn().mockReturnValue(mockDbChain),
+        };
+        mockTransaction.mockImplementation(async (cb) => cb(tx));
+
+        const result = await updateInvoice(1, {
+            lineItems: [{ description: "Updated item", quantity: 1, unitPrice: 100 }],
+            taxes: [{ taxName: "VAT", taxPercentage: 5 }],
+        });
 
         expect(result.error).toBeNull();
         expect(result.success).toBeTruthy();
@@ -242,8 +260,7 @@ describe("updateInvoice", () => {
 
     it("should return error when invoice not found", async () => {
         setupInvoicingMocks();
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([]))) as (...a: unknown[]) => unknown);
+        resolveChain([]);
 
         const result = await updateInvoice(999, {});
 
@@ -255,8 +272,7 @@ describe("updateInvoice", () => {
 
     it("should return error when invoice is not a draft", async () => {
         setupInvoicingMocks();
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([{ id: 1, status: "Sent" }]))) as (...a: unknown[]) => unknown);
+        resolveChain([{ id: 1, status: "Sent" }]);
 
         const result = await updateInvoice(1, {});
 
@@ -283,8 +299,7 @@ describe("updateInvoice", () => {
 describe("deleteInvoice", () => {
     it("should delete a draft invoice successfully", async () => {
         setupInvoicingMocks();
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([{ id: 1, status: "Draft" }]))) as (...a: unknown[]) => unknown);
+        resolveChain([{ id: 1, status: "Draft" }]);
 
         const result = await deleteInvoice(1);
 
@@ -310,8 +325,7 @@ describe("deleteInvoice", () => {
 
     it("should return error when invoice not found", async () => {
         setupInvoicingMocks();
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([]))) as (...a: unknown[]) => unknown);
+        resolveChain([]);
 
         const result = await deleteInvoice(999);
 
@@ -323,8 +337,7 @@ describe("deleteInvoice", () => {
 
     it("should return error when invoice is not a draft", async () => {
         setupInvoicingMocks();
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([{ id: 1, status: "Sent" }]))) as (...a: unknown[]) => unknown);
+        resolveChain([{ id: 1, status: "Sent" }]);
 
         const result = await deleteInvoice(1);
 
@@ -384,8 +397,7 @@ describe("getAllInvoices", () => {
     it("should return invoices on success", async () => {
         setupInvoicingMocks();
         const invoiceList = [{ id: 1 }, { id: 2 }];
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve(invoiceList))) as (...a: unknown[]) => unknown);
+        resolveChain(invoiceList);
 
         const result = await getAllInvoices();
 
@@ -417,18 +429,16 @@ describe("getAllInvoices", () => {
 describe("updateInvoiceStatus", () => {
     it("should update status successfully", async () => {
         setupInvoicingMocks();
-        // Select chain returns row with invoice + clientName
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([{
-                invoice: {
-                    id: 1,
-                    status: "Draft",
-                    invoiceNumber: "TES-2026-0001",
-                    total: "1075.00",
-                    sentAt: null,
-                },
-                clientName: "Acme",
-            }]))) as (...a: unknown[]) => unknown);
+        resolveChain([{
+            invoice: {
+                id: 1,
+                status: "Draft",
+                invoiceNumber: "TES-2026-0001",
+                total: "1075.00",
+                sentAt: null,
+            },
+            clientName: "Acme",
+        }]);
 
         const result = await updateInvoiceStatus(1, "Cancelled");
 
@@ -438,19 +448,18 @@ describe("updateInvoiceStatus", () => {
         });
     });
 
-    it("should post to GL when changing to Sent", async () => {
+    it("should post to GL when changing to Sent with correct debit/credit", async () => {
         setupInvoicingMocks();
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([{
-                invoice: {
-                    id: 1,
-                    status: "Draft",
-                    invoiceNumber: "TES-2026-0001",
-                    total: "1075.00",
-                    sentAt: null,
-                },
-                clientName: "Acme",
-            }]))) as (...a: unknown[]) => unknown);
+        resolveChain([{
+            invoice: {
+                id: 1,
+                status: "Draft",
+                invoiceNumber: "TES-2026-0001",
+                total: "1075.00",
+                sentAt: null,
+            },
+            clientName: "Acme",
+        }]);
         mockQueryFindFirst
             .mockResolvedValueOnce({ id: 10, code: "1200" })  // AR account
             .mockResolvedValueOnce({ id: 20, code: "4000" }); // Revenue account
@@ -460,6 +469,14 @@ describe("updateInvoiceStatus", () => {
         expect(result.success).toBeTruthy();
         expect(mockEnsureDefaultGLAccounts).toHaveBeenCalled();
         expect(mockCreateJournal).toHaveBeenCalled();
+        // Verify GL journal lines have correct debit/credit totals
+        const journalArgs = mockCreateJournal.mock.calls[0][0];
+        expect(journalArgs.lines).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ accountId: 10, debit: 1075, credit: 0 }),
+                expect.objectContaining({ accountId: 20, debit: 0, credit: 1075 }),
+            ]),
+        );
     });
 
     it("should return error when org not found", async () => {
@@ -478,8 +495,7 @@ describe("updateInvoiceStatus", () => {
 
     it("should return error when invoice not found", async () => {
         setupInvoicingMocks();
-        mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-            Promise.resolve(resolve([]))) as (...a: unknown[]) => unknown);
+        resolveChain([]);
 
         const result = await updateInvoiceStatus(999, "Sent");
 
@@ -522,6 +538,11 @@ describe("sendInvoice", () => {
         expect(mockGenerateInvoicePdf).toHaveBeenCalled();
         expect(mockR2Send).toHaveBeenCalled();
         expect(mockSendInvoiceEmail).toHaveBeenCalled();
+        // Verify the transaction was used for status update + activity log
+        expect(mockTransaction).toHaveBeenCalled();
+        // Verify GL posting
+        expect(mockEnsureDefaultGLAccounts).toHaveBeenCalled();
+        expect(mockCreateJournal).toHaveBeenCalled();
     });
 
     it("should return error when org not found", async () => {
