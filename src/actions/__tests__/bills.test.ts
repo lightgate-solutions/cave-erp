@@ -16,9 +16,18 @@ import {
     mockUpdatePOBilledAmount,
     mockSendBillReceivedConfirmationEmail,
     mockCalculateStringSimilarity,
+    mockRevalidatePath,
+    queueDbResult,
     DEFAULT_USER_ID,
     DEFAULT_ORG_ID,
 } from "./helpers/setup";
+
+vi.mock("@/actions/finance/gl/journals", async () => {
+    const { mockCreateJournal } = await import("./helpers/setup");
+    return {
+        createJournal: (...args: unknown[]) => mockCreateJournal(...args),
+    };
+});
 
 // Import the functions under test
 import {
@@ -54,9 +63,9 @@ function setupPayablesMocks() {
     mockGetFullOrganization.mockResolvedValue(defaultOrg);
 }
 
+/** Helper to mock resolving the DB chain with a value */
 function resolveChain(value: unknown) {
-    mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-        Promise.resolve(resolve(value))) as (...a: unknown[]) => unknown);
+    queueDbResult(value);
 }
 
 const sampleBillInput = {

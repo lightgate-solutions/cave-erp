@@ -10,12 +10,16 @@ import { vi, beforeEach } from "vitest";
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface MockSession {
+    session: {
+        userId: string;
+        activeOrganizationId: string | null;
+    } | null;
     user: {
         id: string;
         name: string;
         email: string;
         role: string;
-    };
+    } | null;
 }
 
 export interface MockOrganization {
@@ -44,6 +48,10 @@ export const DEFAULT_USER_ID = "user-001";
 export const DEFAULT_ORG_ID = "org-001";
 
 export const defaultSession: MockSession = {
+    session: {
+        userId: DEFAULT_USER_ID,
+        activeOrganizationId: DEFAULT_ORG_ID,
+    },
     user: {
         id: DEFAULT_USER_ID,
         name: "Test User",
@@ -140,7 +148,7 @@ vi.mock("@/actions/auth/dal", () => ({
 
 // Chainable query builder mock — each method returns `this` so you can chain.
 function createChainableQuery(resolvedValue: unknown = []) {
-    const chain: Record<string, ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>>> = {};
+    const chain: Record<string, ReturnType<typeof vi.fn<(...args: any[]) => any>>> = {};
     const methods = [
         "select",
         "insert",
@@ -163,10 +171,19 @@ function createChainableQuery(resolvedValue: unknown = []) {
 
     // Terminal: `.then()` resolves the chain like a thenable
     chain.then = vi.fn().mockImplementation((resolve) => {
-        return Promise.resolve(resolve(resolvedValue));
+        const nextResult = dbQueryQueue.shift() ?? [];
+        return Promise.resolve(resolve(nextResult));
     });
 
     return chain;
+}
+
+// Queue for DB query results (FIFO)
+export const dbQueryQueue: unknown[] = [];
+
+/** Queue a result for the next DB chain execution */
+export function queueDbResult(value: unknown) {
+    dbQueryQueue.push(value);
 }
 
 export const mockDbChain = createChainableQuery();
@@ -372,6 +389,36 @@ vi.mock("@/db/schema", () => {
     };
 });
 
+// ─── Mock: @/db/schema/general-ledger ───────────────────────────────────────
+
+vi.mock("@/db/schema/general-ledger", () => {
+    const makeTable = (name: string, cols: string[]) => {
+        const table: Record<string, string> = {};
+        for (const col of cols) {
+            table[col] = `${name}.${col}`;
+        }
+        return table;
+    };
+    return {
+        glJournals: makeTable("glJournals", [
+            "id", "organizationId", "journalNumber", "transactionDate",
+            "postingDate", "description", "reference", "source", "sourceId",
+            "status", "totalDebits", "totalCredits", "createdBy", "postedBy",
+            "createdAt", "updatedAt",
+        ]),
+        glJournalLines: makeTable("glJournalLines", [
+            "id", "journalId", "accountId", "description", "debit", "credit",
+            "entityId", "organizationId",
+        ]),
+        glAccounts: makeTable("glAccounts", [
+            "id", "code", "name", "type", "organizationId", "currentBalance",
+        ]),
+        glPeriods: makeTable("glPeriods", [
+            "id", "organizationId", "status", "startDate", "endDate",
+        ]),
+    };
+});
+
 // ─── Mock: @/db/schema/hr ───────────────────────────────────────────────────
 // auth.ts imports employees from this sub-path.
 
@@ -424,9 +471,9 @@ vi.mock("@/actions/auth/dal-payables", () => ({
 
 export const mockCreateJournal = vi.fn().mockResolvedValue({ success: true });
 
-vi.mock("@/actions/finance/gl/journals", () => ({
-    createJournal: (...args: unknown[]) => mockCreateJournal(...args),
-}));
+// vi.mock("@/actions/finance/gl/journals", () => ({
+//     createJournal: (...args: unknown[]) => mockCreateJournal(...args),
+// }));
 
 // ─── Mock: @/actions/finance/gl/accounts ────────────────────────────────────
 
@@ -646,9 +693,14 @@ export function mockAuthSession(
 }
 
 /** Configure `auth.api.getSession` to return a session. */
-export function mockSessionApi(overrides: Partial<MockSession["user"]> = {}) {
+/** Configure `auth.api.getSession` to return a session. */
+export function mockSessionApi(
+    userOverrides: Partial<NonNullable<MockSession["user"]>> = {},
+    sessionOverrides: Partial<NonNullable<MockSession["session"]>> = {}
+) {
     const session: MockSession = {
-        user: { ...defaultSession.user, ...overrides },
+        session: { ...defaultSession.session!, ...sessionOverrides },
+        user: { ...defaultSession.user!, ...userOverrides },
     };
     mockGetSession.mockResolvedValue(session);
     return session;
@@ -663,9 +715,7 @@ export function mockOrgApi(overrides: Partial<MockOrganization> = {}) {
 
 /** Configure DB chain to resolve with a specific value. */
 export function mockDbResult(value: unknown) {
-    mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) => {
-        return Promise.resolve(resolve(value));
-    }) as (...args: unknown[]) => unknown);
+    queueDbResult(value);
 }
 
 // ─── Auto-reset ─────────────────────────────────────────────────────────────
@@ -677,12 +727,16 @@ beforeEach(() => {
     // mockResolvedValueOnce – clearAllMocks does NOT clear these queues.
     mockQueryFindFirst.mockReset();
     mockQueryFindMany.mockReset();
+    mockGetSession.mockReset();
+
+    // Clear DB result queue
+    dbQueryQueue.length = 0;
 
     // Re-apply sensible defaults after clearing
     mockHeaders.mockResolvedValue(new Headers());
     mockGenerateId.mockReturnValue("generated-id-001");
 
-    // Re-build the db chain so `.then()` resolves to `[]` by default
+    // Re-build the db chain so `.then()` resolves to `[]` by default (via empty queue -> [])
     const methods = [
         "select", "insert", "update", "delete", "from", "set",
         "values", "where", "leftJoin", "innerJoin", "limit",
@@ -691,8 +745,10 @@ beforeEach(() => {
     for (const method of methods) {
         mockDbChain[method].mockReturnValue(mockDbChain);
     }
+    // Restore default implementation to use the queue
     mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) => {
-        return Promise.resolve(resolve([]));
+        const next = dbQueryQueue.shift() ?? [];
+        return Promise.resolve(resolve(next));
     }) as (...args: unknown[]) => unknown);
     mockTransaction.mockImplementation(async (callback: (tx: unknown) => unknown) => {
         return callback(mockDbChain);

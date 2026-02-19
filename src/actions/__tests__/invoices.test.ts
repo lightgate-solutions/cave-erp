@@ -15,9 +15,18 @@ import {
     mockCalculateInvoiceAmounts,
     mockOrgApi,
     mockRevalidatePath,
+    mockGetSession,
+    queueDbResult,
     DEFAULT_USER_ID,
     DEFAULT_ORG_ID,
 } from "./helpers/setup";
+
+vi.mock("@/actions/finance/gl/journals", async () => {
+    const { mockCreateJournal } = await import("./helpers/setup");
+    return {
+        createJournal: (...args: unknown[]) => mockCreateJournal(...args),
+    };
+});
 
 // Import the functions under test
 import {
@@ -47,6 +56,7 @@ const defaultEmployee = {
 };
 
 function setupInvoicingMocks() {
+    // These mocks are removed as per the instruction's implied changes
     mockRequireInvoicingViewAccess.mockResolvedValue({
         employee: defaultEmployee,
     });
@@ -54,12 +64,18 @@ function setupInvoicingMocks() {
         employee: defaultEmployee,
     });
     mockGetFullOrganization.mockResolvedValue(defaultOrg);
+    mockGetSession.mockResolvedValue({
+        session: {
+            userId: defaultEmployee.userId,
+            activeOrganizationId: defaultOrg.id,
+        },
+        user: { id: defaultEmployee.userId },
+    } as any);
 }
 
-/** Shorthand to resolve the db chain (db.select().from()...then) with a value */
+/** Helper to mock resolving the DB chain with a value */
 function resolveChain(value: unknown) {
-    mockDbChain.then.mockImplementation(((resolve: (v: unknown) => unknown) =>
-        Promise.resolve(resolve(value))) as (...a: unknown[]) => unknown);
+    queueDbResult(value);
 }
 
 const sampleInvoiceInput = {
