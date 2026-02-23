@@ -163,6 +163,7 @@ function createChainableQuery(resolvedValue: unknown = []) {
         "limit",
         "returning",
         "orderBy",
+        "groupBy",
     ];
 
     for (const method of methods) {
@@ -411,6 +412,18 @@ vi.mock("@/db/schema", () => {
             "shippingCountry", "website", "notes", "isActive",
             "organizationId", "createdBy", "createdAt",
         ]),
+        invoicePayments: makeTable("invoicePayments", [
+            "id", "invoiceId", "amount", "paymentDate", "paymentMethod",
+            "referenceNumber", "notes", "recordedBy", "organizationId",
+            "createdAt",
+        ]),
+        payablesTaxConfig: makeTable("payablesTaxConfig", [
+            "id", "taxType", "taxName", "defaultRate", "description",
+            "isActive", "organizationId",
+        ]),
+        vendorCustomCategories: makeTable("vendorCustomCategories", [
+            "id", "name", "description", "isActive", "organizationId",
+        ]),
     };
 });
 
@@ -501,13 +514,11 @@ export const mockCreateJournal = vi.fn().mockResolvedValue({ success: true });
 // }));
 
 // ─── Mock: @/actions/finance/gl/accounts ────────────────────────────────────
+// NOTE: vi.mock for this module is NOT registered globally — it conflicts with
+// gl-accounts.test.ts which tests the real module. Add it locally in
+// invoices.test.ts and bills.test.ts instead.
 
 export const mockEnsureDefaultGLAccounts = vi.fn().mockResolvedValue(undefined);
-
-vi.mock("@/actions/finance/gl/accounts", () => ({
-    ensureDefaultGLAccounts: (...args: unknown[]) =>
-        mockEnsureDefaultGLAccounts(...args),
-}));
 
 // ─── Mock: @/lib/billing-utils ──────────────────────────────────────────────
 

@@ -39,6 +39,7 @@ const sampleAccountInput = {
     name: "Marketing Expenses",
     type: "Expense" as const,
     accountClass: "Expense" as const,
+    allowManualJournals: true,
     organizationId: DEFAULT_ORG_ID,
 };
 

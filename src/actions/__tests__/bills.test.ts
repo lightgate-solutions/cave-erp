@@ -29,6 +29,14 @@ vi.mock("@/actions/finance/gl/journals", async () => {
     };
 });
 
+vi.mock("@/actions/finance/gl/accounts", async () => {
+    const { mockEnsureDefaultGLAccounts } = await import("./helpers/setup");
+    return {
+        ensureDefaultGLAccounts: (...args: unknown[]) =>
+            mockEnsureDefaultGLAccounts(...args),
+    };
+});
+
 // Import the functions under test
 import {
     generateBillNumber,
