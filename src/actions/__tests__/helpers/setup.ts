@@ -342,9 +342,6 @@ vi.mock("@/db/schema", () => {
         organizationCurrencies: makeTable("organizationCurrencies", [
             "id", "currencySymbol", "organizationId",
         ]),
-        clients: makeTable("clients", [
-            "id", "name", "email", "companyName", "organizationId",
-        ]),
         companyBankAccounts: makeTable("companyBankAccounts", [
             "id", "organizationId",
         ]),
@@ -390,10 +387,29 @@ vi.mock("@/db/schema", () => {
             "isActive", "organizationId",
         ]),
         purchaseOrders: makeTable("purchaseOrders", [
-            "id", "status", "organizationId",
+            "id", "poNumber", "vendorId", "currencyId", "poDate",
+            "expectedDeliveryDate", "status", "subtotal", "taxAmount", "total",
+            "receivedAmount", "billedAmount", "notes", "termsAndConditions",
+            "deliveryAddress", "organizationId", "createdBy", "updatedBy",
+            "approvedBy", "approvedAt", "sentAt", "closedAt", "cancelledAt",
+            "createdAt",
         ]),
         poLineItems: makeTable("poLineItems", [
             "id", "poId", "description", "quantity", "unitPrice", "amount",
+            "receivedQuantity", "billedQuantity", "sortOrder", "organizationId",
+        ]),
+        billPayments: makeTable("billPayments", [
+            "id", "billId", "amount", "paymentDate", "paymentMethod",
+            "referenceNumber", "notes", "recordedBy", "organizationId",
+            "confirmationEmailSentAt", "createdAt",
+        ]),
+        clients: makeTable("clients", [
+            "id", "clientCode", "name", "email", "phone", "companyName",
+            "taxId", "billingAddress", "billingCity", "billingState",
+            "billingPostalCode", "billingCountry", "shippingAddress",
+            "shippingCity", "shippingState", "shippingPostalCode",
+            "shippingCountry", "website", "notes", "isActive",
+            "organizationId", "createdBy", "createdAt",
         ]),
     };
 });
@@ -601,10 +617,14 @@ vi.mock("next/navigation", () => ({
 
 export const mockUpdatePOBilledAmount = vi.fn().mockResolvedValue(undefined);
 
-vi.mock("@/actions/payables/purchase-orders", () => ({
-    updatePOBilledAmount: (...args: unknown[]) =>
-        mockUpdatePOBilledAmount(...args),
-}));
+vi.mock("@/actions/payables/purchase-orders", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("@/actions/payables/purchase-orders")>();
+    return {
+        ...actual,
+        updatePOBilledAmount: (...args: unknown[]) =>
+            mockUpdatePOBilledAmount(...args),
+    };
+});
 
 // ─── Mock: @/db/schema/subscriptions ────────────────────────────────────────
 
