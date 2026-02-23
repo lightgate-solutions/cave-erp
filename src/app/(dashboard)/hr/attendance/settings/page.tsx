@@ -14,7 +14,9 @@ export default async function AttendanceSettingsPage() {
 
   // Only allow admin or HR department users
   const isAuthorized =
-    authData.role === "admin" || authData.employee.department === "hr";
+    authData.role === "admin" ||
+    authData.employee.department === "hr" ||
+    authData.employee.department === "admin";
 
   if (!isAuthorized) {
     redirect("/hr/attendance");

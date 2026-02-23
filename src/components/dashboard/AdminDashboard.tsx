@@ -121,10 +121,10 @@ export default function AdminDashboard({
 
       const data = await response.json();
 
-      // Fetch total users for admin
+      // Fetch total org users for admin
       let totalUsers = 0;
       try {
-        const usersResponse = await fetch("/api/hr/admin/users?limit=1", {
+        const usersResponse = await fetch("/api/dashboard/org-members", {
           credentials: "include",
           cache: "no-store",
           headers: {
@@ -135,9 +135,6 @@ export default function AdminDashboard({
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
           totalUsers = usersData.total || 0;
-        } else if (usersResponse.status === 403) {
-          // Admin check failed - expected for non-admin users
-          console.warn("User is not an admin, cannot fetch total users");
         }
       } catch (err) {
         // Ignore error, use 0

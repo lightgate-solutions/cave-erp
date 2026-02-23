@@ -142,7 +142,8 @@ export const requireHR = cache(async () => {
 
   if (
     authData.role !== "admin" &&
-    authData.employee.department !== DEPARTMENTS.HR
+    authData.employee.department !== DEPARTMENTS.HR &&
+    authData.employee.department !== DEPARTMENTS.ADMIN
   ) {
     throw new Error("Forbidden: HR department or Admin access required");
   }
