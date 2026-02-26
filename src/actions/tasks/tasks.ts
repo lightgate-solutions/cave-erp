@@ -64,9 +64,9 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
       for (const userId of assignees) {
         const dueDate = taskData.dueDate
           ? new Date(taskData.dueDate).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })
+            month: "short",
+            day: "numeric",
+          })
           : null;
 
         // Extract first sentence for context
@@ -333,44 +333,50 @@ export async function deleteTask(userId: string, taskId: number) {
       .limit(1)
       .then((r) => r[0]);
 
-    if (task) {
-      // Get all assignees to notify them
-      const assigneesList = await db
-        .select({ userId: taskAssignees.userId })
-        .from(taskAssignees)
-        .where(
-          and(
-            eq(taskAssignees.taskId, taskId),
-            eq(taskAssignees.organizationId, organization.id),
-          ),
-        );
+    if (!task) {
+      return {
+        success: null,
+        error: { reason: "Task not found" },
+      };
+    }
 
-      const assigneeIds = assigneesList.map((a) => a.userId).filter(Boolean);
-      if (task.assignedTo) assigneeIds.push(task.assignedTo);
+    if (task.assignedBy !== userId) {
+      return {
+        success: null,
+        error: { reason: "You can only delete tasks you created" },
+      };
+    }
 
-      // Delete the task
-      await db
-        .delete(tasks)
-        .where(
-          and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
-        );
+    // Get all assignees to notify them
+    const assigneesList = await db
+      .select({ userId: taskAssignees.userId })
+      .from(taskAssignees)
+      .where(
+        and(
+          eq(taskAssignees.taskId, taskId),
+          eq(taskAssignees.organizationId, organization.id),
+        ),
+      );
 
-      // Notify assignees that task was cancelled
-      for (const assigneeId of assigneeIds) {
-        await createNotification({
-          user_id: assigneeId,
-          title: "Task Cancelled",
-          message: `${manager.name} cancelled the task "${task.title}"`,
-          notification_type: "message",
-          reference_id: taskId,
-        });
-      }
-    } else {
-      await db
-        .delete(tasks)
-        .where(
-          and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
-        );
+    const assigneeIds = assigneesList.map((a) => a.userId).filter(Boolean);
+    if (task.assignedTo) assigneeIds.push(task.assignedTo);
+
+    // Delete the task
+    await db
+      .delete(tasks)
+      .where(
+        and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
+      );
+
+    // Notify assignees that task was cancelled
+    for (const assigneeId of assigneeIds) {
+      await createNotification({
+        user_id: assigneeId,
+        title: "Task Cancelled",
+        message: `${manager.name} cancelled the task "${task.title}"`,
+        notification_type: "message",
+        reference_id: taskId,
+      });
     }
 
     revalidatePath("/tasks");
