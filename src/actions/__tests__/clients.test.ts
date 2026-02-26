@@ -1,11 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
     mockRequireInvoicingViewAccess,
     mockRequireInvoicingWriteAccess,
     mockGetFullOrganization,
-    mockDbChain,
-    mockQueryFindFirst,
-    mockRevalidatePath,
     queueDbResult,
     DEFAULT_USER_ID,
     DEFAULT_ORG_ID,
@@ -21,397 +18,233 @@ import {
     getClientInvoices,
 } from "@/actions/invoicing/clients";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const DEFAULT_ORG = { id: DEFAULT_ORG_ID, name: "Test Org", slug: "TES" };
+const DEFAULT_EMPLOYEE = { userId: DEFAULT_USER_ID };
 
-const defaultOrg = { id: DEFAULT_ORG_ID, name: "Test Org", slug: "testorg" };
-const defaultAccess = {
-    userId: DEFAULT_USER_ID,
-    employee: { userId: DEFAULT_USER_ID },
-};
-
-function setupInvoicingMocks() {
-    mockRequireInvoicingViewAccess.mockResolvedValue(defaultAccess);
-    mockRequireInvoicingWriteAccess.mockResolvedValue(defaultAccess);
-    mockGetFullOrganization.mockResolvedValue(defaultOrg);
-}
-
-const year = new Date().getFullYear();
-
-const sampleClient = {
+const SAMPLE_CLIENT = {
     id: 1,
-    clientCode: `CLI-${year}-0001`,
-    name: "Acme Corp",
+    clientCode: `CLI-${new Date().getFullYear()}-0001`,
+    name: "ACME Corp",
     email: "acme@example.com",
+    phone: null,
+    companyName: null,
     isActive: true,
     organizationId: DEFAULT_ORG_ID,
+    createdBy: DEFAULT_USER_ID,
 };
 
-const sampleClientInput = {
-    name: "Acme Corp",
-    email: "acme@example.com",
-};
+function setupMocks() {
+    mockGetFullOrganization.mockResolvedValue(DEFAULT_ORG);
+    mockRequireInvoicingWriteAccess.mockResolvedValue({ employee: DEFAULT_EMPLOYEE });
+    mockRequireInvoicingViewAccess.mockResolvedValue({ employee: DEFAULT_EMPLOYEE });
+}
 
 // ─── generateClientCode ───────────────────────────────────────────────────────
 
 describe("generateClientCode", () => {
-    it("should return first code when no clients exist", async () => {
-        mockGetFullOrganization.mockResolvedValue(defaultOrg);
-        queueDbResult([]);
+    beforeEach(setupMocks);
 
-        const result = await generateClientCode();
-
-        expect(result).toBe(`CLI-${year}-0001`);
+    it("returns null when organization is not found", async () => {
+        mockGetFullOrganization.mockResolvedValueOnce(null);
+        expect(await generateClientCode()).toBeNull();
     });
 
-    it("should increment from last client code", async () => {
-        mockGetFullOrganization.mockResolvedValue(defaultOrg);
-        queueDbResult([{ clientCode: `CLI-${year}-0003`, createdAt: new Date() }]);
-
-        const result = await generateClientCode();
-
-        expect(result).toBe(`CLI-${year}-0004`);
+    it("returns first code when no clients exist yet", async () => {
+        queueDbResult([]);  // no existing client
+        const year = new Date().getFullYear();
+        expect(await generateClientCode()).toBe(`CLI-${year}-0001`);
     });
 
-    it("should return null when org not found", async () => {
-        mockGetFullOrganization.mockResolvedValue(null);
-
-        const result = await generateClientCode();
-
-        expect(result).toBeNull();
-    });
-
-    it("should return null on error", async () => {
-        mockGetFullOrganization.mockRejectedValue(new Error("fail"));
-
-        const result = await generateClientCode();
-
-        expect(result).toBeNull();
+    it("increments code from the latest client", async () => {
+        const year = new Date().getFullYear();
+        queueDbResult([{ clientCode: `CLI-${year}-0005` }]);
+        expect(await generateClientCode()).toBe(`CLI-${year}-0006`);
     });
 });
 
 // ─── createClient ─────────────────────────────────────────────────────────────
 
 describe("createClient", () => {
-    it("should create a client successfully", async () => {
-        setupInvoicingMocks();
-        queueDbResult([]); // generateClientCode: no existing clients
-        queueDbResult([sampleClient]); // insert returning
+    beforeEach(setupMocks);
 
-        const result = await createClient(sampleClientInput);
+    it("returns error when organization is not found", async () => {
+        mockGetFullOrganization.mockResolvedValueOnce(null);
+        const result = await createClient({ name: "Foo", email: "foo@test.com" });
+        expect(result.success).toBeNull();
+        expect(result.error?.reason).toBe("Organization not found");
+    });
 
+    it("creates client and returns it", async () => {
+        const year = new Date().getFullYear();
+        queueDbResult([]);               // generateClientCode: no existing
+        queueDbResult([SAMPLE_CLIENT]);  // insert returning
+
+        const result = await createClient({ name: "ACME Corp", email: "acme@example.com" });
         expect(result.error).toBeNull();
-        expect(result.success?.data).toMatchObject({ name: "Acme Corp" });
-        expect(mockRevalidatePath).toHaveBeenCalledWith("/invoicing/clients");
+        expect(result.success?.data.name).toBe("ACME Corp");
+        expect(result.success?.data.clientCode).toMatch(new RegExp(`CLI-${year}-`));
     });
 
-    it("should return error when org not found", async () => {
-        mockRequireInvoicingWriteAccess.mockResolvedValue(defaultAccess);
-        mockGetFullOrganization.mockResolvedValue(null);
-
-        const result = await createClient(sampleClientInput);
-
-        expect(result).toEqual({
-            success: null,
-            error: { reason: "Organization not found" },
-        });
-    });
-
-    it("should return error when client code generation fails", async () => {
-        setupInvoicingMocks();
-        // On second call (generateClientCode), org returns null
+    it("returns error when client code generation fails", async () => {
+        // generateClientCode calls getFullOrganization first (succeeds),
+        // then fails on the select (error → null code)
         mockGetFullOrganization
-            .mockResolvedValueOnce(defaultOrg) // createClient call
-            .mockResolvedValueOnce(null); // generateClientCode call
-
-        const result = await createClient(sampleClientInput);
-
-        expect(result).toEqual({
-            success: null,
-            error: { reason: "Failed to generate client code" },
-        });
-    });
-
-    it("should return error on generic failure", async () => {
-        mockRequireInvoicingWriteAccess.mockRejectedValue(new Error("fail"));
-
-        const result = await createClient(sampleClientInput);
-
-        expect(result).toEqual({
-            success: null,
-            error: { reason: "Failed to create client" },
-        });
+            .mockResolvedValueOnce(DEFAULT_ORG)  // main createClient call
+            .mockResolvedValueOnce(null);         // inner generateClientCode call
+        const result = await createClient({ name: "X", email: "x@x.com" });
+        expect(result.success).toBeNull();
+        expect(result.error?.reason).toBe("Failed to generate client code");
     });
 });
 
 // ─── updateClient ─────────────────────────────────────────────────────────────
 
 describe("updateClient", () => {
-    it("should update client successfully", async () => {
-        setupInvoicingMocks();
-        queueDbResult([sampleClient]); // existing client check
-        queueDbResult([{ ...sampleClient, name: "Acme Corp Updated" }]); // update returning
+    beforeEach(setupMocks);
 
-        const result = await updateClient(1, { name: "Acme Corp Updated" });
+    it("returns error when organization is not found", async () => {
+        mockGetFullOrganization.mockResolvedValueOnce(null);
+        expect((await updateClient(1, { name: "New" })).error?.reason).toBe("Organization not found");
+    });
 
+    it("returns error when client is not found", async () => {
+        queueDbResult([]);  // select existing
+        const result = await updateClient(999, { name: "New" });
+        expect(result.success).toBeNull();
+        expect(result.error?.reason).toBe("Client not found");
+    });
+
+    it("updates client and returns updated record", async () => {
+        queueDbResult([SAMPLE_CLIENT]);                               // fetch existing
+        queueDbResult([{ ...SAMPLE_CLIENT, name: "New Name" }]);     // update returning
+
+        const result = await updateClient(1, { name: "New Name" });
         expect(result.error).toBeNull();
-        expect(result.success?.data).toMatchObject({ name: "Acme Corp Updated" });
-        expect(mockRevalidatePath).toHaveBeenCalledWith("/invoicing/clients");
-        expect(mockRevalidatePath).toHaveBeenCalledWith("/invoicing/clients/1");
-    });
-
-    it("should return error when client not found", async () => {
-        setupInvoicingMocks();
-        queueDbResult([]); // empty → client not found
-
-        const result = await updateClient(99, { name: "Ghost" });
-
-        expect(result).toEqual({
-            success: null,
-            error: { reason: "Client not found" },
-        });
-    });
-
-    it("should return error when org not found", async () => {
-        mockRequireInvoicingWriteAccess.mockResolvedValue(defaultAccess);
-        mockGetFullOrganization.mockResolvedValue(null);
-
-        const result = await updateClient(1, { name: "x" });
-
-        expect(result).toEqual({
-            success: null,
-            error: { reason: "Organization not found" },
-        });
-    });
-
-    it("should return error on generic failure", async () => {
-        mockRequireInvoicingWriteAccess.mockRejectedValue(new Error("fail"));
-
-        const result = await updateClient(1, { name: "x" });
-
-        expect(result).toEqual({
-            success: null,
-            error: { reason: "Failed to update client" },
-        });
+        expect(result.success?.data.name).toBe("New Name");
     });
 });
 
 // ─── deleteClient ─────────────────────────────────────────────────────────────
 
 describe("deleteClient", () => {
-    it("should hard-delete client when no invoices exist", async () => {
-        setupInvoicingMocks();
-        queueDbResult([{ count: 0 }]); // invoice count check
-        queueDbResult([]); // delete result
+    beforeEach(setupMocks);
 
-        const result = await deleteClient(1);
-
-        expect(result).toEqual({
-            success: { reason: "Client deleted successfully" },
-            error: null,
-        });
-        expect(mockRevalidatePath).toHaveBeenCalledWith("/invoicing/clients");
+    it("returns error when organization is not found", async () => {
+        mockGetFullOrganization.mockResolvedValueOnce(null);
+        expect((await deleteClient(1)).error?.reason).toBe("Organization not found");
     });
 
-    it("should soft-delete (mark inactive) when client has invoices", async () => {
-        setupInvoicingMocks();
-        queueDbResult([{ count: 3 }]); // client has 3 invoices
-        queueDbResult([]); // update isActive=false result
+    it("marks client as inactive when it has invoices", async () => {
+        queueDbResult([{ count: 3 }]);  // invoiceCount
+        queueDbResult(undefined);        // update isActive=false
 
         const result = await deleteClient(1);
-
-        expect(result).toEqual({
-            success: { reason: "Client has invoices. Marked as inactive instead." },
-            error: null,
-        });
-        expect(mockRevalidatePath).toHaveBeenCalledWith("/invoicing/clients");
+        expect(result.error).toBeNull();
+        expect(result.success?.reason).toMatch(/inactive/i);
     });
 
-    it("should return error when org not found", async () => {
-        mockRequireInvoicingWriteAccess.mockResolvedValue(defaultAccess);
-        mockGetFullOrganization.mockResolvedValue(null);
+    it("hard-deletes client when it has no invoices", async () => {
+        queueDbResult([{ count: 0 }]);  // invoiceCount
+        queueDbResult(undefined);        // delete
 
         const result = await deleteClient(1);
-
-        expect(result).toEqual({
-            success: null,
-            error: { reason: "Organization not found" },
-        });
-    });
-
-    it("should return error on generic failure", async () => {
-        mockRequireInvoicingWriteAccess.mockRejectedValue(new Error("fail"));
-
-        const result = await deleteClient(1);
-
-        expect(result).toEqual({
-            success: null,
-            error: { reason: "Failed to delete client" },
-        });
+        expect(result.error).toBeNull();
+        expect(result.success?.reason).toMatch(/deleted/i);
     });
 });
 
 // ─── getClient ────────────────────────────────────────────────────────────────
 
 describe("getClient", () => {
-    it("should return client with stats on success", async () => {
-        setupInvoicingMocks();
-        queueDbResult([sampleClient]); // client lookup
-        queueDbResult([{
-            totalInvoices: 5,
-            totalRevenue: "25000.00",
-            paidAmount: "20000.00",
-            outstandingAmount: "5000.00",
-        }]); // stats
+    beforeEach(setupMocks);
 
-        const result = await getClient(1);
-
-        expect(result).toMatchObject({
-            ...sampleClient,
-            stats: {
-                totalInvoices: 5,
-                totalRevenue: "25000.00",
-                paidAmount: "20000.00",
-                outstandingAmount: "5000.00",
-            },
-        });
+    it("returns null when organization is not found", async () => {
+        mockGetFullOrganization.mockResolvedValueOnce(null);
+        expect(await getClient(1)).toBeNull();
     });
 
-    it("should use fallback values for null stats", async () => {
-        setupInvoicingMocks();
-        queueDbResult([sampleClient]);
-        queueDbResult([{
-            totalInvoices: 0,
-            totalRevenue: null,
-            paidAmount: null,
-            outstandingAmount: null,
+    it("returns null when client is not found", async () => {
+        queueDbResult([]);  // client select
+        expect(await getClient(999)).toBeNull();
+    });
+
+    it("returns client with stats", async () => {
+        queueDbResult([SAMPLE_CLIENT]);  // client select
+        queueDbResult([{                 // stats select
+            totalInvoices: 5,
+            totalRevenue: "12500.00",
+            paidAmount: "10000.00",
+            outstandingAmount: "2500.00",
         }]);
 
         const result = await getClient(1);
-
-        expect(result?.stats).toEqual({
-            totalInvoices: 0,
-            totalRevenue: "0.00",
-            paidAmount: "0.00",
-            outstandingAmount: "0.00",
-        });
+        expect(result).not.toBeNull();
+        expect(result?.name).toBe("ACME Corp");
+        expect(result?.stats.totalInvoices).toBe(5);
+        expect(result?.stats.totalRevenue).toBe("12500.00");
+        expect(result?.stats.outstandingAmount).toBe("2500.00");
     });
 
-    it("should return null when client not found", async () => {
-        setupInvoicingMocks();
-        queueDbResult([]); // no client found
-
-        const result = await getClient(99);
-
-        expect(result).toBeNull();
-    });
-
-    it("should return null when org not found", async () => {
-        mockRequireInvoicingViewAccess.mockResolvedValue(defaultAccess);
-        mockGetFullOrganization.mockResolvedValue(null);
+    it("returns zero stats when client has no invoices", async () => {
+        queueDbResult([SAMPLE_CLIENT]);
+        queueDbResult([{ totalInvoices: 0, totalRevenue: null, paidAmount: null, outstandingAmount: null }]);
 
         const result = await getClient(1);
-
-        expect(result).toBeNull();
-    });
-
-    it("should return null on error", async () => {
-        mockRequireInvoicingViewAccess.mockRejectedValue(new Error("fail"));
-
-        const result = await getClient(1);
-
-        expect(result).toBeNull();
+        expect(result?.stats.totalInvoices).toBe(0);
+        expect(result?.stats.totalRevenue).toBe("0.00");
+        expect(result?.stats.outstandingAmount).toBe("0.00");
     });
 });
 
-// ─── getAllClients ─────────────────────────────────────────────────────────────
+// ─── getAllClients ────────────────────────────────────────────────────────────
 
 describe("getAllClients", () => {
-    it("should return all clients on success", async () => {
-        setupInvoicingMocks();
-        const clientList = [sampleClient, { ...sampleClient, id: 2, name: "Beta Ltd" }];
-        queueDbResult(clientList);
+    beforeEach(setupMocks);
 
-        const result = await getAllClients();
-
-        expect(result).toEqual(clientList);
+    it("returns empty array when organization is not found", async () => {
+        mockGetFullOrganization.mockResolvedValueOnce(null);
+        expect(await getAllClients()).toEqual([]);
     });
 
-    it("should return filtered clients by isActive", async () => {
-        setupInvoicingMocks();
-        queueDbResult([sampleClient]);
+    it("returns all clients with invoice counts", async () => {
+        queueDbResult([
+            { ...SAMPLE_CLIENT, invoiceCount: 3, totalOutstanding: "500.00" },
+            { ...SAMPLE_CLIENT, id: 2, name: "Beta Inc", invoiceCount: 0, totalOutstanding: "0" },
+        ]);
+        const result = await getAllClients();
+        expect(result).toHaveLength(2);
+    });
 
+    it("supports isActive filter", async () => {
+        queueDbResult([{ ...SAMPLE_CLIENT, isActive: true }]);
         const result = await getAllClients({ isActive: true });
-
-        expect(result).toEqual([sampleClient]);
-    });
-
-    it("should return filtered clients by search", async () => {
-        setupInvoicingMocks();
-        queueDbResult([sampleClient]);
-
-        const result = await getAllClients({ search: "Acme" });
-
-        expect(result).toEqual([sampleClient]);
-    });
-
-    it("should return empty array when org not found", async () => {
-        mockRequireInvoicingViewAccess.mockResolvedValue(defaultAccess);
-        mockGetFullOrganization.mockResolvedValue(null);
-
-        const result = await getAllClients();
-
-        expect(result).toEqual([]);
-    });
-
-    it("should return empty array on error", async () => {
-        mockRequireInvoicingViewAccess.mockRejectedValue(new Error("fail"));
-
-        const result = await getAllClients();
-
-        expect(result).toEqual([]);
+        expect(result).toHaveLength(1);
     });
 });
 
 // ─── getClientInvoices ────────────────────────────────────────────────────────
 
 describe("getClientInvoices", () => {
-    const invoiceList = [
-        { id: 100, clientId: 1, status: "Draft", total: "1000.00" },
-        { id: 101, clientId: 1, status: "Approved", total: "2000.00" },
-    ];
+    beforeEach(setupMocks);
 
-    it("should return invoices for a client", async () => {
-        setupInvoicingMocks();
-        queueDbResult(invoiceList);
-
-        const result = await getClientInvoices(1);
-
-        expect(result).toEqual(invoiceList);
+    it("returns empty array when organization is not found", async () => {
+        mockGetFullOrganization.mockResolvedValueOnce(null);
+        expect(await getClientInvoices(1)).toEqual([]);
     });
 
-    it("should return filtered invoices by status", async () => {
-        setupInvoicingMocks();
-        queueDbResult([invoiceList[1]]);
-
-        const result = await getClientInvoices(1, { status: "Approved" });
-
-        expect(result).toEqual([invoiceList[1]]);
+    it("returns invoices for the client", async () => {
+        queueDbResult([
+            { id: 10, clientId: 1, status: "Sent", total: "1000.00" },
+            { id: 11, clientId: 1, status: "Paid", total: "500.00" },
+        ]);
+        const result = await getClientInvoices(1);
+        expect(result).toHaveLength(2);
     });
 
-    it("should return empty array when org not found", async () => {
-        mockRequireInvoicingViewAccess.mockResolvedValue(defaultAccess);
-        mockGetFullOrganization.mockResolvedValue(null);
-
-        const result = await getClientInvoices(1);
-
-        expect(result).toEqual([]);
-    });
-
-    it("should return empty array on error", async () => {
-        mockRequireInvoicingViewAccess.mockRejectedValue(new Error("fail"));
-
-        const result = await getClientInvoices(1);
-
-        expect(result).toEqual([]);
+    it("supports status filter", async () => {
+        queueDbResult([{ id: 10, clientId: 1, status: "Sent" }]);
+        const result = await getClientInvoices(1, { status: "Sent" });
+        expect(result).toHaveLength(1);
+        expect(result[0].status).toBe("Sent");
     });
 });

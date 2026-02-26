@@ -127,21 +127,23 @@ vi.mock("@/lib/auth", () => ({
 
 export const mockRequireAuth = vi.fn();
 export const mockRequireHROrAdmin = vi.fn();
+export const mockRequireHR = vi.fn();
+export const mockRequireAssetAccess = vi.fn();
 export const mockGetUser = vi.fn();
 
 vi.mock("@/actions/auth/dal", () => ({
     requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
     requireHROrAdmin: (...args: unknown[]) => mockRequireHROrAdmin(...args),
+    requireHR: (...args: unknown[]) => mockRequireHR(...args),
+    requireAssetAccess: (...args: unknown[]) => mockRequireAssetAccess(...args),
     verifySession: vi.fn(),
     getUser: (...args: unknown[]) => mockGetUser(...args),
     getSessionRole: vi.fn(),
     requireAdmin: vi.fn(),
     requireManager: vi.fn(),
-    requireHR: vi.fn(),
     requireFinance: vi.fn(),
     requireModuleAccess: vi.fn(),
     requireFleetAccess: vi.fn(),
-    requireAssetAccess: vi.fn(),
 }));
 
 // ─── Mock: @/db ─────────────────────────────────────────────────────────────
@@ -161,6 +163,7 @@ function createChainableQuery(resolvedValue: unknown = []) {
         "leftJoin",
         "innerJoin",
         "limit",
+        "offset",
         "returning",
         "orderBy",
         "groupBy",
@@ -424,6 +427,46 @@ vi.mock("@/db/schema", () => {
         vendorCustomCategories: makeTable("vendorCustomCategories", [
             "id", "name", "description", "isActive", "organizationId",
         ]),
+        // ── HR / Attendance tables ───────────────────────────────────────
+        attendance: makeTable("attendance", [
+            "id", "userId", "date", "signInTime", "signOutTime",
+            "signInLatitude", "signInLongitude", "signInLocation",
+            "status", "rejectionReason", "rejectedByUserId",
+            "organizationId", "updatedAt",
+        ]),
+        attendanceWarnings: makeTable("attendanceWarnings", [
+            "id", "attendanceId", "userId", "warningType", "reason",
+            "message", "issuedByUserId", "organizationId",
+        ]),
+        attendanceSettings: makeTable("attendanceSettings", [
+            "id", "signInStartHour", "signInEndHour", "signOutStartHour",
+            "signOutEndHour", "isActive", "organizationId", "updatedAt",
+        ]),
+        // ── Assets tables ────────────────────────────────────────────────
+        assets: makeTable("assets", [
+            "id", "organizationId", "assetCode", "name", "description",
+            "categoryId", "locationId", "purchaseDate", "purchasePrice",
+            "vendor", "poNumber", "currentValue", "depreciationMethod",
+            "usefulLifeYears", "residualValue", "depreciationStartDate",
+            "accumulatedDepreciation", "warrantyStartDate", "warrantyEndDate",
+            "warrantyProvider", "warrantyTerms", "serialNumber", "model",
+            "manufacturer", "barcode", "requiresMaintenance", "status",
+            "disposalDate", "disposalReason", "disposalPrice", "disposedBy",
+            "notes", "customFields", "createdBy", "createdAt", "updatedAt",
+        ]),
+        assetCategories: makeTable("assetCategories", [
+            "id", "organizationId", "name", "description", "codePrefix",
+            "defaultUsefulLifeYears", "defaultResidualValuePercent",
+            "isActive", "createdBy", "createdAt", "updatedAt",
+        ]),
+        assetLocations: makeTable("assetLocations", [
+            "id", "organizationId", "name", "address", "createdAt",
+        ]),
+        assetAssignments: makeTable("assetAssignments", [
+            "id", "assetId", "targetType", "employeeId", "department",
+            "projectId", "assignedDate", "expectedReturnDate",
+            "actualReturnDate", "notes", "organizationId",
+        ]),
     };
 });
 
@@ -482,12 +525,15 @@ vi.mock("@/db/schema/hr", () => {
 
 export const mockRequireInvoicingViewAccess = vi.fn();
 export const mockRequireInvoicingWriteAccess = vi.fn();
+export const mockRequireFinanceOrAdmin = vi.fn();
 
 vi.mock("@/actions/auth/dal-invoicing", () => ({
     requireInvoicingViewAccess: (...args: unknown[]) =>
         mockRequireInvoicingViewAccess(...args),
     requireInvoicingWriteAccess: (...args: unknown[]) =>
         mockRequireInvoicingWriteAccess(...args),
+    requireFinanceOrAdmin: (...args: unknown[]) =>
+        mockRequireFinanceOrAdmin(...args),
 }));
 
 // ─── Mock: @/actions/auth/dal-payables ──────────────────────────────────────
