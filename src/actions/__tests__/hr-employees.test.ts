@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
     mockRequireAuth,
     mockRequireHROrAdmin,
@@ -11,10 +11,11 @@ import {
 
 import {
     getAllEmployees,
-    getEmployee,
     updateEmployee,
     createEmployee,
 } from "@/actions/hr/employees";
+
+const { getEmployee } = await vi.importActual<typeof import("@/actions/hr/employees")>("@/actions/hr/employees");
 
 const DEFAULT_ORG = { id: DEFAULT_ORG_ID, name: "Test Org" };
 
@@ -41,7 +42,7 @@ describe("getAllEmployees", () => {
     beforeEach(setupMocks);
 
     it("returns empty array when organization not found", async () => {
-        mockGetFullOrganization.mockResolvedValueOnce(null);
+        mockGetFullOrganization.mockResolvedValue(null);
         expect(await getAllEmployees()).toEqual([]);
     });
 
@@ -61,7 +62,7 @@ describe("getEmployee", () => {
     beforeEach(setupMocks);
 
     it("returns null when organization not found", async () => {
-        mockGetFullOrganization.mockResolvedValueOnce(null);
+        mockGetFullOrganization.mockResolvedValue(null);
         expect(await getEmployee(DEFAULT_USER_ID)).toBeNull();
     });
 
@@ -84,7 +85,7 @@ describe("updateEmployee", () => {
     beforeEach(setupMocks);
 
     it("returns error when organization not found", async () => {
-        mockGetFullOrganization.mockResolvedValueOnce(null);
+        mockGetFullOrganization.mockResolvedValue(null);
         const result = await updateEmployee(DEFAULT_USER_ID, { name: "New Name" });
         expect(result.success).toBeNull();
         expect(result.error?.reason).toBe("Organization not found");
@@ -133,7 +134,7 @@ describe("createEmployee", () => {
     beforeEach(setupMocks);
 
     it("returns error when organization not found (no orgId provided)", async () => {
-        mockGetFullOrganization.mockResolvedValueOnce(null);
+        mockGetFullOrganization.mockResolvedValue(null);
         const result = await createEmployee({
             name: "Bob", email: "bob@example.com", authId: "auth-bob",
             role: "user", isManager: false,

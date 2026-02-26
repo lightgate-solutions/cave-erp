@@ -17,10 +17,11 @@ import {
 // Import the functions under test AFTER mock setup
 import {
     getAllEmployees,
-    getEmployee,
     updateEmployee,
     createEmployee,
 } from "@/actions/hr/employees";
+
+const { getEmployee } = await vi.importActual<typeof import("@/actions/hr/employees")>("@/actions/hr/employees");
 
 // ─── getAllEmployees ─────────────────────────────────────────────────────────
 
