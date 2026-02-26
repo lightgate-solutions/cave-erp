@@ -72,6 +72,8 @@ export async function getEmployee(userId: string) {
     .then((res) => res[0]);
 }
 
+
+
 export async function updateEmployee(
   userId: string,
   updates: Partial<{
@@ -188,8 +190,8 @@ export async function createEmployee(data: {
   try {
     const parsedManagerId =
       userData.data?.managerId === undefined ||
-      userData.data?.managerId === null ||
-      userData.data?.managerId === ""
+        userData.data?.managerId === null ||
+        userData.data?.managerId === ""
         ? null
         : String(userData.data.managerId);
 

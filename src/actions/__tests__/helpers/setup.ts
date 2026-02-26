@@ -90,9 +90,11 @@ vi.mock("next/headers", () => ({
 // ─── Mock: next/cache ───────────────────────────────────────────────────────
 
 export const mockRevalidatePath = vi.fn();
+export const mockRevalidateTag = vi.fn();
 
 vi.mock("next/cache", () => ({
     revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
+    revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
 // ─── Mock: @/lib/auth ───────────────────────────────────────────────────────
@@ -467,6 +469,105 @@ vi.mock("@/db/schema", () => {
             "projectId", "assignedDate", "expectedReturnDate",
             "actualReturnDate", "notes", "organizationId",
         ]),
+        // ── Recruitment tables ───────────────────────────────────────────
+        candidates: makeTable("candidates", [
+            "id", "candidateCode", "name", "email", "phone", "status",
+            "jobPostingId", "currentCompany", "currentPosition",
+            "yearsExperience", "expectedSalary", "noticePeriod",
+            "linkedinUrl", "portfolioUrl", "referredBy", "notes",
+            "screenedBy", "screenedAt", "rejectedBy", "rejectedAt",
+            "rejectionReason", "hiredAt", "organizationId", "createdAt",
+        ]),
+        recruitmentActivityLog: makeTable("recruitmentActivityLog", [
+            "id", "candidateId", "activityType", "description",
+            "performedBy", "metadata", "organizationId", "createdAt",
+        ]),
+        recruitmentMetrics: makeTable("recruitmentMetrics", [
+            "id", "jobPostingId", "totalApplications", "screened",
+            "interviewed", "offered", "hired", "rejected", "organizationId",
+        ]),
+        jobPostings: makeTable("jobPostings", [
+            "id", "title", "department", "description", "requirements",
+            "type", "status", "location", "salaryMin", "salaryMax",
+            "currency", "closingDate", "organizationId", "createdBy", "createdAt",
+        ]),
+        offers: makeTable("offers", [
+            "id", "candidateId", "jobPostingId", "offeredSalary", "currency",
+            "startDate", "status", "offerLetterUrl", "notes",
+            "offeredBy", "acceptedAt", "rejectedAt", "rejectionReason",
+            "organizationId", "createdAt",
+        ]),
+        interviews: makeTable("interviews", [
+            "id", "candidateId", "jobPostingId", "scheduledAt", "duration",
+            "type", "location", "interviewers", "status", "feedback",
+            "rating", "cancelledAt", "cancelReason", "organizationId", "createdAt",
+        ]),
+        // ── Tasks tables ─────────────────────────────────────────────────
+        tasks: makeTable("tasks", [
+            "id", "title", "description", "status", "priority", "dueDate",
+            "assignedTo", "assignedBy", "attachments", "organizationId",
+            "createdAt", "updatedAt",
+        ]),
+        taskAssignees: makeTable("taskAssignees", [
+            "id", "taskId", "userId", "organizationId",
+        ]),
+        taskMessages: makeTable("taskMessages", [
+            "id", "taskId", "userId", "message", "organizationId", "createdAt",
+        ]),
+        taskReviews: makeTable("taskReviews", [
+            "id", "taskId", "reviewerId", "rating", "comment", "organizationId", "createdAt",
+        ]),
+        taskSubmissions: makeTable("taskSubmissions", [
+            "id", "taskId", "submittedBy", "content", "attachments",
+            "status", "reviewedBy", "reviewedAt", "organizationId", "createdAt",
+        ]),
+        // ── Projects tables ──────────────────────────────────────────────
+        projects: makeTable("projects", [
+            "id", "name", "description", "status", "startDate", "endDate",
+            "managerId", "organizationId", "createdAt", "updatedAt",
+        ]),
+        projectMembers: makeTable("projectMembers", [
+            "id", "projectId", "userId", "role", "organizationId", "createdAt",
+        ]),
+        // ── Settings / Preferences / Branding tables ─────────────────────
+        organizationSettings: makeTable("organizationSettings", [
+            "id", "organizationId", "key", "value", "updatedAt",
+        ]),
+        userPreferences: makeTable("userPreferences", [
+            "id", "userId", "key", "value", "organizationId", "updatedAt",
+        ]),
+        branding: makeTable("branding", [
+            "id", "organizationId", "logoUrl", "primaryColor", "secondaryColor",
+            "fontFamily", "updatedAt",
+        ]),
+        // ── News tables ──────────────────────────────────────────────────
+        news: makeTable("news", [
+            "id", "title", "content", "publishedAt", "organizationId",
+            "createdBy", "createdAt",
+        ]),
+        // ── Notification tables ──────────────────────────────────────────
+        notifications: makeTable("notifications", [
+            "id", "userId", "title", "message", "notificationType",
+            "referenceId", "readAt", "organizationId", "createdAt",
+        ]),
+        // ── HR Leave tables ──────────────────────────────────────────────
+        leaveApplications: makeTable("leaveApplications", [
+            "id", "userId", "leaveType", "startDate", "endDate", "totalDays",
+            "reason", "status", "approvedByUserId", "approvedAt",
+            "rejectionReason", "appliedAt", "organizationId", "createdAt", "updatedAt",
+        ]),
+        leaveBalances: makeTable("leaveBalances", [
+            "id", "userId", "leaveType", "year", "totalDays", "usedDays",
+            "remainingDays", "organizationId", "updatedAt",
+        ]),
+        leaveTypes: makeTable("leaveTypes", [
+            "id", "name", "description", "maxDaysPerYear", "isPaid",
+            "organizationId",
+        ]),
+        annualLeaveSettings: makeTable("annualLeaveSettings", [
+            "id", "year", "allocatedDays", "description", "organizationId",
+            "createdAt", "updatedAt",
+        ]),
     };
 });
 
@@ -513,10 +614,118 @@ vi.mock("@/db/schema/hr", () => {
     };
     return {
         employees: makeTable("employees", [
-            "authId", "email", "role", "name", "department", "employmentType",
+            "authId", "id", "email", "role", "name", "department", "employmentType",
             "phone", "isManager", "dateOfBirth", "staffNumber", "status",
             "maritalStatus", "organizationId", "managerId", "documentCount",
             "address", "createdAt", "updatedAt",
+        ]),
+        employeesBank: makeTable("employeesBank", [
+            "id", "userId", "bankName", "accountName", "accountNumber",
+            "organizationId", "createdAt", "updatedAt",
+        ]),
+        employeeDocuments: makeTable("employeeDocuments", [
+            "id", "userId", "name", "type", "url", "size",
+            "organizationId", "uploadedBy", "createdAt",
+        ]),
+        employmentHistory: makeTable("employmentHistory", [
+            "id", "userId", "title", "department", "startDate", "endDate",
+            "employmentType", "salary", "notes", "organizationId", "createdAt",
+        ]),
+        leaves: makeTable("leaves", [
+            "id", "userId", "type", "startDate", "endDate", "days",
+            "reason", "status", "approvedBy", "approvedAt", "rejectionReason",
+            "organizationId", "createdAt",
+        ]),
+    };
+});
+
+// ─── Mock: @/db/schema/payroll ──────────────────────────────────────────────
+
+vi.mock("@/db/schema/payroll", () => {
+    const makeTable = (name: string, cols: string[]) => {
+        const table: Record<string, string> = {};
+        for (const col of cols) {
+            table[col] = `${name}.${col}`;
+        }
+        return table;
+    };
+    return {
+        salaryStructure: makeTable("salaryStructure", [
+            "id", "name", "baseSalary", "description", "active",
+            "employeeCount", "organizationId", "createdByUserId",
+            "updatedByUserId", "createdAt", "updatedAt",
+        ]),
+        allowances: makeTable("allowances", [
+            "id", "name", "type", "percentage", "amount", "taxable",
+            "taxPercentage", "description", "organizationId",
+            "createdByUserId", "updatedByUserId", "createdAt", "updatedAt",
+        ]),
+        deductions: makeTable("deductions", [
+            "id", "name", "type", "percentage", "amount", "description",
+            "organizationId", "createdByUserId", "updatedByUserId",
+            "createdAt", "updatedAt",
+        ]),
+        salaryAllowances: makeTable("salaryAllowances", [
+            "id", "salaryStructureId", "allowanceId", "effectiveFrom",
+            "effectiveTo", "organizationId",
+        ]),
+        salaryDeductions: makeTable("salaryDeductions", [
+            "id", "salaryStructureId", "deductionId", "effectiveFrom",
+            "effectiveTo", "organizationId",
+        ]),
+        employeeAllowances: makeTable("employeeAllowances", [
+            "id", "userId", "allowanceId", "effectiveFrom", "effectiveTo",
+            "organizationId",
+        ]),
+        employeeDeductions: makeTable("employeeDeductions", [
+            "id", "userId", "name", "type", "percentage", "amount",
+            "active", "effectiveFrom", "effectiveTo", "organizationId",
+        ]),
+        employeeSalary: makeTable("employeeSalary", [
+            "id", "userId", "salaryStructureId", "effectiveFrom", "effectiveTo",
+            "organizationId", "createdAt", "updatedAt",
+        ]),
+        payrun: makeTable("payrun", [
+            "id", "name", "type", "allowanceId", "day", "month", "year",
+            "totalEmployees", "totalGrossPay", "totalDeductions", "totalNetPay",
+            "status", "generatedByUserId", "approvedByUserId", "approvedAt",
+            "organizationId", "createdAt",
+        ]),
+        payrunItems: makeTable("payrunItems", [
+            "id", "payrunId", "userId", "type", "baseSalary", "totalAllowances",
+            "totalDeductions", "grossPay", "taxableIncome", "totalTaxes",
+            "netPay", "status", "organizationId",
+        ]),
+        payrunItemDetails: makeTable("payrunItemDetails", [
+            "id", "payrunItemId", "userId", "detailType", "description",
+            "allowanceId", "deductionId", "employeeAllowanceId",
+            "employeeDeductionId", "loanApplicationId", "amount",
+            "originalAmount", "remainingAmount", "organizationId",
+        ]),
+        // Export enum stubs for type imports
+        allowanceTypeEnum: { enumValues: ["monthly", "annual", "one-time"] as const },
+        deductionTypeEnum: { enumValues: ["recurring", "one-time", "loan"] as const },
+    };
+});
+
+// ─── Mock: @/db/schema/loans ────────────────────────────────────────────────
+
+vi.mock("@/db/schema/loans", () => {
+    const makeTable = (name: string, cols: string[]) => {
+        const table: Record<string, string> = {};
+        for (const col of cols) {
+            table[col] = `${name}.${col}`;
+        }
+        return table;
+    };
+    return {
+        loanApplications: makeTable("loanApplications", [
+            "id", "userId", "amount", "purpose", "monthlyDeduction",
+            "remainingBalance", "status", "approvedBy", "approvedAt",
+            "organizationId", "createdAt",
+        ]),
+        loanRepayments: makeTable("loanRepayments", [
+            "id", "loanApplicationId", "amount", "paymentDate", "organizationId",
         ]),
     };
 });
@@ -550,6 +759,20 @@ vi.mock("@/actions/auth/dal-payables", () => ({
     requirePayablesApprovalAccess: (...args: unknown[]) =>
         mockRequirePayablesApprovalAccess(...args),
 }));
+
+// ─── Mock: @/actions/hr/employees ───────────────────────────────────────────
+// tasks.ts imports getEmployee from hr/employees
+// Use importOriginal to preserve all other exports (getAllEmployees, etc.)
+
+export const mockGetEmployee = vi.fn();
+
+vi.mock("@/actions/hr/employees", async (importOriginal) => {
+    const original = await importOriginal<typeof import("@/actions/hr/employees")>();
+    return {
+        ...original,
+        getEmployee: (...args: unknown[]) => mockGetEmployee(...args),
+    };
+});
 
 // ─── Mock: @/actions/finance/gl/journals ────────────────────────────────────
 
