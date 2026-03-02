@@ -1,44 +1,18 @@
 import AnnualLeaveBalancesTable from "@/components/hr/annual-leave-balances-table";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { requireAuth } from "@/actions/auth/dal";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 import { redirect } from "next/navigation";
-import { db } from "@/db";
-import { employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
 
 export default async function Page() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const authData = await requireAuth();
 
-  if (!session) {
-    return redirect("/auth/login");
-  }
+  const isHROrAdmin =
+    authData.role === "admin" ||
+    authData.employee?.department === DEPARTMENTS.HR ||
+    authData.employee?.department === DEPARTMENTS.ADMIN;
 
-  const _organization = await auth.api.getFullOrganization({
-    headers: await headers(),
-  });
-
-  // Get employee info to check department
-  const [employee] = await db
-    .select({
-      role: employees.role,
-      department: employees.department,
-    })
-    .from(employees)
-    .where(eq(employees.authId, session.user.id))
-    .limit(1);
-
-  const isAdmin = session.user.role === "admin";
-  const isAdminDept = employee?.department?.toLowerCase() === "admin";
-  const isHr =
-    employee?.department?.toLowerCase() === "hr" ||
-    employee?.department?.toLowerCase() === "human resources" ||
-    employee?.role?.toLowerCase() === "hr";
-
-  // Only admin (role or department) and HR can access this page
-  if (!isAdmin && !isAdminDept && !isHr) {
-    return redirect("/unauthorized");
+  if (!isHROrAdmin) {
+    redirect("/unauthorized");
   }
 
   return (

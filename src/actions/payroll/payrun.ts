@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { eq, isNull, and, desc, sql, or } from "drizzle-orm";
-import { getUser } from "../auth/dal";
+import { requireHROrAdmin } from "../auth/dal";
 import { employees } from "@/db/schema/hr";
 import {
   payrun,
@@ -37,9 +37,7 @@ export async function generatePayrun(
   data: GeneratePayrunProps,
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -177,7 +175,7 @@ export async function generatePayrun(
           totalDeductions: totalDeductionsAmount.toFixed(2),
           totalNetPay: totalNetPay.toFixed(2),
           status: "draft",
-          generatedByUserId: user.authId,
+          generatedByUserId: authData.userId,
         })
         .returning({ id: payrun.id });
 
@@ -711,9 +709,7 @@ function getMonthName(month: number): string {
 }
 
 export async function getPayruns() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -761,9 +757,7 @@ export async function getPayruns() {
 }
 
 export async function getPayrunById(id: number) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -866,9 +860,7 @@ export async function getPayrunById(id: number) {
 }
 
 export async function approvePayrun(id: number, pathname: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   try {
     const payrunData = await db
@@ -898,7 +890,7 @@ export async function approvePayrun(id: number, pathname: string) {
       .update(payrun)
       .set({
         status: "approved",
-        approvedByUserId: user.authId,
+        approvedByUserId: authData.userId,
         approvedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -929,9 +921,7 @@ export async function approvePayrun(id: number, pathname: string) {
 }
 
 export async function completePayrun(id: number, pathname: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   try {
     const payrunData = await db
@@ -958,7 +948,7 @@ export async function completePayrun(id: number, pathname: string) {
       .update(payrun)
       .set({
         status: "paid",
-        completedByUserId: user.authId,
+        completedByUserId: authData.userId,
         completedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -1106,9 +1096,7 @@ export async function completePayrun(id: number, pathname: string) {
 }
 
 export async function rollbackPayrun(id: number, pathname: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   try {
     const payrunData = await db
@@ -1153,9 +1141,7 @@ export async function rollbackPayrun(id: number, pathname: string) {
 }
 
 export async function getApprovedPayruns() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -1199,9 +1185,7 @@ export async function getApprovedPayruns() {
 }
 
 export async function getAllAllowances() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { eq, isNull, asc, and } from "drizzle-orm";
-import { getUser } from "../auth/dal";
+import { requireHROrAdmin } from "../auth/dal";
 import { employees } from "@/db/schema/hr";
 import {
   employeeSalary,
@@ -18,9 +18,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 export async function getAllEmployeesWithPayroll() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -101,9 +99,7 @@ export async function getAllEmployeesWithPayroll() {
  * and applicable allowances and deductions
  */
 export async function calculateEmployeeTakeHomePay(userId: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

@@ -1,47 +1,17 @@
 import LeavesTable from "@/components/hr/leaves-table";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { db } from "@/db";
-import { employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { requireAuth } from "@/actions/auth/dal";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Settings } from "lucide-react";
 
 export default async function Page() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const authData = await requireAuth();
 
-  if (!session) {
-    return redirect("/auth/login");
-  }
-
-  // Get employee info to check department
-  const [employee] = await db
-    .select({
-      id: employees.id,
-      userId: employees.authId,
-      role: employees.role,
-      department: employees.department,
-    })
-    .from(employees)
-    .where(eq(employees.authId, session.user.id))
-    .limit(1);
-
-  if (!employee) {
-    return redirect("/auth/login");
-  }
-
-  const isAdmin = session.user.role === "admin";
-  const isAdminDept = employee?.department?.toLowerCase() === "admin";
-  const isHr =
-    employee?.department?.toLowerCase() === "hr" ||
-    employee?.department?.toLowerCase() === "human resources" ||
-    employee?.role?.toLowerCase() === "hr";
-
-  const canManageLeaves = isAdmin || isAdminDept || isHr;
+  const isHROrAdmin =
+    authData.role === "admin" ||
+    authData.employee?.department === DEPARTMENTS.HR ||
+    authData.employee?.department === DEPARTMENTS.ADMIN;
 
   return (
     <div className="space-y-4">
@@ -49,16 +19,16 @@ export default async function Page() {
         <div className="flex items-start gap-4">
           <div>
             <h1 className="text-2xl font-bold">
-              {canManageLeaves ? "Leave Management" : "My Leaves"}
+              {isHROrAdmin ? "Leave Management" : "My Leaves"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {canManageLeaves
+              {isHROrAdmin
                 ? "View and manage employee leave applications"
                 : "View and apply for leaves"}
             </p>
           </div>
         </div>
-        {canManageLeaves && (
+        {isHROrAdmin && (
           <Button asChild variant="outline">
             <Link href="/hr/leaves/annual-balances">
               <Settings className="mr-2 h-4 w-4" />
@@ -68,8 +38,8 @@ export default async function Page() {
         )}
       </div>
       <LeavesTable
-        userId={canManageLeaves ? undefined : employee.userId}
-        isHR={canManageLeaves}
+        userId={isHROrAdmin ? undefined : authData.userId}
+        isHR={isHROrAdmin}
         showFilters={true}
       />
     </div>

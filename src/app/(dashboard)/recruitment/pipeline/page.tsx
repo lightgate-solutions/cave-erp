@@ -2,9 +2,14 @@ import { requireHROrAdmin } from "@/actions/auth/dal";
 import { PipelineBoard } from "@/components/recruitment/pipeline-board";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { redirect } from "next/navigation";
 
 export default async function PipelinePage() {
-  await requireHROrAdmin();
+  try {
+    await requireHROrAdmin();
+  } catch {
+    redirect("/");
+  }
 
   return (
     <div className="h-screen flex flex-col">

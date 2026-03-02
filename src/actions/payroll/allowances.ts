@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { eq, DrizzleQueryError, and, desc, sql, inArray } from "drizzle-orm";
-import { getUser } from "../auth/dal";
+import { requireHROrAdmin } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import { employees } from "@/db/schema/hr";
 import { allowances, type allowanceTypeEnum } from "@/db/schema/payroll";
@@ -23,10 +23,7 @@ export async function createAllowance(
   data: CreateAllowanceProps,
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -88,8 +85,8 @@ export async function createAllowance(
         taxable: data.taxable,
         taxPercentage: data.taxPercentage?.toString(),
         description: data.description?.trim() || "",
-        createdByUserId: user.authId,
-        updatedByUserId: user.authId,
+        createdByUserId: authData.userId,
+        updatedByUserId: authData.userId,
       });
 
       revalidatePath(pathname);
@@ -118,9 +115,7 @@ export async function createAllowance(
 }
 
 export async function getAllAllowances() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -181,9 +176,7 @@ export async function getAllAllowances() {
 }
 
 export async function getAllAllowancesMonthly() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -249,9 +242,7 @@ export async function getAllAllowancesMonthly() {
 }
 
 export async function getAllowance(id: number) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -310,9 +301,7 @@ export async function updateAllowance(
   data: Partial<CreateAllowanceProps>,
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -401,7 +390,7 @@ export async function updateAllowance(
             taxPercentage: data.taxPercentage.toString(),
           }),
           ...(data.description && { description: data.description.trim() }),
-          updatedByUserId: user.authId,
+          updatedByUserId: authData.userId,
           updatedAt: new Date(),
         })
         .where(eq(allowances.id, id));
@@ -432,9 +421,7 @@ export async function updateAllowance(
 }
 
 export async function deleteAllowance(id: number, pathname: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

@@ -3,9 +3,14 @@ import { getAllOffers } from "@/actions/recruitment/offers";
 import { OffersList } from "@/components/recruitment/offers-list";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { redirect } from "next/navigation";
 
 export default async function OffersPage() {
-  await requireHROrAdmin();
+  try {
+    await requireHROrAdmin();
+  } catch {
+    redirect("/");
+  }
 
   const offers = await getAllOffers();
 

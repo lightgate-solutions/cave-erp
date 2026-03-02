@@ -13,13 +13,14 @@ import {
 } from "@/db/schema";
 import { DrizzleQueryError, eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireHROrAdmin } from "@/actions/auth/dal";
+import { requireAuth, requireHROrAdmin, requireHR } from "@/actions/auth/dal";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 import { APIError } from "better-auth";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 export async function getAllEmployees() {
-  await requireAuth();
+  await requireHR();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -165,7 +166,13 @@ export async function createEmployee(data: {
     employmentType?: "Full-time" | "Part-time" | "Contract" | "Intern";
   };
   isManager: boolean;
+  _skipAuth?: boolean; // Internal flag for org-creation flow where no session exists yet
 }) {
+  // Skip auth check during initial org creation (new user onboarding)
+  if (!data._skipAuth) {
+    await requireHROrAdmin();
+  }
+
   let orgId = data.organizationId;
 
   // If organizationId not provided, get from session

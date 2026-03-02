@@ -114,11 +114,15 @@ export const requireAdmin = cache(async () => {
   return authData;
 });
 
-// Helper to require HR or admin role
+// Helper to require HR department or admin role
 export const requireHROrAdmin = cache(async () => {
   const authData = await requireAuth();
 
-  if (authData.role !== "admin" && authData.role !== "hr") {
+  if (
+    authData.role !== "admin" &&
+    authData.employee?.department !== DEPARTMENTS.HR &&
+    authData.employee?.department !== DEPARTMENTS.ADMIN
+  ) {
     throw new Error("Forbidden: HR or Admin access required");
   }
 
@@ -129,7 +133,11 @@ export const requireHROrAdmin = cache(async () => {
 export const requireManager = cache(async () => {
   const authData = await requireAuth();
 
-  if (!authData.employee.isManager && authData.role !== "admin") {
+  if (
+    !authData.employee?.isManager &&
+    authData.role !== "admin" &&
+    authData.employee?.department !== "admin"
+  ) {
     throw new Error("Forbidden: Manager or Admin access required");
   }
 
@@ -142,8 +150,8 @@ export const requireHR = cache(async () => {
 
   if (
     authData.role !== "admin" &&
-    authData.employee.department !== DEPARTMENTS.HR &&
-    authData.employee.department !== DEPARTMENTS.ADMIN
+    authData.employee?.department !== DEPARTMENTS.HR &&
+    authData.employee?.department !== DEPARTMENTS.ADMIN
   ) {
     throw new Error("Forbidden: HR department or Admin access required");
   }
@@ -157,7 +165,8 @@ export const requireFinance = cache(async () => {
 
   if (
     authData.role !== "admin" &&
-    authData.employee.department !== DEPARTMENTS.FINANCE
+    authData.employee?.department !== DEPARTMENTS.FINANCE &&
+    authData.employee?.department !== DEPARTMENTS.ADMIN
   ) {
     throw new Error("Forbidden: Finance department or Admin access required");
   }
@@ -170,9 +179,9 @@ export const requireModuleAccess = cache(async (module: Module) => {
   const authData = await requireAuth();
 
   const userContext: UserPermissionContext = {
-    department: authData.employee.department,
+    department: authData.employee?.department,
     role: authData.role === "admin" ? "admin" : "user",
-    isManager: authData.employee.isManager,
+    isManager: authData.employee?.isManager,
   };
 
   if (!canAccessModule(userContext, module)) {
@@ -188,8 +197,9 @@ export const requireFleetAccess = cache(async () => {
 
   if (
     authData.role !== "admin" &&
-    authData.employee.department !== DEPARTMENTS.HR &&
-    authData.employee.department !== DEPARTMENTS.FINANCE
+    authData.employee?.department !== DEPARTMENTS.HR &&
+    authData.employee?.department !== DEPARTMENTS.FINANCE &&
+    authData.employee?.department !== DEPARTMENTS.ADMIN
   ) {
     throw new Error(
       "Forbidden: Fleet access required (HR, Finance, or Admin only)",
@@ -204,8 +214,8 @@ export const requireAssetAccess = cache(async () => {
   const authData = await requireAuth();
 
   const isHrOrAdminDept =
-    authData.employee.department === DEPARTMENTS.HR ||
-    authData.employee.department === DEPARTMENTS.ADMIN;
+    authData.employee?.department === DEPARTMENTS.HR ||
+    authData.employee?.department === DEPARTMENTS.ADMIN;
 
   if (authData.role !== "admin" && !isHrOrAdminDept) {
     throw new Error(

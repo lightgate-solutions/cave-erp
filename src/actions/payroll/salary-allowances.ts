@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { eq, DrizzleQueryError, and, desc, sql } from "drizzle-orm";
-import { getUser } from "../auth/dal";
+import { requireHROrAdmin } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import {
   salaryStructure,
@@ -23,9 +23,7 @@ export async function addAllowanceToStructure(
   data: AddAllowanceToStructureProps,
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -138,9 +136,7 @@ export async function removeAllowanceFromStructure(
   salaryAllowanceId: number,
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -226,9 +222,7 @@ export async function removeAllowanceFromStructure(
 
 // Get all allowances for a salary structure
 export async function getStructureAllowances(structureId: number) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
