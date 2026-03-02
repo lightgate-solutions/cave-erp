@@ -18,7 +18,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 export async function getAllEmployeesWithPayroll() {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -99,7 +99,7 @@ export async function getAllEmployeesWithPayroll() {
  * and applicable allowances and deductions
  */
 export async function calculateEmployeeTakeHomePay(userId: string) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

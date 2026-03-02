@@ -86,7 +86,7 @@ export async function createSalaryStructure(
 }
 
 export async function getAllSalaryStructures() {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -145,7 +145,7 @@ export async function getAllSalaryStructures() {
 }
 
 export async function getSalaryStructure(id: number) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

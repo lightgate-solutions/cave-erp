@@ -709,7 +709,7 @@ function getMonthName(month: number): string {
 }
 
 export async function getPayruns() {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -757,7 +757,7 @@ export async function getPayruns() {
 }
 
 export async function getPayrunById(id: number) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -1096,7 +1096,7 @@ export async function completePayrun(id: number, pathname: string) {
 }
 
 export async function rollbackPayrun(id: number, pathname: string) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   try {
     const payrunData = await db
@@ -1141,7 +1141,7 @@ export async function rollbackPayrun(id: number, pathname: string) {
 }
 
 export async function getApprovedPayruns() {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -1185,7 +1185,7 @@ export async function getApprovedPayruns() {
 }
 
 export async function getAllAllowances() {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

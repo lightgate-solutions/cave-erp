@@ -115,7 +115,7 @@ export async function createAllowance(
 }
 
 export async function getAllAllowances() {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -176,7 +176,7 @@ export async function getAllAllowances() {
 }
 
 export async function getAllAllowancesMonthly() {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -242,7 +242,7 @@ export async function getAllAllowancesMonthly() {
 }
 
 export async function getAllowance(id: number) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -421,7 +421,7 @@ export async function updateAllowance(
 }
 
 export async function deleteAllowance(id: number, pathname: string) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

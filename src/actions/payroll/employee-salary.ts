@@ -10,7 +10,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 export async function getEmployeesBySalaryStructure(structureId: number) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -54,7 +54,7 @@ export async function getEmployeesBySalaryStructure(structureId: number) {
 }
 
 export async function getEmployeeSalaryHistory(userId: string) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -91,7 +91,7 @@ export async function getEmployeeSalaryHistory(userId: string) {
 }
 
 export async function getEmployeesNotInStructure(structureId: number) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

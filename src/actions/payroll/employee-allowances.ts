@@ -14,7 +14,7 @@ import { headers } from "next/headers";
 
 // Get all allowances for a specific employee
 export async function getEmployeeAllowances(userId: string) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -58,7 +58,7 @@ export async function getEmployeeAllowances(userId: string) {
 
 // Get active allowances for a specific employee
 export async function getActiveEmployeeAllowances(userId: string) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -102,7 +102,7 @@ export async function getActiveEmployeeAllowances(userId: string) {
 
 // Get allowances that can be assigned to an employee
 export async function getAvailableAllowancesForEmployee(userId: string) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -150,7 +150,7 @@ export async function addAllowanceToEmployee(
   effectiveFrom: Date = new Date(),
   pathname: string,
 ) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -254,7 +254,7 @@ export async function removeAllowanceFromEmployee(
   employeeAllowanceId: number,
   pathname: string,
 ) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

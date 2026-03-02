@@ -14,7 +14,6 @@ import {
 import { DrizzleQueryError, eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireHROrAdmin, requireHR } from "@/actions/auth/dal";
-import { DEPARTMENTS } from "@/lib/permissions/types";
 import { APIError } from "better-auth";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";

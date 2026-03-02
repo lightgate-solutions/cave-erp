@@ -23,7 +23,7 @@ export async function addAllowanceToStructure(
   data: AddAllowanceToStructureProps,
   pathname: string,
 ) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -136,7 +136,7 @@ export async function removeAllowanceFromStructure(
   salaryAllowanceId: number,
   pathname: string,
 ) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -222,7 +222,7 @@ export async function removeAllowanceFromStructure(
 
 // Get all allowances for a salary structure
 export async function getStructureAllowances(structureId: number) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

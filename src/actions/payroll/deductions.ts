@@ -105,7 +105,7 @@ export async function createDeduction(
 }
 
 export async function getAllDeductions() {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -163,7 +163,7 @@ export async function getAllDeductions() {
 }
 
 export async function getAllRecurringDeductions() {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -226,7 +226,7 @@ export async function getAllRecurringDeductions() {
 }
 
 export async function getDeduction(id: number) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -374,7 +374,7 @@ export async function updateDeduction(
 }
 
 export async function deleteDeduction(id: number, pathname: string) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

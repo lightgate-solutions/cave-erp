@@ -25,7 +25,7 @@ import {
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { revalidatePath } from "next/cache";
-import { requireAuth, requireHROrAdmin, requireHR } from "@/actions/auth/dal";
+import { requireAuth, requireHROrAdmin } from "@/actions/auth/dal";
 import { DEPARTMENTS } from "@/lib/permissions/types";
 import { createNotification } from "../notification/notification";
 import { getEmployee } from "./employees";

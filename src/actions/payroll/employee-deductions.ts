@@ -15,7 +15,7 @@ import { headers } from "next/headers";
 
 // Get all deductions for a specific employee
 export async function getEmployeeDeductions(userId: string) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -59,7 +59,7 @@ export async function getEmployeeDeductions(userId: string) {
 
 // Get active deductions for a specific employee
 export async function getActiveEmployeeDeductions(userId: string) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -103,7 +103,7 @@ export async function getActiveEmployeeDeductions(userId: string) {
 
 // Get all available deduction types for creating employee-specific deductions
 export async function getDeductionTypes() {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -143,7 +143,7 @@ export async function addDeductionToEmployee(
   },
   pathname: string,
 ) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -258,7 +258,7 @@ export async function updateEmployeeDeduction(
   },
   pathname: string,
 ) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -341,7 +341,7 @@ export async function deactivateEmployeeDeduction(
   deductionId: number,
   pathname: string,
 ) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

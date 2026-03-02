@@ -23,7 +23,7 @@ export async function addDeductionToStructure(
   data: AddDeductionToStructureProps,
   pathname: string,
 ) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -136,7 +136,7 @@ export async function removeDeductionFromStructure(
   salaryDeductionId: number,
   pathname: string,
 ) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -222,7 +222,7 @@ export async function removeDeductionFromStructure(
 
 // Get all deductions for a salary structure
 export async function getStructureDeductions(structureId: number) {
-  const authData = await requireHROrAdmin();
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
