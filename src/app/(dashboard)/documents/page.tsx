@@ -5,16 +5,17 @@ import { DocumentsOverview } from "@/components/documents/documents-overview-pag
 import { and, eq, or } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 
 export default async function Page() {
   const user = await getUser();
-  if (!user) return null;
+  if (!user) notFound();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
 
-  if (!organization) return null;
+  if (!organization) notFound();
 
   const foldersRaw = await db
     .select({

@@ -21,51 +21,56 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
+async function requireFleetAccess() {
+  const h = await headers();
+  const [organization, session] = await Promise.all([
+    auth.api.getFullOrganization({ headers: h }),
+    auth.api.getSession({ headers: h }),
+  ]);
+
+  if (!organization) {
+    throw new Error("Unauthorized");
+  }
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  if (session.user.role !== "admin") {
+    const [emp] = await db
+      .select({ department: employees.department })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.authId, session.user.id),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1);
+
+    if (
+      !emp ||
+      (emp.department !== "hr" &&
+        emp.department !== "finance" &&
+        emp.department !== "admin")
+    ) {
+      throw new Error(
+        "Forbidden: Fleet access requires HR, Finance, or Admin department",
+      );
+    }
+  }
+
+  return { organization, session };
+}
+
 // GET: List all vehicles with pagination, search, filters
 export async function GET(request: NextRequest) {
   try {
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-    if (!organization) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Fleet access: admin role, or HR/Finance/Admin department
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (session.user.role !== "admin") {
-      const [emp] = await db
-        .select({ department: employees.department })
-        .from(employees)
-        .where(
-          and(
-            eq(employees.authId, session.user.id),
-            eq(employees.organizationId, organization.id),
-          ),
-        )
-        .limit(1);
-      if (
-        !emp ||
-        (emp.department !== "hr" &&
-          emp.department !== "finance" &&
-          emp.department !== "admin")
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "Forbidden: Fleet access requires HR, Finance, or Admin department",
-          },
-          { status: 403 },
-        );
-      }
-    }
+    const { organization } = await requireFleetAccess();
 
     const searchParams = request.nextUrl.searchParams;
-    const page = Number(searchParams.get("page") || "1");
-    const limit = Number(searchParams.get("limit") || "10");
+    const page = Math.max(1, Number(searchParams.get("page") || "1"));
+    const rawLimit = Number(searchParams.get("limit") || "10");
+    const limit = Math.min(Math.max(1, rawLimit), 100);
     const offset = (page - 1) * limit;
     const q = searchParams.get("q") || "";
     const status = searchParams.get("status") || "";
@@ -159,6 +164,15 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching vehicles:", error);
+    if (error instanceof Error) {
+      const status =
+        error.message === "Unauthorized"
+          ? 401
+          : error.message.startsWith("Forbidden")
+            ? 403
+            : 500;
+      return NextResponse.json({ error: error.message }, { status });
+    }
     return NextResponse.json(
       { error: "Failed to fetch vehicles" },
       { status: 500 },
@@ -169,45 +183,8 @@ export async function GET(request: NextRequest) {
 // POST: Create new vehicle
 export async function POST(request: NextRequest) {
   try {
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-    if (!organization) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Fleet access: admin role, or HR/Finance/Admin department
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (session.user.role !== "admin") {
-      const [emp] = await db
-        .select({ department: employees.department })
-        .from(employees)
-        .where(
-          and(
-            eq(employees.authId, session.user.id),
-            eq(employees.organizationId, organization.id),
-          ),
-        )
-        .limit(1);
-      if (
-        !emp ||
-        (emp.department !== "hr" &&
-          emp.department !== "finance" &&
-          emp.department !== "admin")
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "Forbidden: Fleet access requires HR, Finance, or Admin department",
-          },
-          { status: 403 },
-        );
-      }
-    }
-    const userId = session?.user?.id;
+    const { organization, session } = await requireFleetAccess();
+    const userId = session.user.id;
 
     const body = await request.json();
     const {
@@ -281,6 +258,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ vehicle: created }, { status: 201 });
   } catch (error) {
     console.error("Error creating vehicle:", error);
+    if (error instanceof Error) {
+      const status =
+        error.message === "Unauthorized"
+          ? 401
+          : error.message.startsWith("Forbidden")
+            ? 403
+            : 500;
+      return NextResponse.json({ error: error.message }, { status });
+    }
     return NextResponse.json(
       { error: "Failed to create vehicle" },
       { status: 500 },

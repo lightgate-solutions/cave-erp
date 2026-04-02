@@ -13,6 +13,7 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 
 export default async function Page({
   params,
@@ -34,10 +35,10 @@ export default async function Page({
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
-  if (!organization) return null;
+  if (!organization) notFound();
 
   const accessLevel = await getMyDocumentAccess(documentId);
-  if (accessLevel.error) return null;
+  if (accessLevel.error) notFound();
 
   if (accessLevel.success.level === "none") {
     return (
@@ -85,7 +86,7 @@ export default async function Page({
     .limit(1);
 
   const baseDoc = doc[0];
-  if (!baseDoc) return <div>Document not found</div>;
+  if (!baseDoc) notFound();
 
   const [tags, accessRules] = await Promise.all([
     db

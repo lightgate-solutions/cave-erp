@@ -1,6 +1,7 @@
 import { getNewsArticle } from "@/actions/news/news";
 import { NewsArticleClient } from "@/components/news/news-article-client";
 import { BackButton } from "@/components/ui/back-button";
+import { notFound } from "next/navigation";
 
 export default async function NewsArticlePage({
   params,
@@ -11,7 +12,7 @@ export default async function NewsArticlePage({
   const article = await getNewsArticle(id);
 
   if (!article) {
-    return null;
+    notFound();
   }
 
   return (

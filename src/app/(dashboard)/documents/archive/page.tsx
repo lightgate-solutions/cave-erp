@@ -10,6 +10,7 @@ import { Folder } from "lucide-react";
 import { ViewToggle } from "@/components/documents/view-toggle/view-toggle";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 
 export default async function Page({
   searchParams,
@@ -33,12 +34,12 @@ export default async function Page({
   const fPageSize = Number(fPageSizeParam) > 0 ? Number(fPageSizeParam) : 12;
 
   const user = await getUser();
-  if (!user) return null;
+  if (!user) notFound();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
-  if (!organization) return null;
+  if (!organization) notFound();
 
   const fOffset = Math.max(0, (fPage - 1) * fPageSize);
 
@@ -80,7 +81,7 @@ export default async function Page({
   const fEnd = fTotal > 0 ? Math.min(fPage * fPageSize, fTotal) : 0;
 
   const documents = await getMyArchivedDocuments(dPage, dPageSize);
-  if (documents.error) return null;
+  if (documents.error) notFound();
 
   const buildQuery = ({
     nextFPage,

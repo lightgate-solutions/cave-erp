@@ -13,8 +13,14 @@ export default async function CandidateDetailsPage({
 }) {
   try {
     await requireHROrAdmin();
-  } catch {
-    redirect("/");
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes("Forbidden") || error.message.includes("HR")) {
+        redirect("/unauthorized");
+      }
+      throw error;
+    }
+    redirect("/unauthorized");
   }
 
   const { id } = await params;
