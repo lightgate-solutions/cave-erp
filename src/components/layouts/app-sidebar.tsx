@@ -397,7 +397,7 @@ export function AppSidebar({
       ? notifications.filter((n) => !n.isRead).length
       : 0;
 
-  const isManager = !!employee?.isManager;
+  const isManager = !!employee?.isManager || employee?.role === "admin";
   const isAdmin = employee?.role === "admin";
 
   const groupedItems = useMemo(() => {
