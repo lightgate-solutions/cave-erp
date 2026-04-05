@@ -1,5 +1,10 @@
 import { db } from "@/db";
-import { expenses, projects } from "@/db/schema";
+import {
+  expenses,
+  projects,
+  companyBalance,
+  balanceTransactions,
+} from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { createNotification } from "@/actions/notification/notification";
@@ -7,6 +12,12 @@ import { getUser } from "@/actions/auth/dal";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { requireProjectPermission } from "@/actions/projects/permissions";
+import {
+  createJournal,
+  updateJournal,
+  deleteJournal,
+} from "@/actions/finance/gl/journals";
+import { glAccounts, glJournals } from "@/db/schema/general-ledger";
 
 export async function GET(
   _request: NextRequest,
@@ -111,6 +122,94 @@ export async function POST(
       });
     }
 
+    const expenseAmount = Number(amount) || 0;
+    if (expenseAmount > 0) {
+      const [balanceRecord] = await db
+        .select()
+        .from(companyBalance)
+        .limit(1)
+        .where(eq(companyBalance.organizationId, organization.id));
+
+      const balanceBefore = balanceRecord ? Number(balanceRecord.balance) : 0;
+      const newBalance = balanceBefore - expenseAmount;
+
+      if (balanceRecord) {
+        await db
+          .update(companyBalance)
+          .set({
+            balance: newBalance.toString(),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(companyBalance.id, balanceRecord.id),
+              eq(companyBalance.organizationId, organization.id),
+            ),
+          );
+      } else {
+        await db.insert(companyBalance).values({
+          balance: newBalance.toString(),
+          organizationId: organization.id,
+          currency: "NGN",
+        });
+      }
+
+      await db.insert(balanceTransactions).values({
+        userId: user.id,
+        amount: expenseAmount.toString(),
+        organizationId: organization.id,
+        transactionType: "expense",
+        description: `Project Expense: ${title} (${project?.code || "PRJ"})`,
+        balanceBefore: balanceBefore.toString(),
+        balanceAfter: newBalance.toString(),
+      });
+    }
+
+    try {
+      const expenseAccount = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organization.id),
+          eq(glAccounts.type, "Expense"),
+        ),
+      });
+      const assetAccount = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organization.id),
+          eq(glAccounts.type, "Asset"),
+        ),
+      });
+
+      if (expenseAccount && assetAccount && Number(amount) > 0) {
+        await createJournal({
+          transactionDate: spentAt ? new Date(spentAt) : new Date(),
+          postingDate: new Date(),
+          description: `Project Expense: ${title}`,
+          reference: project?.code ? `PRJ-${project.code}` : "Project",
+          source: "System",
+          sourceId: `EXP-${created.id}`,
+          status: "Posted",
+          createdById: user.id,
+          organizationId: organization.id,
+          lines: [
+            {
+              accountId: expenseAccount.id,
+              debit: Number(amount) || 0,
+              credit: 0,
+              description: title,
+            },
+            {
+              accountId: assetAccount.id,
+              debit: 0,
+              credit: Number(amount) || 0,
+              description: title,
+            },
+          ],
+        });
+      }
+    } catch (e) {
+      console.error("Failed to post journal", e);
+    }
+
     return NextResponse.json({ expense: created }, { status: 201 });
   } catch (error) {
     console.error("Error creating expense:", error);
@@ -205,6 +304,108 @@ export async function PUT(
       });
     }
 
+    const newAmount =
+      amount !== undefined ? Number(amount) : existingExpense.amount;
+    const diffAmount = newAmount - existingExpense.amount;
+
+    if (diffAmount !== 0) {
+      const [balanceRecord] = await db
+        .select()
+        .from(companyBalance)
+        .limit(1)
+        .where(eq(companyBalance.organizationId, organization.id));
+
+      const balanceBefore = balanceRecord ? Number(balanceRecord.balance) : 0;
+      const newBalance = balanceBefore - diffAmount;
+
+      if (balanceRecord) {
+        await db
+          .update(companyBalance)
+          .set({
+            balance: newBalance.toString(),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(companyBalance.id, balanceRecord.id),
+              eq(companyBalance.organizationId, organization.id),
+            ),
+          );
+      } else {
+        await db.insert(companyBalance).values({
+          balance: newBalance.toString(),
+          organizationId: organization.id,
+          currency: "NGN",
+        });
+      }
+
+      await db.insert(balanceTransactions).values({
+        userId: user.id,
+        amount: Math.abs(diffAmount).toString(),
+        organizationId: organization.id,
+        transactionType: diffAmount > 0 ? "expense" : "adjustment",
+        description: `Project Expense Update: ${updated.title} ${diffAmount > 0 ? "(Increase)" : "(Decrease)"}`,
+        balanceBefore: balanceBefore.toString(),
+        balanceAfter: newBalance.toString(),
+      });
+    }
+
+    try {
+      const journal = await db.query.glJournals.findFirst({
+        where: and(
+          eq(glJournals.organizationId, organization.id),
+          eq(glJournals.sourceId, `EXP-${expenseId}`),
+        ),
+      });
+      if (journal && Number(amount) > 0) {
+        const expenseAccount = await db.query.glAccounts.findFirst({
+          where: and(
+            eq(glAccounts.organizationId, organization.id),
+            eq(glAccounts.type, "Expense"),
+          ),
+        });
+        const assetAccount = await db.query.glAccounts.findFirst({
+          where: and(
+            eq(glAccounts.organizationId, organization.id),
+            eq(glAccounts.type, "Asset"),
+          ),
+        });
+        if (expenseAccount && assetAccount) {
+          await db
+            .update(glJournals)
+            .set({ status: "Draft" })
+            .where(eq(glJournals.id, journal.id));
+          await updateJournal(journal.id, {
+            transactionDate: spentAt ? new Date(spentAt) : new Date(),
+            postingDate: new Date(),
+            description: `Project Expense: ${title}`,
+            reference: project?.code ? `PRJ-${project.code}` : "Project",
+            source: "System",
+            sourceId: `EXP-${expenseId}`,
+            status: "Posted",
+            createdById: user.id,
+            organizationId: organization.id,
+            lines: [
+              {
+                accountId: expenseAccount.id,
+                debit: Number(amount) || 0,
+                credit: 0,
+                description: title,
+              },
+              {
+                accountId: assetAccount.id,
+                debit: 0,
+                credit: Number(amount) || 0,
+                description: title,
+              },
+            ],
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to update journal", e);
+    }
+
     return NextResponse.json({ expense: updated });
   } catch (error) {
     console.error("Error updating expense:", error);
@@ -290,6 +491,67 @@ export async function DELETE(
         notification_type: "message",
         reference_id: projectId,
       });
+    }
+
+    const refundAmount = expenseToDelete.amount;
+    if (refundAmount > 0) {
+      const [balanceRecord] = await db
+        .select()
+        .from(companyBalance)
+        .limit(1)
+        .where(eq(companyBalance.organizationId, organization.id));
+
+      const balanceBefore = balanceRecord ? Number(balanceRecord.balance) : 0;
+      const newBalance = balanceBefore + refundAmount;
+
+      if (balanceRecord) {
+        await db
+          .update(companyBalance)
+          .set({
+            balance: newBalance.toString(),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(companyBalance.id, balanceRecord.id),
+              eq(companyBalance.organizationId, organization.id),
+            ),
+          );
+      } else {
+        await db.insert(companyBalance).values({
+          balance: newBalance.toString(),
+          organizationId: organization.id,
+          currency: "NGN",
+        });
+      }
+
+      await db.insert(balanceTransactions).values({
+        userId: user.id,
+        amount: refundAmount.toString(),
+        organizationId: organization.id,
+        transactionType: "adjustment",
+        description: `Project Expense Reversal: ${expenseToDelete.title}`,
+        balanceBefore: balanceBefore.toString(),
+        balanceAfter: newBalance.toString(),
+      });
+    }
+
+    try {
+      const journal = await db.query.glJournals.findFirst({
+        where: and(
+          eq(glJournals.organizationId, organization.id),
+          eq(glJournals.sourceId, `EXP-${expenseId}`),
+        ),
+      });
+      if (journal) {
+        await db
+          .update(glJournals)
+          .set({ status: "Draft" })
+          .where(eq(glJournals.id, journal.id));
+        await deleteJournal(journal.id, organization.id);
+      }
+    } catch (e) {
+      console.error("Failed to delete journal", e);
     }
 
     return NextResponse.json({ success: true });

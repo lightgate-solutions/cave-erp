@@ -82,6 +82,7 @@ export default function ProjectDetailPage({
     null,
   );
   const [canManage, setCanManage] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,6 +103,7 @@ export default function ProjectDetailPage({
   }, [projectId]);
 
   useEffect(() => {
+    setMounted(true);
     load();
   }, [load]);
 
@@ -352,7 +354,7 @@ export default function ProjectDetailPage({
         >
           Milestones
           {activeTab === "milestones" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full block" />
           )}
         </button>
         <button
@@ -366,263 +368,292 @@ export default function ProjectDetailPage({
         >
           Expenses
           {activeTab === "expenses" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full block" />
           )}
         </button>
       </div>
 
       <div className="min-h-[400px]">
-        {activeTab === "milestones" && (
-          <div className="space-y-4 animate-in slide-in-from-left-4 duration-300">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Project Milestones</h2>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportMilestonesCSV}
-                >
-                  Export CSV
-                </Button>
-                <Dialog open={open} onOpenChange={setOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" onClick={openNewMilestone}>
-                      Add Milestone
+        {!mounted ? null : (
+          <>
+            {activeTab === "milestones" && (
+              <div className="space-y-4 animate-in slide-in-from-left-4 duration-300">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">Project Milestones</h2>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportMilestonesCSV}
+                    >
+                      Export CSV
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>
-                        {editingMilestone ? "Edit Milestone" : "New Milestone"}
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="grid sm:grid-cols-3 gap-3">
-                      <div className="grid gap-1">
-                        <Label htmlFor="ms-title">Title</Label>
-                        <Input
-                          id="ms-title"
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-1">
-                        <Label htmlFor="ms-due">Due date</Label>
-                        <Input
-                          id="ms-due"
-                          type="date"
-                          value={dueDate}
-                          onChange={(e) => setDueDate(e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-1 sm:col-span-3">
-                        <Label htmlFor="ms-desc">Description</Label>
-                        <Textarea
-                          id="ms-desc"
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={saveMilestone}>
-                        {editingMilestone ? "Save" : "Add"}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-
-            <div className="grid gap-3">
-              {milestones.length === 0 ? (
-                <div className="text-center py-12 border rounded-lg bg-muted/10 border-dashed">
-                  <p className="text-muted-foreground">No milestones yet</p>
-                </div>
-              ) : (
-                milestones.map((m) => (
-                  <div
-                    key={m.id}
-                    className="group flex items-start justify-between gap-4 rounded-lg border bg-card p-4 transition-all hover:shadow-sm hover:border-primary/20"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`mt-1 h-2 w-2 rounded-full ${m.completed ? "bg-green-500" : "bg-gray-300"}`}
-                      />
-                      <div>
-                        <div
-                          className={`font-medium ${m.completed ? "line-through text-muted-foreground" : ""}`}
-                        >
-                          {m.title}
-                        </div>
-                        {m.description && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {m.description}
-                          </p>
-                        )}
-                        {m.dueDate && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
-                            <Calendar className="h-3 w-3" />
-                            Due: {new Date(m.dueDate).toLocaleDateString()}
+                    <Dialog open={open} onOpenChange={setOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" onClick={openNewMilestone}>
+                          Add Milestone
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>
+                            {editingMilestone
+                              ? "Edit Milestone"
+                              : "New Milestone"}
+                          </DialogTitle>
+                        </DialogHeader>
+                        <div className="grid sm:grid-cols-3 gap-3">
+                          <div className="grid gap-1">
+                            <Label htmlFor="ms-title">Title</Label>
+                            <Input
+                              id="ms-title"
+                              value={title}
+                              onChange={(e) => setTitle(e.target.value)}
+                            />
                           </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant={m.completed ? "secondary" : "default"}
-                        size="sm"
-                        onClick={() => toggleMilestone(m)}
-                      >
-                        {m.completed ? "Undo" : "Complete"}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditMilestone(m)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => deleteMilestone(m)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
+                          <div className="grid gap-1">
+                            <Label htmlFor="ms-due">Due date</Label>
+                            <Input
+                              id="ms-due"
+                              type="date"
+                              value={dueDate}
+                              onChange={(e) => setDueDate(e.target.value)}
+                            />
+                          </div>
+                          <div className="grid gap-1 sm:col-span-3">
+                            <Label htmlFor="ms-desc">Description</Label>
+                            <Textarea
+                              id="ms-desc"
+                              value={description}
+                              onChange={(e) => setDescription(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button onClick={saveMilestone}>
+                            {editingMilestone ? "Save" : "Add"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "expenses" && (
-          <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Project Expenses</h2>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={exportExpensesCSV}>
-                  Export CSV
-                </Button>
-                <Dialog open={eOpen} onOpenChange={setEOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" onClick={openNewExpense}>
-                      Add Expense
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>
-                        {editingExpense ? "Edit Expense" : "New Expense"}
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="grid sm:grid-cols-3 gap-3">
-                      <div className="grid gap-1">
-                        <Label htmlFor="ex-title">Title</Label>
-                        <Input
-                          id="ex-title"
-                          value={eTitle}
-                          onChange={(e) => setETitle(e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-1">
-                        <Label htmlFor="ex-amount">Amount</Label>
-                        <Input
-                          id="ex-amount"
-                          type="number"
-                          value={eAmount}
-                          onChange={(e) => setEAmount(e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-1">
-                        <Label htmlFor="ex-date">Date</Label>
-                        <Input
-                          id="ex-date"
-                          type="date"
-                          value={eDate}
-                          onChange={(e) => setEDate(e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-1 sm:col-span-3">
-                        <Label htmlFor="ex-notes">Notes</Label>
-                        <Textarea
-                          id="ex-notes"
-                          value={eNotes}
-                          onChange={(e) => setENotes(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={saveExpense}>
-                        {editingExpense ? "Save" : "Add"}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-
-            <div className="grid gap-3">
-              {expenses.length === 0 ? (
-                <div className="text-center py-12 border rounded-lg bg-muted/10 border-dashed">
-                  <p className="text-muted-foreground">No expenses recorded</p>
                 </div>
-              ) : (
-                expenses.map((ex) => (
-                  <div
-                    key={ex.id}
-                    className="group flex items-center justify-between rounded-lg border bg-card p-4 transition-all hover:shadow-sm hover:border-primary/20"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-full bg-amber-100 p-2 dark:bg-amber-900/30">
-                        <Receipt className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <div>
-                        <div className="font-medium">{ex.title}</div>
-                        <div className="text-lg font-bold text-primary">
-                          ₦{(ex.amount ?? 0).toLocaleString()}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                          {ex.spentAt && (
-                            <span>
-                              {new Date(ex.spentAt).toLocaleDateString()}
-                            </span>
-                          )}
-                          {ex.notes && (
-                            <>
-                              <span>•</span>
-                              <span className="truncate max-w-[200px]">
-                                {ex.notes}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
+
+                <div className="grid gap-3">
+                  {milestones.length === 0 ? (
+                    <div className="text-center py-12 border rounded-lg bg-muted/10 border-dashed">
+                      <p className="text-muted-foreground">No milestones yet</p>
                     </div>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditExpense(ex)}
+                  ) : (
+                    milestones.map((m) => (
+                      <div
+                        key={m.id}
+                        className="group flex items-start justify-between gap-4 rounded-lg border bg-card p-4 transition-all hover:shadow-sm hover:border-primary/20"
                       >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => deleteExpense(ex)}
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`mt-1 h-2 w-2 rounded-full ${m.completed ? "bg-green-500" : "bg-gray-300"}`}
+                          />
+                          <div>
+                            <div
+                              className={`font-medium ${m.completed ? "line-through text-muted-foreground" : ""}`}
+                            >
+                              {m.title}
+                            </div>
+                            {m.description && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {m.description}
+                              </p>
+                            )}
+                            {m.dueDate && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
+                                <Calendar className="h-3 w-3" />
+                                Due: {new Date(m.dueDate).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant={m.completed ? "secondary" : "default"}
+                            size="sm"
+                            onClick={() => toggleMilestone(m)}
+                          >
+                            {m.completed ? "Undo" : "Complete"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditMilestone(m)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => deleteMilestone(m)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "expenses" && (
+              <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      Project Expenses{" "}
+                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium border border-primary/20">
+                        Integrated
+                      </span>
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Expenses automatically deduct from the{" "}
+                      <a
+                        href="/finance"
+                        className="text-primary hover:underline font-medium"
                       >
-                        Delete
-                      </Button>
-                    </div>
+                        Company Balance
+                      </a>
+                      .
+                    </p>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportExpensesCSV}
+                    >
+                      Export CSV
+                    </Button>
+                    <Dialog open={eOpen} onOpenChange={setEOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" onClick={openNewExpense}>
+                          Add Expense
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>
+                            {editingExpense ? "Edit Expense" : "New Expense"}
+                          </DialogTitle>
+                        </DialogHeader>
+                        <div className="grid sm:grid-cols-3 gap-3">
+                          <div className="grid gap-1">
+                            <Label htmlFor="ex-title">Title</Label>
+                            <Input
+                              id="ex-title"
+                              value={eTitle}
+                              onChange={(e) => setETitle(e.target.value)}
+                            />
+                          </div>
+                          <div className="grid gap-1">
+                            <Label htmlFor="ex-amount">Amount</Label>
+                            <Input
+                              id="ex-amount"
+                              type="number"
+                              value={eAmount}
+                              onChange={(e) => setEAmount(e.target.value)}
+                            />
+                          </div>
+                          <div className="grid gap-1">
+                            <Label htmlFor="ex-date">Date</Label>
+                            <Input
+                              id="ex-date"
+                              type="date"
+                              value={eDate}
+                              onChange={(e) => setEDate(e.target.value)}
+                            />
+                          </div>
+                          <div className="grid gap-1 sm:col-span-3">
+                            <Label htmlFor="ex-notes">Notes</Label>
+                            <Textarea
+                              id="ex-notes"
+                              value={eNotes}
+                              onChange={(e) => setENotes(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button onClick={saveExpense}>
+                            {editingExpense ? "Save" : "Add"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  {expenses.length === 0 ? (
+                    <div className="text-center py-12 border rounded-lg bg-muted/10 border-dashed">
+                      <p className="text-muted-foreground">
+                        No expenses recorded
+                      </p>
+                    </div>
+                  ) : (
+                    expenses.map((ex) => (
+                      <div
+                        key={ex.id}
+                        className="group flex items-center justify-between rounded-lg border bg-card p-4 transition-all hover:shadow-sm hover:border-primary/20"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-full bg-amber-100 p-2 dark:bg-amber-900/30">
+                            <Receipt className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          <div>
+                            <div className="font-medium">{ex.title}</div>
+                            <div className="text-lg font-bold text-primary">
+                              ₦{(ex.amount ?? 0).toLocaleString()}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                              {ex.spentAt && (
+                                <span>
+                                  {new Date(ex.spentAt).toLocaleDateString()}
+                                </span>
+                              )}
+                              {ex.notes && (
+                                <>
+                                  <span>•</span>
+                                  <span className="truncate max-w-[200px]">
+                                    {ex.notes}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditExpense(ex)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => deleteExpense(ex)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

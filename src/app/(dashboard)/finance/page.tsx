@@ -18,6 +18,7 @@ import { addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { BalanceUpdateDialog } from "@/components/finance/balance-update-dialog";
+import { ExpenseFormDialog } from "@/components/finance/expense-form-dialog";
 
 export default function FinancePage() {
   const router = useRouter();
@@ -91,9 +92,25 @@ export default function FinancePage() {
                 {formatCurrency(Number(stats.totalExpenses))}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              {date?.from ? "In selected period" : "Lifetime expenses"}
-            </p>
+            <div className="flex flex-col items-start gap-2 justify-between mt-4">
+              <p className="text-xs text-muted-foreground">
+                {date?.from ? "In selected period" : "Lifetime expenses"}
+              </p>
+              <div className="flex gap-2">
+                <ExpenseFormDialog
+                  onCompleted={() => {
+                    fetchStats();
+                    window.dispatchEvent(new Event("expenses:changed"));
+                  }}
+                  trigger={
+                    <Button size="sm" className="h-7 text-xs shadow-sm">
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Expense
+                    </Button>
+                  }
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -154,24 +171,6 @@ export default function FinancePage() {
             <Button
               variant="outline"
               className="w-full justify-start h-auto py-4 px-4"
-              onClick={() => router.push("/finance/payruns")}
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                  <FileText className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex flex-col items-start text-left">
-                  <span className="font-semibold">Payruns</span>
-                  <span className="text-xs text-muted-foreground">
-                    Manage employee payments
-                  </span>
-                </div>
-              </div>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full justify-start h-auto py-4 px-4"
               onClick={() => router.push("/finance/expenses")}
             >
               <div className="flex items-center gap-4">
@@ -182,6 +181,24 @@ export default function FinancePage() {
                   <span className="font-semibold">Expenses</span>
                   <span className="text-xs text-muted-foreground">
                     Record and track expenses
+                  </span>
+                </div>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start h-auto py-4 px-4"
+              onClick={() => router.push("/finance/payruns")}
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex flex-col items-start text-left">
+                  <span className="font-semibold">Payruns</span>
+                  <span className="text-xs text-muted-foreground">
+                    Manage employee payments
                   </span>
                 </div>
               </div>

@@ -41,6 +41,7 @@ type Expense = {
   expenseDate: string;
   createdAt: string;
   updatedAt: string;
+  type: "company" | "project";
 };
 
 const expenseCategories = [
@@ -54,6 +55,7 @@ const expenseCategories = [
   "Maintenance",
   "Insurance",
   "Legal",
+  "Project Expense",
   "Other",
 ];
 
@@ -212,35 +214,46 @@ export function ExpensesTable() {
                       {expense.description || "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <ExpenseFormDialog
-                          initial={expense}
-                          onCompleted={() => {
-                            load();
-                          }}
-                          trigger={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              aria-label="Edit expense"
-                              title="Edit"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          }
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => onDelete(expense.id)}
-                          aria-label="Delete expense"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {expense.type === "project" ? (
+                        <div className="flex justify-end opacity-70">
+                          <Badge
+                            variant="outline"
+                            className="font-normal text-xs"
+                          >
+                            Project Exp.
+                          </Badge>
+                        </div>
+                      ) : (
+                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ExpenseFormDialog
+                            initial={expense}
+                            onCompleted={() => {
+                              load();
+                            }}
+                            trigger={
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                aria-label="Edit expense"
+                                title="Edit"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            }
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => onDelete(expense.id)}
+                            aria-label="Delete expense"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

@@ -206,7 +206,7 @@ const data = {
           url: "/invoicing/clients",
         },
         {
-          title: "Payments",
+          title: "Payment Receivables",
           url: "/invoicing/payments",
         },
         {

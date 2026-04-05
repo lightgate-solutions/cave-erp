@@ -3,6 +3,7 @@ import {
   companyExpenses,
   loanApplications,
   balanceTransactions,
+  expenses as projectExpenses,
 } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { sql, inArray, and, gte, lte, type SQL, eq } from "drizzle-orm";
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
     const to = searchParams.get("to");
 
     let expenseWhere: SQL | undefined;
+    let projectExpenseWhere: SQL | undefined;
     let chartWhere: SQL | undefined;
 
     if (from && to) {
@@ -47,18 +49,44 @@ export async function GET(request: NextRequest) {
         lte(companyExpenses.expenseDate, toDate),
       );
 
+      // Project expenses: filter by spentAt (when the expense was incurred)
+      projectExpenseWhere = and(
+        gte(projectExpenses.spentAt, fromDate),
+        lte(projectExpenses.spentAt, toDate),
+      );
+
       chartWhere = and(
         gte(balanceTransactions.createdAt, fromDate),
         lte(balanceTransactions.createdAt, toDate),
       );
     }
 
-    const [expensesResult] = await db
-      .select({ total: sql<string>`sum(${companyExpenses.amount})` })
+    // Sum company-level expenses (finance module)
+    const [companyExpensesResult] = await db
+      .select({
+        total: sql<string>`coalesce(sum(${companyExpenses.amount}), 0)`,
+      })
       .from(companyExpenses)
       .where(
         and(expenseWhere, eq(companyExpenses.organizationId, organization.id)),
       );
+
+    // Sum project-level expenses (projects module)
+    const [projExpensesResult] = await db
+      .select({
+        total: sql<string>`coalesce(sum(${projectExpenses.amount}), 0)`,
+      })
+      .from(projectExpenses)
+      .where(
+        and(
+          projectExpenseWhere,
+          eq(projectExpenses.organizationId, organization.id),
+        ),
+      );
+
+    const totalExpenses =
+      Number(companyExpensesResult?.total || 0) +
+      Number(projExpensesResult?.total || 0);
 
     const [loansResult] = await db
       .select({ count: sql<number>`count(*)` })
@@ -113,7 +141,7 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.json({
-      totalExpenses: expensesResult?.total || "0",
+      totalExpenses: String(totalExpenses),
       activeLoans: loansResult?.count || 0,
       chartData: chartDataArray,
     });

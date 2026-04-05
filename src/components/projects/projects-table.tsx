@@ -158,21 +158,17 @@ export function ProjectsTable() {
             onChange={(e) => setQ(e.target.value)}
             className="flex-1"
           />
-          {mounted ? (
-            <Select value={status} onValueChange={(v) => setStatus(v)}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : (
-            <div className="w-40 h-10 border rounded-md bg-muted animate-pulse" />
-          )}
+          <Select value={status} onValueChange={(v) => setStatus(v)}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="in-progress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="flex items-center border rounded-md bg-background">
             <Button
               variant={view === "list" ? "secondary" : "ghost"}
@@ -226,10 +222,14 @@ export function ProjectsTable() {
               </svg>
             </Button>
           </div>
-          <ProjectFormDialog
-            onCompleted={() => load()}
-            trigger={<Button className="ml-auto">New Project</Button>}
-          />
+          {mounted ? (
+            <ProjectFormDialog
+              onCompleted={() => load()}
+              trigger={<Button className="ml-auto">New Project</Button>}
+            />
+          ) : (
+            <Button className="ml-auto">New Project</Button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">

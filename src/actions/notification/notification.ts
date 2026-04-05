@@ -3,6 +3,7 @@
 import { getUser } from "../auth/dal";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
@@ -23,7 +24,6 @@ export async function createNotification({
   notification_type,
   reference_id = 0,
   is_read = false,
-  organization_id,
 }: CreateNotificationInput) {
   try {
     const currentUser = await getUser();
@@ -48,7 +48,7 @@ export async function createNotification({
       };
     }
 
-    const orgId = organization_id ?? organization.id;
+    const orgId = organization.id;
 
     await fetchMutation(api.notifications.createNotification, {
       created_by: currentUser.authId,
@@ -111,4 +111,113 @@ export async function getUserNotifications() {
   );
 
   return { success: true, data: userNotifications, error: null };
+}
+
+export async function markNotificationAsRead(id: string) {
+  try {
+    const currentUser = await getUser();
+    if (!currentUser) return { success: false, error: "Unauthorized" };
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization)
+      return { success: false, error: "Organization not found" };
+
+    await fetchMutation(api.notifications.markAsRead, {
+      id: id as Id<"notifications">,
+      userId: currentUser.authId,
+      organizationId: organization.id,
+    });
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to mark as read",
+    };
+  }
+}
+
+export async function markAllNotificationsAsRead() {
+  try {
+    const currentUser = await getUser();
+    if (!currentUser) return { success: false, error: "Unauthorized" };
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization)
+      return { success: false, error: "Organization not found" };
+
+    await fetchMutation(api.notifications.markAllAsRead, {
+      userId: currentUser.authId,
+      organizationId: organization.id,
+    });
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to mark all as read",
+    };
+  }
+}
+
+export async function clearAllNotificationsAction() {
+  try {
+    const currentUser = await getUser();
+    if (!currentUser) return { success: false, error: "Unauthorized" };
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization)
+      return { success: false, error: "Organization not found" };
+
+    await fetchMutation(api.notifications.clearAllNotifications, {
+      userId: currentUser.authId,
+      organizationId: organization.id,
+    });
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to clear notifications",
+    };
+  }
+}
+
+export async function deleteNotificationAction(id: string) {
+  try {
+    const currentUser = await getUser();
+    if (!currentUser) return { success: false, error: "Unauthorized" };
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization)
+      return { success: false, error: "Organization not found" };
+
+    await fetchMutation(api.notifications.deleteNotification, {
+      id: id as Id<"notifications">,
+      userId: currentUser.authId,
+      organizationId: organization.id,
+    });
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to delete notification",
+    };
+  }
 }
