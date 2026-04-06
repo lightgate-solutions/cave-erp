@@ -5,9 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Bell, Check, ExternalLink } from "lucide-react";
 import dayjs from "dayjs";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import {
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  clearAllNotificationsAction,
+  deleteNotificationAction,
+} from "@/actions/notification/notification";
 
 interface Notification {
   _id: Id<"notifications">;
@@ -17,9 +23,9 @@ interface Notification {
   notificationType: string;
   referenceId?: number;
   isRead: boolean;
-  createdBy: string;
-  userId: string;
-  organizationId: string;
+  createdBy: string | number;
+  userId: string | number;
+  organizationId?: string;
 }
 
 interface NotificationsClientProps {
@@ -36,22 +42,9 @@ export default function NotificationsClient({
     organizationId,
   });
 
-  const markAsReadMutation = useMutation(api.notifications.markAsRead);
-  const markAllAsReadMutation = useMutation(api.notifications.markAllAsRead);
-  const deleteNotificationMutation = useMutation(
-    api.notifications.deleteNotification,
-  );
-  const clearAllNotificationsMutation = useMutation(
-    api.notifications.clearAllNotifications,
-  );
-
   const handleMarkAsRead = async (id: Id<"notifications">) => {
     try {
-      await markAsReadMutation({
-        id,
-        userId: userId,
-        organizationId,
-      });
+      await markNotificationAsRead(id);
     } catch (err) {
       console.error("Error marking notification as read:", err);
     }
@@ -59,10 +52,7 @@ export default function NotificationsClient({
 
   const markAllAsRead = async () => {
     try {
-      await markAllAsReadMutation({
-        userId: userId,
-        organizationId,
-      });
+      await markAllNotificationsAsRead();
     } catch (error) {
       console.error("Error marking as read:", error);
     }
@@ -70,10 +60,7 @@ export default function NotificationsClient({
 
   const clearAllNotifications = async () => {
     try {
-      await clearAllNotificationsMutation({
-        userId: userId,
-        organizationId,
-      });
+      await clearAllNotificationsAction();
     } catch (err) {
       console.error("Error clearing all notifications:", err);
     }
@@ -81,11 +68,7 @@ export default function NotificationsClient({
 
   const clearNotification = async (id: Id<"notifications">) => {
     try {
-      await deleteNotificationMutation({
-        id,
-        userId: userId,
-        organizationId,
-      });
+      await deleteNotificationAction(id);
     } catch (err) {
       console.error("Error clearing notification:", err);
     }

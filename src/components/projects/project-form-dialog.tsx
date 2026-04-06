@@ -55,11 +55,8 @@ export function ProjectFormDialog({ trigger, initial, onCompleted }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [location, setLocation] = useState(initial?.location ?? "");
-  const [budgetPlanned, setBudgetPlanned] = useState<string>(
+  const [budget, setBudget] = useState<string>(
     initial?.budgetPlanned ? String(initial.budgetPlanned) : "0",
-  );
-  const [budgetActual, setBudgetActual] = useState<string>(
-    initial?.budgetActual ? String(initial.budgetActual) : "0",
   );
   const [supervisorId, setSupervisorId] = useState<string>(
     initial?.supervisorId ?? "",
@@ -99,10 +96,7 @@ export function ProjectFormDialog({ trigger, initial, onCompleted }: Props) {
     setDescription(initial?.description ?? "");
     setLocation(initial?.location ?? "");
     setSupervisorId(initial?.supervisorId ?? "");
-    setBudgetPlanned(
-      initial?.budgetPlanned ? String(initial.budgetPlanned) : "0",
-    );
-    setBudgetActual(initial?.budgetActual ? String(initial.budgetActual) : "0");
+    setBudget(initial?.budgetPlanned ? String(initial.budgetPlanned) : "0");
     setStatus(initial?.status ?? "pending");
     setTeamMembers([]); // Reset team members on dialog open
   }, [initial, open]);
@@ -155,6 +149,7 @@ export function ProjectFormDialog({ trigger, initial, onCompleted }: Props) {
   }
 
   async function onSubmit() {
+    if (saving) return;
     // Validate required supervisor (only for create, not edit)
     if (!initial?.id && !supervisorId) {
       toast.error("Supervisor is required");
@@ -168,8 +163,8 @@ export function ProjectFormDialog({ trigger, initial, onCompleted }: Props) {
         description: description || null,
         location: location || null,
         supervisorId: supervisorId || null,
-        budgetPlanned: Number(budgetPlanned) || 0,
-        budgetActual: Number(budgetActual) || 0,
+        budgetPlanned: Number(budget) || 0,
+        budgetActual: initial?.budgetActual || 0,
         status,
         // Only include teamMembers for create, not edit
         ...(!initial?.id &&
@@ -401,25 +396,14 @@ export function ProjectFormDialog({ trigger, initial, onCompleted }: Props) {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="budgetPlanned">Budget (planned)</Label>
-              <Input
-                id="budgetPlanned"
-                type="number"
-                value={budgetPlanned}
-                onChange={(e) => setBudgetPlanned(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="budgetActual">Budget (actual)</Label>
-              <Input
-                id="budgetActual"
-                type="number"
-                value={budgetActual}
-                onChange={(e) => setBudgetActual(e.target.value)}
-              />
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="budget">Budget</Label>
+            <Input
+              id="budget"
+              type="number"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+            />
           </div>
         </div>
         <DialogFooter>

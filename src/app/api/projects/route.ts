@@ -166,7 +166,13 @@ export async function GET(request: NextRequest) {
         supervisorName: employees.name,
       })
       .from(projects)
-      .leftJoin(employees, eq(employees.authId, projects.supervisorId))
+      .leftJoin(
+        employees,
+        and(
+          eq(employees.authId, projects.supervisorId),
+          eq(employees.organizationId, projects.organizationId),
+        ),
+      )
       .where(where)
       .orderBy(order)
       .limit(limit)

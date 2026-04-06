@@ -99,7 +99,18 @@ export function ProjectsCards() {
           <div className="text-3xl font-bold">
             ₦{(stats?.expenses ?? 0).toLocaleString()}
           </div>
-          <p className="text-xs text-amber-100 mt-1">Ongoing projects only</p>
+          <div className="flex flex-col gap-1 mt-1 z-10 relative">
+            <p className="text-xs text-amber-100">Ongoing projects only</p>
+            <p className="text-[10px] text-amber-200 mt-1 flex items-center">
+              <span>* Connected to</span>
+              <a
+                href="/finance/expenses"
+                className="underline hover:text-white transition-colors ml-1 font-medium"
+              >
+                Finance Expenses
+              </a>
+            </p>
+          </div>
         </CardContent>
         <div className="absolute -right-4 -bottom-4 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
       </Card>

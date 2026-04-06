@@ -1,5 +1,8 @@
 import { AppSidebar } from "@/components/layouts/app-sidebar";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { UserPlus } from "lucide-react";
+import Link from "next/link";
 import {
   SidebarInset,
   SidebarProvider,
@@ -65,6 +68,16 @@ export default async function RootLayout({
               <div className="flex w-full items-center justify-between gap-2 px-4">
                 <SidebarTrigger className="-ml-1" />
                 <div className=" flex gap-4 justify-center items-center">
+                  <Link href="/settings/organizations" passHref>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="hidden sm:flex items-center gap-2 border-primary/20 hover:bg-primary/5 hover:text-primary"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      <span>Invite User</span>
+                    </Button>
+                  </Link>
                   <ThemeToggle />
                   <NotificationBell
                     userId={authData.userId}

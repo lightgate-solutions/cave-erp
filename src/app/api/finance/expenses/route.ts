@@ -7,7 +7,7 @@ import {
   balanceTransactions,
   employees,
 } from "@/db/schema";
-import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -31,49 +31,89 @@ export async function GET(request: NextRequest) {
     const sortDirection =
       searchParams.get("sortDirection") === "asc" ? "asc" : "desc";
 
-    let where: ReturnType<typeof or> | ReturnType<typeof eq> | undefined;
-    if (q) {
-      where = or(
-        ilike(companyExpenses.title, `%${q}%`),
-        ilike(companyExpenses.description, `%${q}%`),
-        ilike(companyExpenses.category, `%${q}%`),
-      );
-    }
-    if (category) {
-      where = where
-        ? and(where, eq(companyExpenses.category, category))
-        : eq(companyExpenses.category, category);
-    }
+    const qFilter = q
+      ? sql`AND (title ILIKE ${`%${q}%`} OR description ILIKE ${`%${q}%`} OR category ILIKE ${`%${q}%`})`
+      : sql``;
+    const catFilter = category ? sql`AND category = ${category}` : sql``;
 
-    const totalResult = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(companyExpenses)
-      .where(and(where, eq(companyExpenses.organizationId, organization.id)));
-    const total = totalResult[0].count;
+    const countQuery = sql`
+      WITH all_expenses AS (
+        SELECT id, category, title, description, organization_id FROM company_expenses
+        UNION ALL
+        SELECT id, 'Project Expense' as category, title, notes as description, organization_id FROM expenses
+      )
+      SELECT count(*) as count 
+      FROM all_expenses 
+      WHERE organization_id = ${organization.id} 
+      ${qFilter} 
+      ${catFilter}
+    `;
+    const totalResult = await db.execute(countQuery);
+    const total = Number(totalResult.rows[0].count || 0);
 
-    // Map sortBy to actual column names
-    const columnMap: Record<string, any> = {
-      id: companyExpenses.id,
-      title: companyExpenses.title,
-      description: companyExpenses.description,
-      amount: companyExpenses.amount,
-      category: companyExpenses.category,
-      expenseDate: companyExpenses.expenseDate,
-      createdAt: companyExpenses.createdAt,
-      updatedAt: companyExpenses.updatedAt,
-    };
+    const validSortCols = [
+      "id",
+      "title",
+      "description",
+      "amount",
+      "category",
+      "expenseDate",
+      "createdAt",
+      "updatedAt",
+    ];
+    const sortCol = validSortCols.includes(sortBy) ? sortBy : "createdAt";
+    const dir = sortDirection === "asc" ? sql`ASC` : sql`DESC`;
 
-    const orderColumn = columnMap[sortBy] || companyExpenses.createdAt;
-    const order =
-      sortDirection === "asc" ? asc(orderColumn) : desc(orderColumn);
+    const dataQuery = sql`
+      WITH all_expenses AS (
+        SELECT 
+          id,
+          title,
+          description,
+          amount,
+          category,
+          expense_date as "expenseDate",
+          created_at as "createdAt",
+          updated_at as "updatedAt",
+          'company' as "type",
+          organization_id
+        FROM company_expenses
+        
+        UNION ALL
+        
+        SELECT 
+          id,
+          title,
+          notes as description,
+          amount::numeric as amount,
+          'Project Expense' as category,
+          COALESCE(spent_at, created_at) as "expenseDate",
+          created_at as "createdAt",
+          updated_at as "updatedAt",
+          'project' as "type",
+          organization_id
+        FROM expenses
+      )
+      SELECT 
+        id, 
+        title, 
+        description, 
+        amount, 
+        category, 
+        "expenseDate", 
+        "createdAt", 
+        "updatedAt", 
+        "type" 
+      FROM all_expenses
+      WHERE organization_id = ${organization.id}
+      ${qFilter}
+      ${catFilter}
+      ORDER BY ${sql.raw(`"${sortCol}"`)} ${dir}
+      LIMIT ${limit} OFFSET ${offset}
+    `;
 
-    const rows = await db
-      .select()
-      .from(companyExpenses)
-      .where(and(where, eq(companyExpenses.organizationId, organization.id)))
-      .orderBy(order)
-      .limit(limit)
-      .offset(offset);
+    const rowsResult = await db.execute(dataQuery);
+    const rows = rowsResult.rows;
 
     return NextResponse.json({
       expenses: rows,
@@ -83,9 +123,9 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    console.error("Error fetching company expenses:", error);
+    console.error("Error fetching all expenses:", error);
     return NextResponse.json(
-      { error: "Failed to fetch company expenses" },
+      { error: "Failed to fetch top-level expenses" },
       { status: 500 },
     );
   }

@@ -287,9 +287,11 @@ export default function ChartOfAccountsPage() {
                   <TableCell>{account.name}</TableCell>
                   <TableCell>{account.type}</TableCell>
                   <TableCell className="text-right font-mono">
-                    {Number(account.currentBalance).toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}
+                    {Number(account.currentBalance) === 0
+                      ? "-"
+                      : Number(account.currentBalance).toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
                   </TableCell>
                   <TableCell>
                     <span
