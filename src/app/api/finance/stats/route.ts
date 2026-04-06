@@ -57,62 +57,69 @@ export async function GET(request: NextRequest) {
     }
 
     // Parallelize all independent queries, including both expense sources from `newfixes`
-    const [companyExpensesResults, projExpensesResults, loansResults, chartData] =
-      await Promise.all([
-        // Company-level expenses (finance module)
-        db
-          .select({
-            total: sql<string>`coalesce(sum(${companyExpenses.amount}), 0)`,
-          })
-          .from(companyExpenses)
-          .where(
-            and(expenseWhere, eq(companyExpenses.organizationId, organization.id)),
+    const [
+      companyExpensesResults,
+      projExpensesResults,
+      loansResults,
+      chartData,
+    ] = await Promise.all([
+      // Company-level expenses (finance module)
+      db
+        .select({
+          total: sql<string>`coalesce(sum(${companyExpenses.amount}), 0)`,
+        })
+        .from(companyExpenses)
+        .where(
+          and(
+            expenseWhere,
+            eq(companyExpenses.organizationId, organization.id),
           ),
+        ),
 
-        // Project-level expenses (projects module)
-        db
-          .select({
-            total: sql<string>`coalesce(sum(${projectExpenses.amount}), 0)`,
-          })
-          .from(projectExpenses)
-          .where(
-            and(
-              projectExpenseWhere,
-              eq(projectExpenses.organizationId, organization.id),
-            ),
+      // Project-level expenses (projects module)
+      db
+        .select({
+          total: sql<string>`coalesce(sum(${projectExpenses.amount}), 0)`,
+        })
+        .from(projectExpenses)
+        .where(
+          and(
+            projectExpenseWhere,
+            eq(projectExpenses.organizationId, organization.id),
           ),
+        ),
 
-        // Active/disbursed loans count
-        db
-          .select({ count: sql<number>`count(*)` })
-          .from(loanApplications)
-          .where(
-            and(
-              inArray(loanApplications.status, ["active", "disbursed"]),
-              eq(loanApplications.organizationId, organization.id),
-            ),
+      // Active/disbursed loans count
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(loanApplications)
+        .where(
+          and(
+            inArray(loanApplications.status, ["active", "disbursed"]),
+            eq(loanApplications.organizationId, organization.id),
           ),
+        ),
 
-        // Chart data grouped by date and transaction type
-        db
-          .select({
-            date: sql<string>`DATE(${balanceTransactions.createdAt})`,
-            type: balanceTransactions.transactionType,
-            amount: sql<string>`sum(${balanceTransactions.amount})`,
-          })
-          .from(balanceTransactions)
-          .where(
-            and(
-              chartWhere,
-              eq(balanceTransactions.organizationId, organization.id),
-            ),
-          )
-          .groupBy(
-            sql`DATE(${balanceTransactions.createdAt})`,
-            balanceTransactions.transactionType,
-          )
-          .orderBy(sql`DATE(${balanceTransactions.createdAt})`),
-      ]);
+      // Chart data grouped by date and transaction type
+      db
+        .select({
+          date: sql<string>`DATE(${balanceTransactions.createdAt})`,
+          type: balanceTransactions.transactionType,
+          amount: sql<string>`sum(${balanceTransactions.amount})`,
+        })
+        .from(balanceTransactions)
+        .where(
+          and(
+            chartWhere,
+            eq(balanceTransactions.organizationId, organization.id),
+          ),
+        )
+        .groupBy(
+          sql`DATE(${balanceTransactions.createdAt})`,
+          balanceTransactions.transactionType,
+        )
+        .orderBy(sql`DATE(${balanceTransactions.createdAt})`),
+    ]);
 
     const [companyExpensesResult] = companyExpensesResults;
     const [projExpensesResult] = projExpensesResults;
@@ -122,7 +129,7 @@ export async function GET(request: NextRequest) {
       Number(companyExpensesResult?.total || 0) +
       Number(projExpensesResult?.total || 0);
 
-    const processedChartData: Record
+    const processedChartData: Record<
       string,
       { date: string; income: number; expense: number }
     > = {};
