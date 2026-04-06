@@ -15,6 +15,7 @@ import Link from "next/link";
 import { getFoldersNames } from "@/actions/documents/folders";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 
 export default async function DashboardLayout({
   children,
@@ -25,12 +26,12 @@ export default async function DashboardLayout({
 }) {
   const { id: foldersId } = await params;
   const user = await getUser();
-  if (!user) return null;
+  if (!user) notFound();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
-  if (!organization) return null;
+  if (!organization) notFound();
 
   const currentFolderId = Number(foldersId.at(-1));
 

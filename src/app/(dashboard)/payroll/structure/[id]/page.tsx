@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { getSalaryStructure } from "@/actions/payroll/salary-structure";
 import { formatCurrency } from "@/lib/utils";
 import { getEmployeesBySalaryStructure } from "@/actions/payroll/employee-salary";
@@ -58,25 +59,7 @@ export default async function StructureDetailPage(props: {
   const structure = await getSalaryStructure(structureId);
 
   if (!structure) {
-    return (
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Structure Not Found</h1>
-          <Link href="/payroll/structure">
-            <Button>Back to Structures</Button>
-          </Link>
-        </div>
-
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-muted-foreground">
-              The requested salary structure could not be found. It may have
-              been deleted or the ID is incorrect.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    notFound();
   }
 
   const assignedEmployees = await getEmployeesBySalaryStructure(structureId);

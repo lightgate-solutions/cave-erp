@@ -12,20 +12,81 @@ import { eq, inArray, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
+async function getAuthContext() {
+  const h = await headers();
+  const [organization, session] = await Promise.all([
+    auth.api.getFullOrganization({ headers: h }),
+    auth.api.getSession({ headers: h }),
+  ]);
+
+  if (!organization) {
+    return {
+      error: NextResponse.json(
+        { error: "Organization not found" },
+        { status: 401 },
+      ),
+    } as const;
+  }
+  if (!session?.user?.id) {
+    return {
+      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    } as const;
+  }
+
+  const [currentEmployee] = await db
+    .select({
+      id: employees.id,
+      authId: employees.authId,
+      isManager: employees.isManager,
+      role: employees.role,
+    })
+    .from(employees)
+    .where(
+      and(
+        eq(employees.authId, session.user.id),
+        eq(employees.organizationId, organization.id),
+      ),
+    )
+    .limit(1);
+
+  if (!currentEmployee?.authId) {
+    return {
+      error: NextResponse.json(
+        { error: "Current user not found in organization" },
+        { status: 403 },
+      ),
+    } as const;
+  }
+
+  return { organization, session, currentEmployee } as const;
+}
+
+async function getTargetEmployee(organizationId: string, employeeId: number) {
+  const [targetEmployee] = await db
+    .select({
+      id: employees.id,
+      authId: employees.authId,
+      managerId: employees.managerId,
+    })
+    .from(employees)
+    .where(
+      and(
+        eq(employees.id, employeeId),
+        eq(employees.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+
+  return targetEmployee;
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-    if (!organization) {
-      return NextResponse.json(
-        { error: "Organization not found" },
-        { status: 401 },
-      );
-    }
+    const ctx = await getAuthContext();
+    if ("error" in ctx) return ctx.error;
 
     const { id: idParam } = await params;
     const id = Number(idParam);
@@ -41,30 +102,43 @@ export async function GET(
       );
     }
 
-    // Look up employee to get authId (string userId)
-    const employee = await db
-      .select({ id: employees.id, authId: employees.authId })
-      .from(employees)
-      .where(
-        and(
-          eq(employees.id, employeeId),
-          eq(employees.organizationId, organization.id),
-        ),
-      )
-      .limit(1)
-      .then((res) => res[0]);
-
-    if (!employee?.authId) {
+    const targetEmployee = await getTargetEmployee(
+      ctx.organization.id,
+      employeeId,
+    );
+    if (!targetEmployee?.authId) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 400 },
       );
     }
 
-    const userId = employee.authId; // Now it's string (text)
+    const isAdmin = ctx.session.user.role === "admin";
+    const isOwnTasks = ctx.currentEmployee.id === employeeId;
+    const isManagerOfEmployee =
+      !!targetEmployee.managerId &&
+      targetEmployee.managerId === ctx.session.user.id;
+
+    if (!isAdmin && !isOwnTasks && !isManagerOfEmployee) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have access to this employee's tasks" },
+        { status: 403 },
+      );
+    }
+
+    if (role === "manager" && !isAdmin && !isManagerOfEmployee) {
+      return NextResponse.json(
+        {
+          error: "Forbidden: Only the employee's manager can use manager view",
+        },
+        { status: 403 },
+      );
+    }
+
+    const userId = targetEmployee.authId; // Now it's string (text)
     let task: CreateTask | undefined;
     if (role === "manager") {
-      task = await getTaskByManager(employee.authId, id);
+      task = await getTaskByManager(targetEmployee.authId, id);
     } else {
       task = await getTaskForEmployee(userId, id);
     }
@@ -85,7 +159,7 @@ export async function GET(
       .where(
         and(
           eq(taskAssignees.taskId, id),
-          eq(taskAssignees.organizationId, organization.id),
+          eq(taskAssignees.organizationId, ctx.organization.id),
         ),
       );
     if (ids.length) {
@@ -99,7 +173,7 @@ export async function GET(
         .where(
           and(
             inArray(employees.authId, ids),
-            eq(employees.organizationId, organization.id),
+            eq(employees.organizationId, ctx.organization.id),
           ),
         );
       const map = new Map(
@@ -144,15 +218,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-    if (!organization) {
-      return NextResponse.json(
-        { error: "Organization not found" },
-        { status: 401 },
-      );
-    }
+    const ctx = await getAuthContext();
+    if ("error" in ctx) return ctx.error;
 
     const { id: idParam } = await params;
     const id = Number(idParam);
@@ -167,27 +234,31 @@ export async function DELETE(
       );
     }
 
-    // Look up employee to get authId (string userId)
-    const employee = await db
-      .select({ id: employees.id, authId: employees.authId })
-      .from(employees)
-      .where(
-        and(
-          eq(employees.id, employeeId),
-          eq(employees.organizationId, organization.id),
-        ),
-      )
-      .limit(1)
-      .then((res) => res[0]);
-
-    if (!employee?.authId) {
+    const targetEmployee = await getTargetEmployee(
+      ctx.organization.id,
+      employeeId,
+    );
+    if (!targetEmployee?.authId) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 400 },
       );
     }
 
-    const userId = employee.authId; // Now it's string (text)
+    const isAdmin = ctx.session.user.role === "admin";
+    const isOwnTasks = ctx.currentEmployee.id === employeeId;
+    const isManagerOfEmployee =
+      !!targetEmployee.managerId &&
+      targetEmployee.managerId === ctx.session.user.id;
+
+    if (!isAdmin && !isOwnTasks && !isManagerOfEmployee) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have access to this employee's tasks" },
+        { status: 403 },
+      );
+    }
+
+    const userId = targetEmployee.authId; // Now it's string (text)
     const deleted = await deleteTask(userId, id);
 
     if (!deleted.success) {
@@ -212,15 +283,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-    if (!organization) {
-      return NextResponse.json(
-        { error: "Organization not found" },
-        { status: 401 },
-      );
-    }
+    const ctx = await getAuthContext();
+    if ("error" in ctx) return ctx.error;
 
     const { id: idParam } = await params;
     const id = Number(idParam);
@@ -245,27 +309,40 @@ export async function PUT(
       );
     }
 
-    // Look up employee to get authId (string userId)
-    const employee = await db
-      .select({ id: employees.id, authId: employees.authId })
-      .from(employees)
-      .where(
-        and(
-          eq(employees.id, employeeId),
-          eq(employees.organizationId, organization.id),
-        ),
-      )
-      .limit(1)
-      .then((res) => res[0]);
-
-    if (!employee?.authId) {
+    const targetEmployee = await getTargetEmployee(
+      ctx.organization.id,
+      employeeId,
+    );
+    if (!targetEmployee?.authId) {
       return NextResponse.json(
         { error: "Employee not found" },
         { status: 400 },
       );
     }
 
-    const userId = employee.authId; // Now it's string (text)
+    const isAdmin = ctx.session.user.role === "admin";
+    const isOwnTasks = ctx.currentEmployee.id === employeeId;
+    const isManagerOfEmployee =
+      !!targetEmployee.managerId &&
+      targetEmployee.managerId === ctx.session.user.id;
+
+    if (!isAdmin && !isOwnTasks && !isManagerOfEmployee) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have access to this employee's tasks" },
+        { status: 403 },
+      );
+    }
+
+    if (role === "manager" && !isAdmin && !isManagerOfEmployee) {
+      return NextResponse.json(
+        {
+          error: "Forbidden: Only the employee's manager can use manager view",
+        },
+        { status: 403 },
+      );
+    }
+
+    const userId = targetEmployee.authId; // Now it's string (text)
     const updated = await updateTask(userId, id, content);
     if (!updated.success) {
       return NextResponse.json(
@@ -277,7 +354,7 @@ export async function PUT(
     // Fetch and return the updated task object so clients can update instantly
     let task: CreateTask | undefined;
     if (role === "manager") {
-      task = await getTaskByManager(employee.authId, id);
+      task = await getTaskByManager(targetEmployee.authId, id);
     } else if (role === "employee") {
       task = await getTaskForEmployee(userId, id);
     } else {
@@ -301,7 +378,7 @@ export async function PUT(
         .where(
           and(
             eq(taskAssignees.taskId, id),
-            eq(taskAssignees.organizationId, organization.id),
+            eq(taskAssignees.organizationId, ctx.organization.id),
           ),
         );
       if (ids.length) {
@@ -315,7 +392,7 @@ export async function PUT(
           .where(
             and(
               inArray(employees.authId, ids),
-              eq(employees.organizationId, organization.id),
+              eq(employees.organizationId, ctx.organization.id),
             ),
           );
         const map = new Map(
@@ -357,26 +434,57 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-    if (!organization) {
-      return NextResponse.json(
-        { error: "Organization not found" },
-        { status: 401 },
-      );
-    }
+    const ctx = await getAuthContext();
+    if ("error" in ctx) return ctx.error;
 
     const { id: idParam } = await params;
     const id = Number(idParam);
     const body = await request.json();
     // Note: Request body still uses "employeeId" for backward compatibility
-    const { employeeId: userId, ...updates } = body;
+    const { employeeId: userId, ...updates } = body as {
+      employeeId?: string;
+      [key: string]: unknown;
+    };
 
     if (!userId) {
       return NextResponse.json(
         { error: "Employee ID is required" },
         { status: 400 },
+      );
+    }
+
+    const [targetEmployee] = await db
+      .select({
+        id: employees.id,
+        authId: employees.authId,
+        managerId: employees.managerId,
+      })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.authId, userId),
+          eq(employees.organizationId, ctx.organization.id),
+        ),
+      )
+      .limit(1);
+
+    if (!targetEmployee?.authId) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 400 },
+      );
+    }
+
+    const isAdmin = ctx.session.user.role === "admin";
+    const isOwnTasks = ctx.currentEmployee.authId === userId;
+    const isManagerOfEmployee =
+      !!targetEmployee.managerId &&
+      targetEmployee.managerId === ctx.session.user.id;
+
+    if (!isAdmin && !isOwnTasks && !isManagerOfEmployee) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have access to this employee's tasks" },
+        { status: 403 },
       );
     }
 

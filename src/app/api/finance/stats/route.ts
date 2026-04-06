@@ -13,7 +13,6 @@ import { requireFinance } from "@/actions/auth/dal";
 
 export async function GET(request: NextRequest) {
   try {
-    // Check Finance department or admin access
     try {
       await requireFinance();
     } catch {
@@ -41,83 +40,89 @@ export async function GET(request: NextRequest) {
     if (from && to) {
       const fromDate = new Date(from);
       const toDate = new Date(to);
-      // Adjust toDate to end of day
       toDate.setHours(23, 59, 59, 999);
 
       expenseWhere = and(
         gte(companyExpenses.expenseDate, fromDate),
         lte(companyExpenses.expenseDate, toDate),
       );
-
-      // Project expenses: filter by spentAt (when the expense was incurred)
       projectExpenseWhere = and(
         gte(projectExpenses.spentAt, fromDate),
         lte(projectExpenses.spentAt, toDate),
       );
-
       chartWhere = and(
         gte(balanceTransactions.createdAt, fromDate),
         lte(balanceTransactions.createdAt, toDate),
       );
     }
 
-    // Sum company-level expenses (finance module)
-    const [companyExpensesResult] = await db
-      .select({
-        total: sql<string>`coalesce(sum(${companyExpenses.amount}), 0)`,
-      })
-      .from(companyExpenses)
-      .where(
-        and(expenseWhere, eq(companyExpenses.organizationId, organization.id)),
-      );
+    // Parallelize all independent queries, including both expense sources from `newfixes`
+    const [companyExpensesResults, projExpensesResults, loansResults, chartData] =
+      await Promise.all([
+        // Company-level expenses (finance module)
+        db
+          .select({
+            total: sql<string>`coalesce(sum(${companyExpenses.amount}), 0)`,
+          })
+          .from(companyExpenses)
+          .where(
+            and(expenseWhere, eq(companyExpenses.organizationId, organization.id)),
+          ),
 
-    // Sum project-level expenses (projects module)
-    const [projExpensesResult] = await db
-      .select({
-        total: sql<string>`coalesce(sum(${projectExpenses.amount}), 0)`,
-      })
-      .from(projectExpenses)
-      .where(
-        and(
-          projectExpenseWhere,
-          eq(projectExpenses.organizationId, organization.id),
-        ),
-      );
+        // Project-level expenses (projects module)
+        db
+          .select({
+            total: sql<string>`coalesce(sum(${projectExpenses.amount}), 0)`,
+          })
+          .from(projectExpenses)
+          .where(
+            and(
+              projectExpenseWhere,
+              eq(projectExpenses.organizationId, organization.id),
+            ),
+          ),
+
+        // Active/disbursed loans count
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(loanApplications)
+          .where(
+            and(
+              inArray(loanApplications.status, ["active", "disbursed"]),
+              eq(loanApplications.organizationId, organization.id),
+            ),
+          ),
+
+        // Chart data grouped by date and transaction type
+        db
+          .select({
+            date: sql<string>`DATE(${balanceTransactions.createdAt})`,
+            type: balanceTransactions.transactionType,
+            amount: sql<string>`sum(${balanceTransactions.amount})`,
+          })
+          .from(balanceTransactions)
+          .where(
+            and(
+              chartWhere,
+              eq(balanceTransactions.organizationId, organization.id),
+            ),
+          )
+          .groupBy(
+            sql`DATE(${balanceTransactions.createdAt})`,
+            balanceTransactions.transactionType,
+          )
+          .orderBy(sql`DATE(${balanceTransactions.createdAt})`),
+      ]);
+
+    const [companyExpensesResult] = companyExpensesResults;
+    const [projExpensesResult] = projExpensesResults;
+    const [loansResult] = loansResults;
 
     const totalExpenses =
       Number(companyExpensesResult?.total || 0) +
       Number(projExpensesResult?.total || 0);
 
-    const [loansResult] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(loanApplications)
-      .where(
-        and(
-          inArray(loanApplications.status, ["active", "disbursed"]),
-          eq(loanApplications.organizationId, organization.id),
-        ),
-      );
-
-    const chartData = await db
-      .select({
-        date: sql<string>`DATE(${balanceTransactions.createdAt})`,
-        type: balanceTransactions.transactionType,
-        amount: sql<string>`sum(${balanceTransactions.amount})`,
-      })
-      .from(balanceTransactions)
-      .where(
-        and(
-          chartWhere,
-          eq(balanceTransactions.organizationId, organization.id),
-        ),
-      )
-      .groupBy(
-        sql`DATE(${balanceTransactions.createdAt})`,
-        balanceTransactions.transactionType,
-      )
-      .orderBy(sql`DATE(${balanceTransactions.createdAt})`);
-
-    const processedChartData: Record<
+    const processedChartData: Record
       string,
       { date: string; income: number; expense: number }
     > = {};
@@ -127,7 +132,6 @@ export async function GET(request: NextRequest) {
       if (!processedChartData[date]) {
         processedChartData[date] = { date, income: 0, expense: 0 };
       }
-
       const amount = Number(record.amount);
       if (record.type === "top-up") {
         processedChartData[date].income += amount;

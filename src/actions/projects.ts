@@ -202,18 +202,33 @@ export async function createProject(input: ProjectInput) {
 export async function updateProject(id: number, input: Partial<ProjectInput>) {
   await requireAdmin();
   try {
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return { project: null, error: { reason: "Organization not found" } };
+    }
+
+    const orgFilter = and(
+      eq(projects.id, id),
+      eq(projects.organizationId, organization.id),
+    );
+
     // Get the current project before updating
     const currentProject = await db
       .select()
       .from(projects)
-      .where(eq(projects.id, id))
+      .where(orgFilter)
       .limit(1)
       .then((r) => r[0]);
+
+    if (!currentProject) {
+      return { project: null, error: { reason: "Project not found" } };
+    }
 
     const [row] = await db
       .update(projects)
       .set({ ...input, updatedAt: new Date() })
-      .where(eq(projects.id, id))
+      .where(orgFilter)
       .returning();
 
     // Notify newly assigned supervisor
@@ -302,14 +317,29 @@ export async function updateProject(id: number, input: Partial<ProjectInput>) {
 export async function deleteProject(id: number) {
   await requireAdmin();
   try {
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return { success: false, error: { reason: "Organization not found" } };
+    }
+
+    const orgFilter = and(
+      eq(projects.id, id),
+      eq(projects.organizationId, organization.id),
+    );
+
     const project = await db
       .select()
       .from(projects)
-      .where(eq(projects.id, id))
+      .where(orgFilter)
       .limit(1)
       .then((r) => r[0]);
 
-    await db.delete(projects).where(eq(projects.id, id));
+    if (!project) {
+      return { success: false, error: { reason: "Project not found" } };
+    }
+
+    await db.delete(projects).where(orgFilter);
 
     if (project?.supervisorId) {
       await createNotification({

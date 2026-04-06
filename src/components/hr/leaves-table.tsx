@@ -161,8 +161,9 @@ export default function LeavesTable({
 
   if (isLoading) {
     return (
-      <div className="p-6 text-center text-muted-foreground">
-        Loading leave applications...
+      <div className="animate-pulse space-y-4">
+        <div className="h-10 rounded-md bg-muted" />
+        <div className="h-64 rounded-lg bg-muted" />
       </div>
     );
   }
@@ -193,7 +194,11 @@ export default function LeavesTable({
                 <div className="relative flex-1 max-w-sm">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by employee name or email..."
+                    placeholder={
+                      isHR
+                        ? "Search by employee name or email..."
+                        : "Search leaves..."
+                    }
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-10"

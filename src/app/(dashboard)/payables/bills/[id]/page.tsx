@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, DollarSign, FileText } from "lucide-react";
+import { notFound } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -39,7 +40,7 @@ export default async function BillDetailPage({
   ]);
 
   if (!bill) {
-    return null;
+    notFound();
   }
 
   const getStatusColor = (status: string) => {

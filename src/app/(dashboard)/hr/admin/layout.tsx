@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export default async function AdminLayout({
-  children: _children,
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
@@ -15,5 +15,5 @@ export default async function AdminLayout({
     return redirect("/unauthorized");
   }
 
-  return redirect("/");
+  return <>{children}</>;
 }

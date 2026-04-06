@@ -6,6 +6,11 @@ import { subscriptions } from "@/db/schema/subscriptions";
 import { and, eq, lt, inArray } from "drizzle-orm";
 
 export async function GET(request: Request) {
+  if (!process.env.CRON_SECRET) {
+    console.error("CRON_SECRET environment variable is not set");
+    return new Response("Internal Server Error", { status: 500 });
+  }
+
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response("Unauthorized", {

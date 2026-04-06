@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { fleetIncidents, vehicles, drivers } from "@/db/schema";
+import { fleetIncidents, vehicles, drivers, employees } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
@@ -17,6 +17,38 @@ export async function GET(
     });
     if (!organization) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Fleet access: admin role, or HR/Finance/Admin department
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.role !== "admin") {
+      const [emp] = await db
+        .select({ department: employees.department })
+        .from(employees)
+        .where(
+          and(
+            eq(employees.authId, session.user.id),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
+        .limit(1);
+      if (
+        !emp ||
+        (emp.department !== "hr" &&
+          emp.department !== "finance" &&
+          emp.department !== "admin")
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden: Fleet access requires HR, Finance, or Admin department",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const incidentId = Number(id);
@@ -60,6 +92,38 @@ export async function PUT(
     });
     if (!organization) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Fleet access: admin role, or HR/Finance/Admin department
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.role !== "admin") {
+      const [emp] = await db
+        .select({ department: employees.department })
+        .from(employees)
+        .where(
+          and(
+            eq(employees.authId, session.user.id),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
+        .limit(1);
+      if (
+        !emp ||
+        (emp.department !== "hr" &&
+          emp.department !== "finance" &&
+          emp.department !== "admin")
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden: Fleet access requires HR, Finance, or Admin department",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const incidentId = Number(id);
@@ -171,6 +235,38 @@ export async function DELETE(
     });
     if (!organization) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Fleet access: admin role, or HR/Finance/Admin department
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.role !== "admin") {
+      const [emp] = await db
+        .select({ department: employees.department })
+        .from(employees)
+        .where(
+          and(
+            eq(employees.authId, session.user.id),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
+        .limit(1);
+      if (
+        !emp ||
+        (emp.department !== "hr" &&
+          emp.department !== "finance" &&
+          emp.department !== "admin")
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden: Fleet access requires HR, Finance, or Admin department",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const incidentId = Number(id);

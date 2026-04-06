@@ -24,13 +24,13 @@ export default async function AttendancePage(props: {
   // Check if user is HR or Manager
   let isManagerOrHR = false;
   const isHROrAdmin =
-    authData.role === "admin" || authData.employee.department === "hr";
+    authData.role === "admin" || authData.employee?.department === "hr";
 
   if (isHROrAdmin) {
     isManagerOrHR = true;
   } else {
     // Check if isManager flag is true
-    if (authData.employee.isManager) {
+    if (authData.employee?.isManager) {
       isManagerOrHR = true;
     }
   }
@@ -54,8 +54,8 @@ export default async function AttendancePage(props: {
     if (
       isManagerOrHR &&
       authData.role !== "admin" &&
-      authData.employee.department !== "hr" &&
-      authData.employee.isManager
+      authData.employee?.department !== "hr" &&
+      authData.employee?.isManager
     ) {
       filters.managerId = authData.userId;
     }
@@ -68,7 +68,14 @@ export default async function AttendancePage(props: {
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Attendance</h2>
       </div>
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense
+        fallback={
+          <div className="animate-pulse space-y-6">
+            <div className="h-40 rounded-lg bg-muted" />
+            <div className="h-64 rounded-lg bg-muted" />
+          </div>
+        }
+      >
         <AttendanceClient
           myAttendance={myAttendance}
           allAttendance={allAttendance}

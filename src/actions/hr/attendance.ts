@@ -20,6 +20,7 @@ import {
 } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireHROrAdmin, requireHR } from "@/actions/auth/dal";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 import { createNotification } from "../notification/notification";
 import { getEmployee } from "./employees";
 import { auth } from "@/lib/auth";
@@ -181,12 +182,13 @@ export async function signIn(
 ) {
   const authData = await requireAuth();
 
-  // Verify user can only sign in for themselves unless admin/hr (though usually attendance is personal)
-  if (
-    authData.userId !== userId &&
-    authData.role !== "admin" &&
-    authData.role !== "hr"
-  ) {
+  // Verify user can only sign in for themselves (HR/admin can proxy sign-in)
+  const isHROrAdmin =
+    authData.role === "admin" ||
+    authData.employee.department === DEPARTMENTS.HR ||
+    authData.employee.department === DEPARTMENTS.ADMIN;
+
+  if (authData.userId !== userId && !isHROrAdmin) {
     return {
       success: null,
       error: { reason: "You can only sign in for yourself" },
@@ -276,11 +278,12 @@ export async function signIn(
 export async function signOut(userId: string) {
   const authData = await requireAuth();
 
-  if (
-    authData.userId !== userId &&
-    authData.role !== "admin" &&
-    authData.role !== "hr"
-  ) {
+  const isHROrAdminSignOut =
+    authData.role === "admin" ||
+    authData.employee.department === DEPARTMENTS.HR ||
+    authData.employee.department === DEPARTMENTS.ADMIN;
+
+  if (authData.userId !== userId && !isHROrAdminSignOut) {
     return {
       success: null,
       error: { reason: "You can only sign out for yourself" },

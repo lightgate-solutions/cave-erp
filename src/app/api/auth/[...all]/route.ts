@@ -35,7 +35,7 @@ const laxRateLimitSettings = {
 } satisfies SlidingWindowRateLimitOptions<[]>;
 const emailSettings = {
   mode: "LIVE",
-  block: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
+  deny: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
 } satisfies EmailOptions;
 
 const authHandlers = toNextJsHandler(auth);

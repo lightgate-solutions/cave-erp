@@ -9,26 +9,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import FleetDashboardWidget from "@/components/fleet/fleet-dashboard-widget";
 
-export default function FinanceDashboard() {
+interface FinanceDashboardProps {
+  isManager?: boolean;
+}
+
+export default function FinanceDashboard({
+  isManager = false,
+}: FinanceDashboardProps) {
   return (
     <div className="flex flex-1 flex-col gap-8 p-6 md:p-8 lg:p-10">
       {/* Header */}
       <div className="flex flex-col gap-3">
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-4xl font-bold tracking-tight">
             Finance Dashboard
           </h1>
-          <p className="text-sm text-muted-foreground mt-1.5">
-            Financial management and reporting overview.
-          </p>
+          {isManager && (
+            <Badge variant="secondary" className="bg-primary/10 text-primary">
+              Manager View
+            </Badge>
+          )}
         </div>
+        <p className="text-sm text-muted-foreground mt-1.5">
+          Financial management and reporting overview.
+        </p>
       </div>
 
       {/* Stats Grid */}
-      <DashboardStats userRole="finance" isManager={false} />
+      <DashboardStats userRole="finance" isManager={isManager} />
 
       {/* Finance-specific Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

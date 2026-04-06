@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { eq, and, isNull, desc, sql, DrizzleQueryError } from "drizzle-orm";
-import { getUser } from "../auth/dal";
+import { requireHROrAdmin } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import { employees } from "@/db/schema/hr";
 import { employeeSalary, salaryStructure } from "@/db/schema/payroll";
@@ -10,9 +10,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 export async function getEmployeesBySalaryStructure(structureId: number) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -56,9 +54,7 @@ export async function getEmployeesBySalaryStructure(structureId: number) {
 }
 
 export async function getEmployeeSalaryHistory(userId: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -95,9 +91,7 @@ export async function getEmployeeSalaryHistory(userId: string) {
 }
 
 export async function getEmployeesNotInStructure(structureId: number) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -192,9 +186,7 @@ export async function assignEmployeeToStructure(
   data: AssignEmployeeProps,
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -290,7 +282,7 @@ export async function assignEmployeeToStructure(
           .set({
             employeeCount: sql`${salaryStructure.employeeCount} - 1`,
             updatedAt: new Date(),
-            updatedByUserId: user.authId,
+            updatedByUserId: authData.userId,
           })
           .where(eq(salaryStructure.id, currentStructure[0].structureId));
       }
@@ -310,7 +302,7 @@ export async function assignEmployeeToStructure(
         .set({
           employeeCount: sql`${salaryStructure.employeeCount} + 1`,
           updatedAt: new Date(),
-          updatedByUserId: user.authId,
+          updatedByUserId: authData.userId,
         })
         .where(eq(salaryStructure.id, data.salaryStructureId));
 
@@ -347,9 +339,7 @@ export async function removeEmployeeFromStructure(
   effectiveDate: Date,
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   try {
     return await db.transaction(async (tx) => {
@@ -366,7 +356,7 @@ export async function removeEmployeeFromStructure(
         .set({
           employeeCount: sql`${salaryStructure.employeeCount} - 1`,
           updatedAt: new Date(),
-          updatedByUserId: user.authId,
+          updatedByUserId: authData.userId,
         })
         .where(eq(salaryStructure.id, salaryStructureId));
 

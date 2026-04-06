@@ -16,6 +16,7 @@ import {
 import { requireInvoicingViewAccess } from "@/actions/auth/dal-invoicing";
 import { InvoiceFilters } from "@/components/invoicing/invoice-filters";
 import { ExportButton } from "@/components/invoicing/export-button";
+import { notFound } from "next/navigation";
 
 interface InvoicesPageProps {
   searchParams: Promise<{
@@ -30,7 +31,7 @@ export default async function InvoicesPage({
   searchParams,
 }: InvoicesPageProps) {
   const access = await requireInvoicingViewAccess();
-  if (!access) return null;
+  if (!access) notFound();
 
   const params = await searchParams;
   const invoices = await getAllInvoices({

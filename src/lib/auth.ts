@@ -25,7 +25,11 @@ import { user as userSchema } from "@/db/schema/auth";
 
 export const auth = betterAuth({
   appName: "Cave ERP",
-  trustedOrigins: ["http://localhost:3000", "https://*.cave.ng"],
+  trustedOrigins: [
+    "http://localhost:3000",
+    "https://*.cave-erp.com",
+    "https://cave-erp.com",
+  ],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {

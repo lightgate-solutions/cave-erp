@@ -4,19 +4,31 @@ import { getCandidateActivityLog } from "@/actions/recruitment/activity-log";
 import { getCandidateInterviews } from "@/actions/recruitment/interviews";
 import { getCandidateOffers } from "@/actions/recruitment/offers";
 import { CandidateDetails } from "@/components/recruitment/candidate-details";
+import { notFound, redirect } from "next/navigation";
 
 export default async function CandidateDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  await requireHROrAdmin();
+  try {
+    await requireHROrAdmin();
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes("Forbidden") || error.message.includes("HR")) {
+        redirect("/unauthorized");
+      }
+      throw error;
+    }
+    redirect("/unauthorized");
+  }
 
-  const candidateId = Number.parseInt(params.id, 10);
+  const { id } = await params;
+  const candidateId = Number.parseInt(id, 10);
   const candidate = await getCandidate(candidateId);
 
   if (!candidate) {
-    return null;
+    notFound();
   }
 
   const [activityLog, interviews, offers] = await Promise.all([

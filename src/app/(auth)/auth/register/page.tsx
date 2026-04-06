@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SignupForm } from "@/components/auth/signup-form";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -20,6 +21,23 @@ export default function SignupPage() {
           </p>
         </div>
         <SignupForm />
+        <p className="text-center text-xs text-muted-foreground">
+          By creating an account, you agree to our{" "}
+          <Link
+            href="/terms"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link
+            href="/privacy"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

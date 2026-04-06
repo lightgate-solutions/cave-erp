@@ -1,5 +1,6 @@
 import { use } from "react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   Building2,
@@ -48,7 +49,7 @@ export default async function VendorDetailPage({
   const vendor = await getVendor(Number(id));
 
   if (!vendor) {
-    return null;
+    notFound();
   }
 
   const [contacts, bankAccounts, bills, stats] = await Promise.all([

@@ -1,6 +1,7 @@
 import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { VendorForm } from "@/components/payables/vendor-form";
 import { getVendor } from "@/actions/payables/vendors";
@@ -18,7 +19,7 @@ export default async function EditVendorPage({
   const vendor = await getVendor(Number(id));
 
   if (!vendor) {
-    return null;
+    notFound();
   }
 
   const [contacts, bankAccounts] = await Promise.all([

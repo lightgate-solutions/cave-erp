@@ -1,47 +1,19 @@
 import { BackButton } from "@/components/ui/back-button";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { requireAuth } from "@/actions/auth/dal";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 import { redirect } from "next/navigation";
-import { db } from "@/db";
-import { employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import LoanTypesTable from "@/components/loans/loan-types-table";
 
 export default async function LoanTypesPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const authData = await requireAuth();
 
-  if (!session) {
-    return redirect("/auth/login");
-  }
+  const isHROrAdmin =
+    authData.role === "admin" ||
+    authData.employee?.department === DEPARTMENTS.HR ||
+    authData.employee?.department === DEPARTMENTS.ADMIN;
 
-  // Get employee info
-  const [employee] = await db
-    .select({
-      id: employees.id,
-      userId: employees.authId,
-      role: employees.role,
-      department: employees.department,
-    })
-    .from(employees)
-    .where(eq(employees.authId, session.user.id))
-    .limit(1);
-
-  if (!employee) {
-    return redirect("/auth/login");
-  }
-
-  const isAdmin = session.user.role === "admin";
-  const isAdminDept = employee?.department?.toLowerCase() === "admin";
-  const isHR =
-    employee?.department?.toLowerCase() === "hr" ||
-    employee?.department?.toLowerCase() === "human resources" ||
-    employee?.role?.toLowerCase() === "hr";
-
-  // Only admin and HR can access this page
-  if (!isAdmin && !isAdminDept && !isHR) {
-    return redirect("/unauthorized");
+  if (!isHROrAdmin) {
+    redirect("/unauthorized");
   }
 
   return (
@@ -56,7 +28,7 @@ export default async function LoanTypesPage() {
         </div>
       </div>
 
-      <LoanTypesTable userId={employee.userId} />
+      <LoanTypesTable userId={authData.userId} />
     </div>
   );
 }

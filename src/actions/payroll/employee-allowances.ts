@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { eq, DrizzleQueryError, and, desc, sql, isNull } from "drizzle-orm";
-import { getUser } from "../auth/dal";
+import { requireHROrAdmin } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import { employees } from "@/db/schema/hr";
 import {
@@ -14,9 +14,7 @@ import { headers } from "next/headers";
 
 // Get all allowances for a specific employee
 export async function getEmployeeAllowances(userId: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -60,9 +58,7 @@ export async function getEmployeeAllowances(userId: string) {
 
 // Get active allowances for a specific employee
 export async function getActiveEmployeeAllowances(userId: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -106,9 +102,7 @@ export async function getActiveEmployeeAllowances(userId: string) {
 
 // Get allowances that can be assigned to an employee
 export async function getAvailableAllowancesForEmployee(userId: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -156,9 +150,7 @@ export async function addAllowanceToEmployee(
   effectiveFrom: Date = new Date(),
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -262,9 +254,7 @@ export async function removeAllowanceFromEmployee(
   employeeAllowanceId: number,
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
