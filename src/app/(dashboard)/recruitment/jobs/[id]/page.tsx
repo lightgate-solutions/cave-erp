@@ -6,11 +6,12 @@ import { JobPostingDetails } from "@/components/recruitment/job-posting-details"
 export default async function JobPostingDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   await requireHROrAdmin();
 
-  const jobId = Number.parseInt(params.id);
+  const { id } = await params;
+  const jobId = Number.parseInt(id, 10);
   const job = await getJobPosting(jobId);
 
   if (!job) {

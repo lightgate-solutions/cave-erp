@@ -2,7 +2,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { getAllPlans, isHigherTier, type PlanId } from "@/lib/plans";
+import {
+  BETA_BILLING_DISABLED,
+  getAllPlans,
+  isHigherTier,
+  type PlanId,
+} from "@/lib/plans";
 import { createCheckoutSession } from "@/actions/billing";
 import {
   Card,
@@ -78,6 +83,13 @@ export function PlanCards({
 
   return (
     <>
+      {BETA_BILLING_DISABLED && (
+        <p className="text-sm text-muted-foreground mb-6 rounded-md border bg-muted/40 p-4">
+          Beta program: every workspace has full product access at no charge.
+          Tiers below are for reference only; paid upgrades are disabled until
+          launch.
+        </p>
+      )}
       <div className="grid md:grid-cols-3 gap-8">
         {plans.map((plan) => (
           <Card
@@ -100,13 +112,14 @@ export function PlanCards({
             <CardContent className="space-y-4 flex flex-col h-full">
               <div>
                 <p className="text-2xl font-bold">
-                  {plan.pricing.displayPrice}
-                  {plan.pricing.perMemberMonthly > 0 && (
-                    <span className="text-sm font-normal">
-                      {" "}
-                      / member / month
-                    </span>
-                  )}
+                  {BETA_BILLING_DISABLED ? "Free" : plan.pricing.displayPrice}
+                  {!BETA_BILLING_DISABLED &&
+                    plan.pricing.perMemberMonthly > 0 && (
+                      <span className="text-sm font-normal">
+                        {" "}
+                        / member / month
+                      </span>
+                    )}
                 </p>
               </div>
               <ul className="space-y-2 text-sm text-muted-foreground list-disc pl-5 flex-grow">
@@ -114,7 +127,9 @@ export function PlanCards({
                   <li
                     key={idx}
                     className={
-                      !feature.included ? "line-through opacity-50" : ""
+                      !BETA_BILLING_DISABLED && !feature.included
+                        ? "line-through opacity-50"
+                        : ""
                     }
                   >
                     {feature.name}
@@ -124,6 +139,7 @@ export function PlanCards({
               <Button
                 onClick={() => handlePlanChange(plan.id, plan.displayName)}
                 disabled={
+                  BETA_BILLING_DISABLED ||
                   plan.id === currentPlanId ||
                   plan.ui.ctaDisabled ||
                   plan.id === "free" ||
@@ -136,6 +152,12 @@ export function PlanCards({
                     <Loader2 className="animate-spin" />
                     Processing...
                   </>
+                ) : BETA_BILLING_DISABLED ? (
+                  plan.id === currentPlanId ? (
+                    "Current plan"
+                  ) : (
+                    "Included in beta"
+                  )
                 ) : plan.id === currentPlanId ? (
                   "Current Plan"
                 ) : isHigherTier(plan.id, currentPlanId as PlanId) ? (

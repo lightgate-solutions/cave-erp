@@ -45,9 +45,6 @@ export function TaskAutomate() {
         <Button variant="secondary" size="sm" className="sm:gap-2">
           <Sparkle className="size-4" />
           <span className="hidden sm:inline">Automate</span>
-          <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
-            Pro
-          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-4" align="start">
@@ -55,7 +52,7 @@ export function TaskAutomate() {
           <div>
             <h3 className="text-sm font-semibold mb-1">Automation Rules</h3>
             <p className="text-xs text-muted-foreground">
-              Upgrade to Pro to unlock automation features
+              Configure automation rules for this workspace (beta).
             </p>
           </div>
 
@@ -65,7 +62,7 @@ export function TaskAutomate() {
               return (
                 <div
                   key={option.id}
-                  className="flex gap-3 p-2.5 rounded-md bg-muted/50 opacity-60"
+                  className="flex gap-3 p-2.5 rounded-md bg-muted/50"
                 >
                   <Icon className="size-4 shrink-0 mt-0.5 text-purple-600 dark:text-purple-400" />
                   <div className="flex-1">
@@ -79,9 +76,9 @@ export function TaskAutomate() {
             })}
           </div>
 
-          <Button className="w-full" size="sm">
+          <Button className="w-full" size="sm" variant="secondary" disabled>
             <Sparkle className="size-4" />
-            Upgrade to Pro
+            Automation coming soon
           </Button>
         </div>
       </PopoverContent>

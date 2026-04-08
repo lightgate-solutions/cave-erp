@@ -20,6 +20,7 @@ import { sendInAppEmailNotification } from "@/lib/emails";
 import { filterUsersByEmailPreference } from "@/lib/notification-helpers";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
+import { BETA_BILLING_DISABLED } from "@/lib/plans";
 
 /**
  * Send external email notifications to recipients who have email notifications enabled
@@ -2236,6 +2237,10 @@ export async function checkMailAccess() {
 
   if (!organization) {
     return { allowed: false, message: "Organization not found" };
+  }
+
+  if (BETA_BILLING_DISABLED) {
+    return { allowed: true };
   }
 
   const ownerId = organization.ownerId;

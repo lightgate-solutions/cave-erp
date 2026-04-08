@@ -8,11 +8,12 @@ import { CandidateDetails } from "@/components/recruitment/candidate-details";
 export default async function CandidateDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   await requireHROrAdmin();
 
-  const candidateId = Number.parseInt(params.id, 10);
+  const { id } = await params;
+  const candidateId = Number.parseInt(id, 10);
   const candidate = await getCandidate(candidateId);
 
   if (!candidate) {

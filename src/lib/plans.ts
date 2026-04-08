@@ -1,5 +1,11 @@
 export type PlanId = "free" | "pro" | "proAI" | "premium" | "premiumAI";
 
+/**
+ * When true, all plan limits and feature flags are treated as fully unlocked,
+ * and paid flows should be disabled in the UI. Set to false when billing goes live.
+ */
+export const BETA_BILLING_DISABLED = true;
+
 export interface PlanFeature {
   name: string;
   included: boolean;
@@ -40,6 +46,13 @@ export interface PlanConfig {
     ctaDisabled: boolean;
   };
 }
+
+const BETA_UNLIMITED_LIMITS: PlanConfig["limits"] = {
+  maxOrganizations: Infinity,
+  maxMembersPerOrg: null,
+  maxProject: null,
+  maxStorage: null,
+};
 
 export const PLANS: Record<PlanId, PlanConfig> = {
   free: {
@@ -321,10 +334,16 @@ export function getAllPlans(): PlanConfig[] {
 }
 
 export function getPlanPrice(planId: PlanId): number {
+  if (BETA_BILLING_DISABLED) {
+    return 0;
+  }
   return PLANS[planId].pricing.perMemberMonthly;
 }
 
 export function getPlanPriceKobo(planId: PlanId): number {
+  if (BETA_BILLING_DISABLED) {
+    return 0;
+  }
   return PLANS[planId].pricing.perMemberMonthlyKobo;
 }
 
@@ -333,6 +352,9 @@ export function getPlanDisplayName(planId: PlanId): string {
 }
 
 export function getPlanLimits(planId: PlanId) {
+  if (BETA_BILLING_DISABLED) {
+    return BETA_UNLIMITED_LIMITS;
+  }
   return PLANS[planId].limits;
 }
 
@@ -340,6 +362,9 @@ export function hasFeature(
   planId: PlanId,
   feature: keyof PlanConfig["featureFlags"],
 ): boolean {
+  if (BETA_BILLING_DISABLED) {
+    return true;
+  }
   return PLANS[planId].featureFlags[feature];
 }
 
@@ -366,5 +391,8 @@ export function isHigherTier(planA: PlanId, planB: PlanId): boolean {
 }
 
 export function formatPriceForDb(planId: PlanId): string {
+  if (BETA_BILLING_DISABLED) {
+    return "0.00";
+  }
   return PLANS[planId].pricing.perMemberMonthly.toFixed(2);
 }
