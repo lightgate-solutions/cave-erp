@@ -46,7 +46,13 @@ import { Edit, Eye } from "lucide-react";
 import { getAllEmployees } from "@/actions/hr/employees";
 import EmployeesTableSkeleton from "./employees-table-skeleton";
 
-export default function EmployeesTable() {
+interface EmployeesTableProps {
+  isHROrAdmin?: boolean;
+}
+
+export default function EmployeesTable({
+  isHROrAdmin = false,
+}: EmployeesTableProps) {
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ["get-all-employees"],
     queryFn: () => getAllEmployees(),
@@ -128,17 +134,19 @@ export default function EmployeesTable() {
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedEmployee(employee);
-                        setMode("edit");
-                      }}
-                      title="Edit Employee"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    {isHROrAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedEmployee(employee);
+                          setMode("edit");
+                        }}
+                        title="Edit Employee"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

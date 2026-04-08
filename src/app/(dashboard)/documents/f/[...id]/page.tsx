@@ -2,6 +2,7 @@ import { getUser } from "@/actions/auth/dal";
 import { getActiveFolderDocuments } from "@/actions/documents/documents";
 import { getSubFolders } from "@/actions/documents/folders";
 import FolderContentWrapper from "@/components/documents/folder-content-wrapper";
+import { notFound } from "next/navigation";
 
 export default async function Page({
   params,
@@ -19,7 +20,7 @@ export default async function Page({
   const page = Number(pageParam) > 0 ? Number(pageParam) : 1;
   const pageSize = Number(pageSizeParam) > 0 ? Number(pageSizeParam) : 20;
   const user = await getUser();
-  if (!user) return null;
+  if (!user) notFound();
 
   const currentFolderId = foldersId.at(-1);
 
@@ -31,7 +32,7 @@ export default async function Page({
     pageSize,
   );
 
-  if (documents.error) return null;
+  if (documents.error) notFound();
 
   return (
     <div className="space-y-6">

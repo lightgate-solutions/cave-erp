@@ -2,6 +2,7 @@ import { db } from "@/db";
 import {
   fleetMaintenance,
   vehicles,
+  employees,
   type maintenanceTypeEnum,
 } from "@/db/schema";
 import { and, asc, desc, eq, sql, gte, lte, type AnyColumn } from "drizzle-orm";
@@ -17,6 +18,38 @@ export async function GET(request: NextRequest) {
     });
     if (!organization) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Fleet access: admin role, or HR/Finance/Admin department
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.role !== "admin") {
+      const [emp] = await db
+        .select({ department: employees.department })
+        .from(employees)
+        .where(
+          and(
+            eq(employees.authId, session.user.id),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
+        .limit(1);
+      if (
+        !emp ||
+        (emp.department !== "hr" &&
+          emp.department !== "finance" &&
+          emp.department !== "admin")
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden: Fleet access requires HR, Finance, or Admin department",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -126,7 +159,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Fleet access: admin role, or HR/Finance/Admin department
     const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.role !== "admin") {
+      const [emp] = await db
+        .select({ department: employees.department })
+        .from(employees)
+        .where(
+          and(
+            eq(employees.authId, session.user.id),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
+        .limit(1);
+      if (
+        !emp ||
+        (emp.department !== "hr" &&
+          emp.department !== "finance" &&
+          emp.department !== "admin")
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden: Fleet access requires HR, Finance, or Admin department",
+          },
+          { status: 403 },
+        );
+      }
+    }
     const userId = session?.user?.id;
 
     const body = await request.json();

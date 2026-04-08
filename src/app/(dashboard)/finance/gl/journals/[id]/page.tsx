@@ -1,7 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -12,13 +8,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, Pencil, CheckCircle } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowLeft, Pencil, CheckCircle } from "lucide-react";
 import { getJournalById, postJournal } from "@/actions/finance/gl/journals";
 import Link from "next/link";
 import { format } from "date-fns";
-import { authClient } from "@/lib/auth-client";
 import { Badge } from "@/components/ui/badge";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 
 interface JournalLine {
   id: number;
@@ -46,56 +43,36 @@ interface Journal {
   lines: JournalLine[];
 }
 
-export default function ViewJournalPage() {
-  const params = useParams();
-  const router = useRouter();
-  const { data: session } = authClient.useSession();
-  const organizationId = session?.session.activeOrganizationId;
-  const userId = session?.user?.id;
-  const [journal, setJournal] = useState<Journal | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isPosting, setIsPosting] = useState(false);
-
-  useEffect(() => {
-    async function load() {
-      if (!organizationId || !params.id) return;
-      setIsLoading(true);
-      const res = await getJournalById(Number(params.id), organizationId);
-      if (res.success && res.data) {
-        // @ts-ignore
-        setJournal(res.data);
-      } else {
-        toast.error(res.error || "Failed to load journal");
-        router.push("/finance/gl/journals");
-      }
-      setIsLoading(false);
-    }
-    load();
-  }, [organizationId, params.id, router]);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+export default async function ViewJournalPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) {
+    redirect("/auth/login");
   }
 
-  async function handlePost() {
-    if (!journal || !userId || !organizationId) return;
-    setIsPosting(true);
-    const result = await postJournal(journal.id, userId);
-    if (result.success) {
-      toast.success("Journal posted successfully");
-      const res = await getJournalById(journal.id, organizationId);
-      if (res.success && res.data) setJournal(res.data);
-    } else {
-      toast.error(result.error);
+  const { id } = await params;
+  const journalId = Number(id);
+  if (Number.isNaN(journalId)) notFound();
+
+  async function postAction() {
+    "use server";
+    const s = await auth.api.getSession({ headers: await headers() });
+    if (!s?.user?.id) redirect("/auth/login");
+
+    const result = await postJournal(journalId, s.user.id);
+    if (!result.success) {
+      redirect(`/finance/gl/journals/${journalId}?error=post_failed`);
     }
-    setIsPosting(false);
+
+    redirect(`/finance/gl/journals/${journalId}`);
   }
 
-  if (!journal) return null;
+  const res = await getJournalById(journalId);
+  if (!res.success || !res.data) notFound();
+  const journal = res.data as unknown as Journal;
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
@@ -116,10 +93,11 @@ export default function ViewJournalPage() {
         <div className="flex gap-2">
           {journal.status === "Draft" && (
             <>
-              <Button onClick={handlePost} disabled={isPosting}>
-                {isPosting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <CheckCircle className="mr-2 h-4 w-4" /> Post Journal
-              </Button>
+              <form action={postAction}>
+                <Button type="submit">
+                  <CheckCircle className="mr-2 h-4 w-4" /> Post Journal
+                </Button>
+              </form>
               <Button asChild variant="outline">
                 <Link href={`/finance/gl/journals/${journal.id}/edit`}>
                   <Pencil className="mr-2 h-4 w-4" /> Edit

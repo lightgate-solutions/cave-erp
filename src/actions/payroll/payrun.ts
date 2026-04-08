@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { eq, isNull, and, desc, sql, or } from "drizzle-orm";
-import { getUser } from "../auth/dal";
+import { requireHROrAdmin } from "../auth/dal";
 import { employees } from "@/db/schema/hr";
 import {
   payrun,
@@ -22,31 +22,35 @@ import { revalidatePath } from "next/cache";
 import { not } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { z } from "zod";
 
-type PayrunType = "salary" | "allowance";
+const GeneratePayrunSchema = z.object({
+  type: z.enum(["salary", "allowance"] as const),
+  allowanceId: z.number().int().positive().optional(),
+  month: z.number().int().min(1).max(12),
+  year: z.number().int().min(2000).max(2100),
+  day: z.number().int().min(1).max(31).optional().default(1),
+});
 
-interface GeneratePayrunProps {
-  type: PayrunType;
-  allowanceId?: number;
-  month: number;
-  year: number;
-  day?: number;
-}
-
-export async function generatePayrun(
-  data: GeneratePayrunProps,
-  pathname: string,
-) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+export async function generatePayrun(data: unknown, pathname: string) {
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
   if (!organization) throw new Error("Organization not found");
 
-  const { type, allowanceId, month, year, day = 1 } = data;
+  const validation = GeneratePayrunSchema.safeParse(data);
+  if (!validation.success) {
+    return {
+      error: {
+        reason: `Invalid payrun parameters: ${validation.error.message}`,
+      },
+      success: null,
+    };
+  }
+
+  const { type, allowanceId, month, year, day } = validation.data;
 
   try {
     return await db.transaction(async (tx) => {
@@ -177,7 +181,7 @@ export async function generatePayrun(
           totalDeductions: totalDeductionsAmount.toFixed(2),
           totalNetPay: totalNetPay.toFixed(2),
           status: "draft",
-          generatedByUserId: user.authId,
+          generatedByUserId: authData.userId,
         })
         .returning({ id: payrun.id });
 
@@ -711,9 +715,7 @@ function getMonthName(month: number): string {
 }
 
 export async function getPayruns() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -761,9 +763,7 @@ export async function getPayruns() {
 }
 
 export async function getPayrunById(id: number) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -866,15 +866,18 @@ export async function getPayrunById(id: number) {
 }
 
 export async function approvePayrun(id: number, pathname: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     const payrunData = await db
       .select({ status: payrun.status })
       .from(payrun)
-      .where(eq(payrun.id, id))
+      .where(and(eq(payrun.id, id), eq(payrun.organizationId, organization.id)))
       .limit(1);
 
     if (payrunData.length === 0) {
@@ -898,11 +901,13 @@ export async function approvePayrun(id: number, pathname: string) {
       .update(payrun)
       .set({
         status: "approved",
-        approvedByUserId: user.authId,
+        approvedByUserId: authData.userId,
         approvedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(payrun.id, id));
+      .where(
+        and(eq(payrun.id, id), eq(payrun.organizationId, organization.id)),
+      );
 
     // Also update all payrun items
     await db
@@ -911,7 +916,12 @@ export async function approvePayrun(id: number, pathname: string) {
         status: "approved",
         updatedAt: new Date(),
       })
-      .where(eq(payrunItems.payrunId, id));
+      .where(
+        and(
+          eq(payrunItems.payrunId, id),
+          eq(payrunItems.organizationId, organization.id),
+        ),
+      );
 
     revalidatePath(pathname);
     revalidatePath("/finance/payruns");
@@ -929,15 +939,18 @@ export async function approvePayrun(id: number, pathname: string) {
 }
 
 export async function completePayrun(id: number, pathname: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     const payrunData = await db
       .select({ status: payrun.status })
       .from(payrun)
-      .where(eq(payrun.id, id))
+      .where(and(eq(payrun.id, id), eq(payrun.organizationId, organization.id)))
       .limit(1);
 
     if (payrunData.length === 0) {
@@ -958,11 +971,13 @@ export async function completePayrun(id: number, pathname: string) {
       .update(payrun)
       .set({
         status: "paid",
-        completedByUserId: user.authId,
+        completedByUserId: authData.userId,
         completedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(payrun.id, id));
+      .where(
+        and(eq(payrun.id, id), eq(payrun.organizationId, organization.id)),
+      );
 
     // Update all payrun items
     await db
@@ -971,7 +986,12 @@ export async function completePayrun(id: number, pathname: string) {
         status: "paid",
         updatedAt: new Date(),
       })
-      .where(eq(payrunItems.payrunId, id));
+      .where(
+        and(
+          eq(payrunItems.payrunId, id),
+          eq(payrunItems.organizationId, organization.id),
+        ),
+      );
 
     // Update loan repayments if this is a salary payrun
     // Get all loan details from this payrun
@@ -989,6 +1009,8 @@ export async function completePayrun(id: number, pathname: string) {
       .where(
         and(
           eq(payrunItems.payrunId, id),
+          eq(payrunItems.organizationId, organization.id),
+          eq(payrunItemDetails.organizationId, organization.id),
           eq(payrunItemDetails.detailType, "loan"),
         ),
       );
@@ -1004,7 +1026,12 @@ export async function completePayrun(id: number, pathname: string) {
             remainingBalance: sql`${loanApplications.remainingBalance} - ${amount}`,
             updatedAt: new Date(),
           })
-          .where(eq(loanApplications.id, loan.loanApplicationId));
+          .where(
+            and(
+              eq(loanApplications.id, loan.loanApplicationId),
+              eq(loanApplications.organizationId, organization.id),
+            ),
+          );
 
         // Get updated loan info including employee deduction ID
         const updatedLoan = await db
@@ -1013,7 +1040,12 @@ export async function completePayrun(id: number, pathname: string) {
             employeeDeductionId: loanApplications.employeeDeductionId,
           })
           .from(loanApplications)
-          .where(eq(loanApplications.id, loan.loanApplicationId))
+          .where(
+            and(
+              eq(loanApplications.id, loan.loanApplicationId),
+              eq(loanApplications.organizationId, organization.id),
+            ),
+          )
           .limit(1);
 
         const newRemainingBalance = Number(
@@ -1028,6 +1060,7 @@ export async function completePayrun(id: number, pathname: string) {
           .where(
             and(
               eq(loanRepayments.loanApplicationId, loan.loanApplicationId),
+              eq(loanRepayments.organizationId, organization.id),
               eq(loanRepayments.status, "pending"),
             ),
           )
@@ -1046,7 +1079,12 @@ export async function completePayrun(id: number, pathname: string) {
               balanceAfter: newRemainingBalance.toFixed(2),
               updatedAt: new Date(),
             })
-            .where(eq(loanRepayments.id, pendingRepayment[0].id));
+            .where(
+              and(
+                eq(loanRepayments.id, pendingRepayment[0].id),
+                eq(loanRepayments.organizationId, organization.id),
+              ),
+            );
         }
 
         // Update employee deduction remaining amount
@@ -1058,7 +1096,10 @@ export async function completePayrun(id: number, pathname: string) {
               updatedAt: new Date(),
             })
             .where(
-              eq(employeeDeductions.id, updatedLoan[0].employeeDeductionId),
+              and(
+                eq(employeeDeductions.id, updatedLoan[0].employeeDeductionId),
+                eq(employeeDeductions.organizationId, organization.id),
+              ),
             );
         }
 
@@ -1071,7 +1112,12 @@ export async function completePayrun(id: number, pathname: string) {
               completedAt: new Date(),
               updatedAt: new Date(),
             })
-            .where(eq(loanApplications.id, loan.loanApplicationId));
+            .where(
+              and(
+                eq(loanApplications.id, loan.loanApplicationId),
+                eq(loanApplications.organizationId, organization.id),
+              ),
+            );
 
           // Deactivate the employee deduction
           if (updatedLoan[0]?.employeeDeductionId) {
@@ -1083,7 +1129,10 @@ export async function completePayrun(id: number, pathname: string) {
                 updatedAt: new Date(),
               })
               .where(
-                eq(employeeDeductions.id, updatedLoan[0].employeeDeductionId),
+                and(
+                  eq(employeeDeductions.id, updatedLoan[0].employeeDeductionId),
+                  eq(employeeDeductions.organizationId, organization.id),
+                ),
               );
           }
         }
@@ -1106,15 +1155,18 @@ export async function completePayrun(id: number, pathname: string) {
 }
 
 export async function rollbackPayrun(id: number, pathname: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
 
   try {
     const payrunData = await db
       .select({ status: payrun.status })
       .from(payrun)
-      .where(eq(payrun.id, id))
+      .where(and(eq(payrun.id, id), eq(payrun.organizationId, organization.id)))
       .limit(1);
 
     if (payrunData.length === 0) {
@@ -1135,7 +1187,11 @@ export async function rollbackPayrun(id: number, pathname: string) {
     }
 
     // Delete the payrun (cascade will delete items and details)
-    await db.delete(payrun).where(eq(payrun.id, id));
+    await db
+      .delete(payrun)
+      .where(
+        and(eq(payrun.id, id), eq(payrun.organizationId, organization.id)),
+      );
 
     revalidatePath(pathname);
     revalidatePath("/finance/payruns");
@@ -1153,9 +1209,7 @@ export async function rollbackPayrun(id: number, pathname: string) {
 }
 
 export async function getApprovedPayruns() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -1199,9 +1253,7 @@ export async function getApprovedPayruns() {
 }
 
 export async function getAllAllowances() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

@@ -1,47 +1,17 @@
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { db } from "@/db";
-import { employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { requireAuth } from "@/actions/auth/dal";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 import LoanApplicationsTable from "@/components/loans/loan-applications-table";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Settings } from "lucide-react";
 
 export default async function LoansPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const authData = await requireAuth();
 
-  if (!session) {
-    return redirect("/auth/login");
-  }
-
-  // Get employee info
-  const [employee] = await db
-    .select({
-      id: employees.id,
-      userId: employees.authId,
-      role: employees.role,
-      department: employees.department,
-    })
-    .from(employees)
-    .where(eq(employees.authId, session.user.id))
-    .limit(1);
-
-  if (!employee) {
-    return redirect("/auth/login");
-  }
-
-  const isAdmin = session.user.role === "admin";
-  const isAdminDept = employee?.department?.toLowerCase() === "admin";
-  const isHR =
-    employee?.department?.toLowerCase() === "hr" ||
-    employee?.department?.toLowerCase() === "human resources" ||
-    employee?.role?.toLowerCase() === "hr";
-
-  const canManageLoans = isAdmin || isAdminDept || isHR;
+  const isHROrAdmin =
+    authData.role === "admin" ||
+    authData.employee?.department === DEPARTMENTS.HR ||
+    authData.employee?.department === DEPARTMENTS.ADMIN;
 
   return (
     <div className="space-y-4">
@@ -49,16 +19,16 @@ export default async function LoansPage() {
         <div className="flex items-start gap-4">
           <div>
             <h1 className="text-2xl font-bold">
-              {canManageLoans ? "Loan Management" : "My Loans"}
+              {isHROrAdmin ? "Loan Management" : "My Loans"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {canManageLoans
+              {isHROrAdmin
                 ? "Review and manage employee loan applications"
                 : "View and apply for loans"}
             </p>
           </div>
         </div>
-        {canManageLoans && (
+        {isHROrAdmin && (
           <Button asChild variant="outline">
             <Link href="/hr/loans/types">
               <Settings className="mr-2 h-4 w-4" />
@@ -69,8 +39,8 @@ export default async function LoansPage() {
       </div>
 
       <LoanApplicationsTable
-        userId={employee.userId}
-        isHR={canManageLoans}
+        userId={isHROrAdmin ? undefined : authData.userId}
+        isHR={isHROrAdmin}
         showFilters={true}
       />
     </div>

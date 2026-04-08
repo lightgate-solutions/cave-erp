@@ -167,7 +167,12 @@ export async function sendEmail(
       const recipients = await tx
         .select({ id: employees.authId })
         .from(employees)
-        .where(inArray(employees.authId, validated.recipientIds));
+        .where(
+          and(
+            inArray(employees.authId, validated.recipientIds),
+            eq(employees.organizationId, organization.id),
+          ),
+        );
 
       if (recipients.length !== validated.recipientIds.length) {
         return {
@@ -334,7 +339,12 @@ export async function replyToEmail(data: z.infer<typeof replyEmailSchema>) {
       const recipients = await tx
         .select({ authId: employees.authId })
         .from(employees)
-        .where(inArray(employees.authId, validated.recipientIds));
+        .where(
+          and(
+            inArray(employees.authId, validated.recipientIds),
+            eq(employees.organizationId, organization.id),
+          ),
+        );
 
       if (recipients.length !== validated.recipientIds.length) {
         return {
@@ -502,7 +512,12 @@ export async function forwardEmail(data: z.infer<typeof forwardEmailSchema>) {
       const recipients = await tx
         .select({ authId: employees.authId })
         .from(employees)
-        .where(inArray(employees.authId, validated.recipientIds));
+        .where(
+          and(
+            inArray(employees.authId, validated.recipientIds),
+            eq(employees.organizationId, organization.id),
+          ),
+        );
 
       if (recipients.length !== validated.recipientIds.length) {
         return {
@@ -2078,6 +2093,12 @@ export async function getAccessibleDocumentsForAttachment() {
       };
     }
 
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return { success: false, data: null, error: "Organization not found" };
+    }
+
     // Get documents that the user can attach (documents they have access to)
     const documents = await db
       .select({
@@ -2103,6 +2124,7 @@ export async function getAccessibleDocumentsForAttachment() {
       .where(
         and(
           eq(document.status, "active"),
+          eq(document.organizationId, organization.id),
           or(
             eq(document.uploadedBy, currentUser.authId),
             eq(document.public, true),
@@ -2145,12 +2167,19 @@ export async function getAccessibleDocumentsForAttachmentPaginated(
       };
     }
 
+    const h = await headers();
+    const org = await auth.api.getFullOrganization({ headers: h });
+    if (!org) {
+      return { success: false, data: null, error: "Organization not found" };
+    }
+
     const offset = (page - 1) * limit;
 
     return await db.transaction(async (tx) => {
       // Build the base WHERE clause for access control
       const baseWhere = and(
         eq(document.status, "active"),
+        eq(document.organizationId, org.id),
         or(
           eq(document.uploadedBy, currentUser.authId),
           eq(document.public, true),

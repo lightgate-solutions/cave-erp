@@ -3,9 +3,14 @@ import { getUpcomingInterviews } from "@/actions/recruitment/interviews";
 import { InterviewsList } from "@/components/recruitment/interviews-list";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { redirect } from "next/navigation";
 
 export default async function InterviewsPage() {
-  await requireHROrAdmin();
+  try {
+    await requireHROrAdmin();
+  } catch {
+    redirect("/");
+  }
 
   const interviews = await getUpcomingInterviews();
 

@@ -2,9 +2,14 @@ import { requireHROrAdmin } from "@/actions/auth/dal";
 import { CandidatesList } from "@/components/recruitment/candidates-list";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { redirect } from "next/navigation";
 
 export default async function CandidatesPage() {
-  await requireHROrAdmin();
+  try {
+    await requireHROrAdmin();
+  } catch {
+    redirect("/");
+  }
 
   return (
     <div className="p-6">

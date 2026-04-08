@@ -2,7 +2,7 @@
 /** biome-ignore-all lint/suspicious/noArrayIndexKey: <> */
 
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,7 +41,7 @@ export default async function InvoiceDetailPage({
 
   const invoiceId = Number.parseInt(id);
   if (Number.isNaN(invoiceId)) {
-    return null;
+    notFound();
   }
 
   const [invoice, payments, activityLog, glStatus] = await Promise.all([
@@ -52,7 +52,7 @@ export default async function InvoiceDetailPage({
   ]);
 
   if (!invoice) {
-    return null;
+    notFound();
   }
 
   return (

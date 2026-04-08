@@ -5,6 +5,7 @@ import { ViewToggle } from "@/components/documents/view-toggle/view-toggle";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { notFound } from "next/navigation";
 
 export default async function Page({
   searchParams,
@@ -20,10 +21,10 @@ export default async function Page({
   const pageSize = Number(pageSizeParam) > 0 ? Number(pageSizeParam) : 20;
 
   const user = await getUser();
-  if (!user) return null;
+  if (!user) notFound();
 
   const documents = await getAllAccessibleDocuments(page, pageSize);
-  if (documents.error) return null;
+  if (documents.error) notFound();
 
   return (
     <div className="space-y-6">

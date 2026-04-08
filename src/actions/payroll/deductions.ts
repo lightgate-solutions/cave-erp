@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { eq, DrizzleQueryError, and, desc, sql, inArray } from "drizzle-orm";
-import { getUser } from "../auth/dal";
+import { requireHROrAdmin } from "../auth/dal";
 import { revalidatePath } from "next/cache";
 import { employees } from "@/db/schema/hr";
 import {
@@ -26,10 +26,7 @@ export async function createDeduction(
   data: CreateDeductionProps,
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -78,8 +75,8 @@ export async function createDeduction(
         percentage: data.percentage?.toString(),
         amount: data.amount?.toString(),
         organizationId: organization.id,
-        createdByUserId: user.authId,
-        updatedByUserId: user.authId,
+        createdByUserId: authData.userId,
+        updatedByUserId: authData.userId,
       });
 
       revalidatePath(pathname);
@@ -108,9 +105,7 @@ export async function createDeduction(
 }
 
 export async function getAllDeductions() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -168,9 +163,7 @@ export async function getAllDeductions() {
 }
 
 export async function getAllRecurringDeductions() {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -233,9 +226,7 @@ export async function getAllRecurringDeductions() {
 }
 
 export async function getDeduction(id: number) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -291,9 +282,7 @@ export async function updateDeduction(
   data: Partial<CreateDeductionProps>,
   pathname: string,
 ) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -354,7 +343,7 @@ export async function updateDeduction(
             percentage: data.percentage.toString(),
           }),
           ...(data.amount !== undefined && { amount: data.amount.toString() }),
-          updatedByUserId: user.authId,
+          updatedByUserId: authData.userId,
           updatedAt: new Date(),
         })
         .where(eq(deductions.id, id));
@@ -385,9 +374,7 @@ export async function updateDeduction(
 }
 
 export async function deleteDeduction(id: number, pathname: string) {
-  const user = await getUser();
-  if (!user) throw new Error("User not logged in");
-  if (user.role !== "admin") throw new Error("Access Restricted");
+  const _authData = await requireHROrAdmin();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),

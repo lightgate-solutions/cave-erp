@@ -15,13 +15,42 @@ export async function banUser(
   banExpiresIn?: number,
 ) {
   try {
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return {
+        error: { reason: "Organization not found" },
+        success: null,
+      };
+    }
+
+    // Verify target user belongs to the caller's organization
+    const employee = await db
+      .select()
+      .from(employees)
+      .where(
+        and(
+          eq(employees.authId, userId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1)
+      .then((r) => r[0]);
+
+    if (!employee) {
+      return {
+        error: { reason: "User not found in your organization" },
+        success: null,
+      };
+    }
+
     const res = await auth.api.banUser({
       body: {
         userId,
         banReason,
         banExpiresIn,
       },
-      headers: await headers(),
+      headers: h,
     });
     return {
       success: { reason: `User ${res.user.name} banned successful!` },
@@ -117,12 +146,39 @@ export async function deleteUser(userId: string) {
       };
     }
 
+    // Verify target user belongs to the caller's organization
+    const employee = await db
+      .select()
+      .from(employees)
+      .where(
+        and(
+          eq(employees.authId, userId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1)
+      .then((r) => r[0]);
+
+    if (!employee) {
+      return {
+        success: null,
+        error: { reason: "User not found in your organization" },
+      };
+    }
+
     await auth.api.removeUser({
       body: { userId },
       headers: await headers(),
     });
 
-    await db.delete(employees).where(eq(employees.authId, userId));
+    await db
+      .delete(employees)
+      .where(
+        and(
+          eq(employees.authId, userId),
+          eq(employees.organizationId, organization.id),
+        ),
+      );
     return {
       success: {
         reason: `User has been deleted permanently!`,
@@ -147,9 +203,38 @@ export async function deleteUser(userId: string) {
 
 export async function revokeUserSessions(userId: string) {
   try {
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({ headers: h });
+    if (!organization) {
+      return {
+        error: { reason: "Organization not found" },
+        success: null,
+      };
+    }
+
+    // Verify target user belongs to the caller's organization
+    const employee = await db
+      .select()
+      .from(employees)
+      .where(
+        and(
+          eq(employees.authId, userId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1)
+      .then((r) => r[0]);
+
+    if (!employee) {
+      return {
+        error: { reason: "User not found in your organization" },
+        success: null,
+      };
+    }
+
     await auth.api.revokeUserSessions({
       body: { userId },
-      headers: await headers(),
+      headers: h,
     });
 
     return {

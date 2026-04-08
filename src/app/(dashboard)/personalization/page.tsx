@@ -1,6 +1,7 @@
 import { getUser } from "@/actions/auth/dal";
 import { getUserPreferences } from "@/actions/user-preferences/preferences";
 import { PersonalizationDashboard } from "@/components/dashboard/personalization-dashboard";
+import { notFound } from "next/navigation";
 
 type LocalUserPreferences = {
   id?: number;
@@ -21,7 +22,7 @@ export default async function PersonalizationPage() {
   const user = await getUser();
 
   if (!user) {
-    return null;
+    notFound();
   }
 
   // Gracefully handle if preferences table doesn't exist

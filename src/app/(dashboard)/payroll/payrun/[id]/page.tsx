@@ -1,5 +1,7 @@
+import { requireHROrAdmin } from "@/actions/auth/dal";
 import { getPayrunById } from "@/actions/payroll/payrun";
 import { PayrunDetail } from "@/components/payroll/payrun-detail";
+import { notFound, redirect } from "next/navigation";
 
 interface PayrunDetailPageProps {
   params: Promise<{
@@ -10,11 +12,17 @@ interface PayrunDetailPageProps {
 export default async function PayrunDetailPage({
   params,
 }: PayrunDetailPageProps) {
+  try {
+    await requireHROrAdmin();
+  } catch {
+    redirect("/unauthorized");
+  }
+
   const { id } = await params;
   const payrun = await getPayrunById(Number(id));
 
   if (!payrun) {
-    return null;
+    notFound();
   }
 
   return <PayrunDetail payrun={payrun} />;

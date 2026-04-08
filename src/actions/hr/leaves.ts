@@ -26,6 +26,7 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireHROrAdmin } from "@/actions/auth/dal";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 import { createNotification } from "../notification/notification";
 import { getEmployee } from "./employees";
 import { auth } from "@/lib/auth";
@@ -59,7 +60,7 @@ export async function getAllLeaveApplications(filters?: {
   page?: number;
   limit?: number;
 }) {
-  await requireAuth();
+  const authData = await requireAuth();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -72,6 +73,16 @@ export async function getAllLeaveApplications(filters?: {
       limit: 10,
       totalPages: 0,
     };
+  }
+
+  const isHROrAdmin =
+    authData.role === "admin" ||
+    authData.employee.department === DEPARTMENTS.HR ||
+    authData.employee.department === DEPARTMENTS.ADMIN;
+
+  // Non-HR users can only view their own leave applications
+  if (!isHROrAdmin) {
+    filters = { ...filters, userId: authData.userId };
   }
 
   const approver = alias(employees, "approver");
@@ -225,16 +236,39 @@ export async function applyForLeave(data: {
     };
   }
 
-  // Verify user can only apply for their own leave
-  if (
-    authData.userId !== data.userId &&
-    authData.role !== "admin" &&
-    authData.role !== "hr"
-  ) {
+  // Verify user can only apply for their own leave (HR/admin can apply on behalf)
+  const isHROrAdmin =
+    authData.role === "admin" ||
+    authData.employee.department === DEPARTMENTS.HR ||
+    authData.employee.department === DEPARTMENTS.ADMIN;
+
+  if (authData.userId !== data.userId && !isHROrAdmin) {
     return {
       success: null,
       error: { reason: "You can only apply for your own leave" },
     };
+  }
+
+  // When applying on behalf of another user, verify they belong to the same organization
+  if (authData.userId !== data.userId) {
+    const targetEmployee = await db
+      .select({ authId: employees.authId })
+      .from(employees)
+      .where(
+        and(
+          eq(employees.authId, data.userId),
+          eq(employees.organizationId, organization.id),
+        ),
+      )
+      .limit(1)
+      .then((r) => r[0]);
+
+    if (!targetEmployee) {
+      return {
+        success: null,
+        error: { reason: "User not found in your organization" },
+      };
+    }
   }
 
   try {
@@ -403,7 +437,7 @@ export async function updateLeaveApplication(
   }>,
   approverId?: number,
 ) {
-  await requireAuth();
+  const authData = await requireAuth();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -413,6 +447,44 @@ export async function updateLeaveApplication(
       success: null,
       error: { reason: "Organization not found" },
     };
+  }
+
+  const isHROrAdmin =
+    authData.role === "admin" ||
+    authData.employee.department === DEPARTMENTS.HR ||
+    authData.employee.department === DEPARTMENTS.ADMIN;
+
+  // Only HR/admin can change status (approve/reject/review)
+  if (updates.status && !isHROrAdmin) {
+    return {
+      success: null,
+      error: {
+        reason: "Only HR or admin can approve or reject leave applications",
+      },
+    };
+  }
+
+  // For non-HR users updating their own leave details, verify ownership
+  if (!isHROrAdmin) {
+    const existingLeave = await getLeaveApplication(leaveId);
+    if (!existingLeave) {
+      return {
+        success: null,
+        error: { reason: "Leave application not found" },
+      };
+    }
+    if (existingLeave.userId !== authData.userId) {
+      return {
+        success: null,
+        error: { reason: "You can only update your own leave applications" },
+      };
+    }
+    if (existingLeave.status !== "Pending") {
+      return {
+        success: null,
+        error: { reason: "You can only edit pending leave applications" },
+      };
+    }
   }
 
   try {
@@ -539,7 +611,7 @@ export async function updateLeaveApplication(
 
 // Delete leave application
 export async function deleteLeaveApplication(leaveId: number) {
-  await requireAuth();
+  const authData = await requireAuth();
 
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
@@ -554,6 +626,34 @@ export async function deleteLeaveApplication(leaveId: number) {
   try {
     // Get leave details before deletion for notifications
     const leave = await getLeaveApplication(leaveId);
+
+    if (!leave) {
+      return {
+        success: null,
+        error: { reason: "Leave application not found" },
+      };
+    }
+
+    const isHROrAdmin =
+      authData.role === "admin" ||
+      authData.employee.department === DEPARTMENTS.HR ||
+      authData.employee.department === DEPARTMENTS.ADMIN;
+
+    // Employees can only cancel their own pending leaves
+    if (!isHROrAdmin) {
+      if (leave.userId !== authData.userId) {
+        return {
+          success: null,
+          error: { reason: "You can only cancel your own leave applications" },
+        };
+      }
+      if (leave.status !== "Pending") {
+        return {
+          success: null,
+          error: { reason: "You can only cancel pending leave applications" },
+        };
+      }
+    }
 
     await db
       .delete(leaveApplications)

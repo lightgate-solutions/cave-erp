@@ -20,6 +20,16 @@ export type CandidateStatus =
   | "Hired"
   | "Rejected";
 
+const CANDIDATE_STATUS_TRANSITIONS: Record<CandidateStatus, CandidateStatus[]> =
+  {
+    Applied: ["Screening", "Rejected"],
+    Screening: ["Interview", "Rejected"],
+    Interview: ["Offer", "Rejected"],
+    Offer: ["Hired", "Rejected"],
+    Hired: [],
+    Rejected: [],
+  };
+
 export interface CreateCandidateInput {
   jobPostingId: number;
   name: string;
@@ -223,6 +233,16 @@ export async function updateCandidateStatus(
     }
 
     const oldStatus = existing.status;
+
+    const allowedNext = CANDIDATE_STATUS_TRANSITIONS[oldStatus] ?? [];
+    if (oldStatus !== newStatus && !allowedNext.includes(newStatus)) {
+      return {
+        success: null,
+        error: {
+          reason: `Invalid status transition from ${oldStatus} to ${newStatus}`,
+        },
+      };
+    }
 
     await db.transaction(async (tx) => {
       // Update status with additional fields based on new status

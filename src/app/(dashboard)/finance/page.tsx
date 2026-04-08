@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { BalanceCard } from "@/components/finance/balance-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,7 +13,18 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { DatePickerWithRange } from "@/components/finance/date-range-picker";
-import { FinanceChart } from "@/components/finance/finance-chart";
+
+// Lazy load chart component to reduce initial bundle size (bundle-dynamic-imports)
+const FinanceChart = dynamic(
+  () =>
+    import("@/components/finance/finance-chart").then((mod) => ({
+      default: mod.FinanceChart,
+    })),
+  {
+    loading: () => <div className="h-64 animate-pulse rounded bg-muted" />,
+    ssr: false,
+  },
+);
 import type { DateRange } from "react-day-picker";
 import { addDays } from "date-fns";
 import { Button } from "@/components/ui/button";

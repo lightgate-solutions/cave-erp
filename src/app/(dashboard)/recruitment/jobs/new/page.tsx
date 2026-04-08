@@ -1,8 +1,13 @@
 import { requireHROrAdmin } from "@/actions/auth/dal";
 import { JobPostingForm } from "@/components/recruitment/job-posting-form";
+import { redirect } from "next/navigation";
 
 export default async function NewJobPostingPage() {
-  await requireHROrAdmin();
+  try {
+    await requireHROrAdmin();
+  } catch {
+    redirect("/");
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
