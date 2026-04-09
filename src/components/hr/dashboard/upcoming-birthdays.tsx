@@ -21,6 +21,8 @@ interface UpcomingBirthdaysProps {
   isLoading?: boolean;
 }
 
+const BIRTHDAY_SKELETON_KEYS = ["b1", "b2", "b3", "b4", "b5"] as const;
+
 export function UpcomingBirthdays({
   birthdays,
   isLoading,
@@ -33,8 +35,8 @@ export function UpcomingBirthdays({
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
+            {BIRTHDAY_SKELETON_KEYS.map((key) => (
+              <div key={key} className="flex items-center gap-4">
                 <Skeleton className="size-10 rounded-full" />
                 <div className="flex-1 space-y-2">
                   <Skeleton className="h-4 w-32" />

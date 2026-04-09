@@ -21,6 +21,7 @@ import { sendInvoiceEmail } from "@/lib/emails";
 import * as crypto from "crypto";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import { BETA_BILLING_DISABLED } from "@/lib/plans";
 
 dayjs.extend(utc);
 
@@ -117,6 +118,13 @@ const plans = {
  * @param invoiceId The ID of the invoice to pay.
  */
 export async function payInvoice(invoiceId: string) {
+  if (BETA_BILLING_DISABLED) {
+    return {
+      error:
+        "Invoice payment is disabled during the beta. No charges are being collected.",
+    };
+  }
+
   const currentUser = await getUser();
   if (!currentUser || !currentUser.authId || !currentUser.email) {
     return { error: "User not authenticated or email is missing." };
@@ -211,6 +219,13 @@ export async function payInvoice(invoiceId: string) {
 export async function createCheckoutSession(
   planId: "pro" | "proAI" | "premium" | "premiumAI",
 ) {
+  if (BETA_BILLING_DISABLED) {
+    return {
+      error:
+        "Paid plan changes are disabled during the beta. Your workspace already has full access.",
+    };
+  }
+
   const currentUser = await getUser();
   if (!currentUser || !currentUser.authId || !currentUser.email) {
     return { error: "User not authenticated or email is missing." };
@@ -274,6 +289,13 @@ export async function createCheckoutSession(
  * @param newPlanId The identifier for the new plan ('pro' or 'premium').
  */
 export async function changePlan(newPlanId: "pro" | "premium") {
+  if (BETA_BILLING_DISABLED) {
+    return {
+      error:
+        "Paid plan changes are disabled during the beta. Your workspace already has full access.",
+    };
+  }
+
   const currentUser = await getUser();
   if (!currentUser || !currentUser.authId || !currentUser.email) {
     return { error: "User not authenticated or email is missing." };

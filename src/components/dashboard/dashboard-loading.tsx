@@ -1,6 +1,10 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
+const STATS_KEYS = ["s1", "s2", "s3", "s4"] as const;
+const CHART_KEYS = ["c1", "c2"] as const;
+const CONTENT_KEYS = ["x1", "x2"] as const;
+
 export function DashboardLoading() {
   return (
     <div className="flex flex-1 flex-col gap-8 p-6 md:p-8 lg:p-10">
@@ -12,8 +16,8 @@ export function DashboardLoading() {
 
       {/* Stats cards skeleton */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={`stat-${i}`}>
+        {STATS_KEYS.map((key) => (
+          <Card key={key}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-4 w-4" />
@@ -28,8 +32,8 @@ export function DashboardLoading() {
 
       {/* Charts skeleton */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div key={`chart-${i}`} className="rounded-lg border bg-card p-6">
+        {CHART_KEYS.map((key) => (
+          <div key={key} className="rounded-lg border bg-card p-6">
             <Skeleton className="h-8 w-48 mb-4" />
             <Skeleton className="h-64 w-full" />
           </div>
@@ -38,8 +42,8 @@ export function DashboardLoading() {
 
       {/* Additional content skeleton */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <Card key={`content-${i}`}>
+        {CONTENT_KEYS.map((key) => (
+          <Card key={key}>
             <CardHeader>
               <Skeleton className="h-6 w-40" />
             </CardHeader>

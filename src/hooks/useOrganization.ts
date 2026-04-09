@@ -4,7 +4,13 @@ import { useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { getOrganizationSubscriptionContext } from "@/actions/organizations";
-import { getPlan, hasFeature, type PlanId, type PlanConfig } from "@/lib/plans";
+import {
+  getPlan,
+  getPlanLimits,
+  hasFeature,
+  type PlanId,
+  type PlanConfig,
+} from "@/lib/plans";
 import type { subscriptions } from "@/db/schema";
 
 type Subscription = typeof subscriptions.$inferSelect;
@@ -196,12 +202,9 @@ export function useOrganization(): UseOrganizationReturn {
 
   const canCreate = useMemo(() => {
     const currentCount = sessionUser?.organizationsCount || 0;
-    const limit = userPlanDetails.limits.maxOrganizations;
+    const limit = getPlanLimits(userPlan).maxOrganizations;
     return currentCount < limit;
-  }, [
-    sessionUser?.organizationsCount,
-    userPlanDetails.limits.maxOrganizations,
-  ]);
+  }, [sessionUser?.organizationsCount, userPlan]);
 
   const hasFeatureCheck = useCallback(
     (featureKey: keyof PlanConfig["featureFlags"]): boolean => {

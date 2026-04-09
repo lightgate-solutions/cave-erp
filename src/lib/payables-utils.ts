@@ -1,5 +1,3 @@
-import crypto from "node:crypto";
-
 /**
  * Line item structure for calculations
  */
@@ -48,19 +46,6 @@ export function calculateBillAmounts(
     taxAmount: Number(taxAmount.toFixed(2)),
     total: Number(total.toFixed(2)),
   };
-}
-
-/**
- * Generate a hash for duplicate detection
- * Uses vendor ID, invoice number, and amount
- */
-export function generateDuplicateCheckHash(
-  vendorId: number,
-  vendorInvoiceNumber: string,
-  amount: number,
-): string {
-  const data = `${vendorId}-${vendorInvoiceNumber.toLowerCase().trim()}-${amount.toFixed(2)}`;
-  return crypto.createHash("sha256").update(data).digest("hex");
 }
 
 /**

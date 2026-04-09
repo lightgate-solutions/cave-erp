@@ -26,10 +26,10 @@ import { headers } from "next/headers";
 import type { BillStatus, LineItem, TaxItem } from "@/types/payables";
 import {
   calculateBillAmounts,
-  generateDuplicateCheckHash,
   calculateDuplicateSimilarity,
   calculateStringSimilarity,
 } from "@/lib/payables-utils";
+import { generateDuplicateCheckHash } from "@/lib/payables-hash";
 import { updatePOBilledAmount } from "./purchase-orders";
 import { sendBillReceivedConfirmationEmail as sendBillReceivedConfirmationEmailUtil } from "@/lib/emails";
 

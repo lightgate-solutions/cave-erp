@@ -24,6 +24,14 @@ interface HrDashboardProps {
   isManager?: boolean;
 }
 
+interface SubordinateMember {
+  id: string;
+  name: string;
+  role?: string | null;
+  department?: string | null;
+  tasksCompleted?: number;
+}
+
 export default async function HrDashboard({
   isManager = false,
 }: HrDashboardProps) {
@@ -230,7 +238,7 @@ export default async function HrDashboard({
       : Promise.resolve([]),
   ]);
 
-  // Process birthdays
+  // Process birthdays (shape matches UpcomingBirthdays component)
   const upcomingBirthdays = upcomingBirthdaysRaw
     .map((emp) => {
       if (!emp.dateOfBirth) return null;
@@ -250,12 +258,19 @@ export default async function HrDashboard({
       );
 
       if (daysUntil <= 30) {
-        return { ...emp, daysUntil, nextBirthday };
+        return {
+          id: String(emp.id),
+          name: emp.name,
+          department: emp.department == null ? null : String(emp.department),
+          dateOfBirth: birthDate,
+          daysUntil,
+          nextBirthday,
+        };
       }
       return null;
     })
-    .filter(Boolean)
-    .sort((a, b) => (a?.daysUntil || 0) - (b?.daysUntil || 0))
+    .filter((row) => row !== null)
+    .sort((a, b) => a.daysUntil - b.daysUntil)
     .slice(0, 5);
 
   const stats = {
@@ -322,7 +337,7 @@ export default async function HrDashboard({
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {teamMembers.map((member: any) => (
+                {(teamMembers as SubordinateMember[]).map((member) => (
                   <Card key={member.id} className="border-border/40">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
@@ -359,10 +374,7 @@ export default async function HrDashboard({
       {/* Activities and Events */}
       <div className="grid gap-6 lg:grid-cols-2">
         <RecentActivities activities={recentLeaves} isLoading={false} />
-        <UpcomingBirthdays
-          birthdays={upcomingBirthdays as any}
-          isLoading={false}
-        />
+        <UpcomingBirthdays birthdays={upcomingBirthdays} isLoading={false} />
       </div>
 
       {/* Quick Actions */}

@@ -98,9 +98,9 @@ export function DepartmentDistributionChart({
               labelStyle={{ color: "hsl(var(--foreground))" }}
             />
             <Bar dataKey="employees" radius={[8, 8, 0, 0]}>
-              {chartData.map((_entry, index) => (
+              {chartData.map((entry, index) => (
                 <Cell
-                  key={`cell-${index}`}
+                  key={entry.department}
                   fill={COLORS[index % COLORS.length]}
                 />
               ))}

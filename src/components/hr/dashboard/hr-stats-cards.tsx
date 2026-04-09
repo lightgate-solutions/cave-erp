@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, UserPlus, Calendar, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const SKELETON_CARD_KEYS = ["k1", "k2", "k3", "k4", "k5"] as const;
+
 interface HrStatsCardsProps {
   stats: {
     totalEmployees: number;
@@ -19,8 +21,8 @@ export function HrStatsCards({ stats, isLoading }: HrStatsCardsProps) {
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Card key={i}>
+        {SKELETON_CARD_KEYS.map((key) => (
+          <Card key={key}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="size-4" />
@@ -82,10 +84,10 @@ export function HrStatsCards({ stats, isLoading }: HrStatsCardsProps) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-      {cards.map((card, index) => {
+      {cards.map((card) => {
         const Icon = card.icon;
         return (
-          <Card key={index} className="hover:shadow-md transition-shadow">
+          <Card key={card.title} className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {card.title}

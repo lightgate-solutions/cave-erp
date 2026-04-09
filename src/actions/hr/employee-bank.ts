@@ -94,7 +94,7 @@ export async function saveBankDetails(data: BankDetailsFormValues) {
       });
     }
 
-    revalidateTag(`employee-bank-${userId}`, "bank-id");
+    revalidateTag(`employee-bank-${userId}`);
     return { success: true, message: "Bank details saved successfully" };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -131,7 +131,7 @@ export async function deleteBankDetails(userId: string) {
         ),
       );
 
-    revalidateTag(`employee-bank-${userId}`, "bank-id");
+    revalidateTag(`employee-bank-${userId}`);
     return { success: true, message: "Bank details deleted successfully" };
   } catch (error) {
     if (error instanceof z.ZodError) {

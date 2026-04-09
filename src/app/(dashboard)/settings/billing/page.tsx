@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { getInvoiceHistory, getSubscriptionDetails } from "@/actions/billing";
 import { PlanCards } from "@/components/billing/PlanCards";
+import { BETA_BILLING_DISABLED } from "@/lib/plans";
 
 export default async function BillingPage() {
   const { subscription, error: subError } = await getSubscriptionDetails();
@@ -52,19 +53,31 @@ export default async function BillingPage() {
           {subscription ? (
             <div className="space-y-2">
               <p>
-                <strong>Plan:</strong> {subscription.plan.toUpperCase()}
+                <strong>Plan:</strong>{" "}
+                {BETA_BILLING_DISABLED
+                  ? "FREE"
+                  : subscription.plan.toUpperCase()}
               </p>
               <p>
                 <strong>Status:</strong>{" "}
-                {subscription.status.replace(/_/g, " ").toUpperCase()}
+                {BETA_BILLING_DISABLED
+                  ? "ACTIVE"
+                  : subscription.status.replace(/_/g, " ").toUpperCase()}
               </p>
-              <p>
-                <strong>Price per Member:</strong> ₦
-                {parseFloat(subscription.pricePerMember).toLocaleString(
-                  "en-NG",
-                  { minimumFractionDigits: 2 },
-                )}
-              </p>
+              {BETA_BILLING_DISABLED ? (
+                <p className="text-muted-foreground text-sm">
+                  Beta: full product access at no charge. Per-member pricing is
+                  not applied.
+                </p>
+              ) : (
+                <p>
+                  <strong>Price per Member:</strong> ₦
+                  {parseFloat(subscription.pricePerMember).toLocaleString(
+                    "en-NG",
+                    { minimumFractionDigits: 2 },
+                  )}
+                </p>
+              )}
               <p>
                 <strong>Current Period:</strong>{" "}
                 {formatDate(subscription.currentPeriodStart)} -{" "}
@@ -90,6 +103,8 @@ export default async function BillingPage() {
           <CardTitle>Invoice History</CardTitle>
           <CardDescription>
             A list of your past and pending invoices.
+            {BETA_BILLING_DISABLED &&
+              " No new invoices are generated during the beta."}
           </CardDescription>
         </CardHeader>
         <CardContent>

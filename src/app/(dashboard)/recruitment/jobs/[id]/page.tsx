@@ -22,7 +22,7 @@ export default async function JobPostingDetailsPage({
   }
 
   const { id } = await params;
-  const jobId = Number.parseInt(id);
+  const jobId = Number.parseInt(id, 10);
   const job = await getJobPosting(jobId);
 
   if (!job) {
