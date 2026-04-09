@@ -117,7 +117,7 @@ export function ReplyForwardEmail({
     return prefix + subject;
   };
 
-  const getDefaultBody = () => {
+  const getQuotedOriginalBody = () => {
     const timestamp = new Date(originalEmail.createdAt).toLocaleString();
     const separator = "\n\n------- Original Message -------\n";
     const header = `From: ${originalEmail.senderName} <${originalEmail.senderEmail}>\n`;
@@ -130,12 +130,52 @@ export function ReplyForwardEmail({
   const form = useForm<ReplyForwardFormData>({
     resolver: zodResolver(replyForwardSchema),
     defaultValues: {
-      recipientIds: [originalEmail.senderId],
-      subject: getDefaultSubject(),
-      body: getDefaultBody(),
+      recipientIds: [],
+      subject: "",
+      body: "",
       attachmentIds: [],
     },
   });
+
+  // When the dialog opens, sync chips + form. Omit `users` from deps so parent re-fetches don't wipe drafts.
+  useEffect(() => {
+    if (!open) return;
+
+    const subject = getDefaultSubject();
+    const body = mode === "reply" ? "" : getQuotedOriginalBody();
+
+    setSelectedDocuments([]);
+    setSearchQuery("");
+    setDocumentSearchQuery("");
+    setShowUserList(false);
+    setShowDocumentList(false);
+
+    if (mode === "reply") {
+      const senderFromDirectory = users.find(
+        (u) => u.id === originalEmail.senderId,
+      );
+      const senderUser: User = senderFromDirectory ?? {
+        id: originalEmail.senderId,
+        name: originalEmail.senderName,
+        email: originalEmail.senderEmail,
+      };
+      setSelectedUsers([senderUser]);
+      form.reset({
+        recipientIds: [senderUser.id],
+        subject,
+        body,
+        attachmentIds: [],
+      });
+    } else {
+      setSelectedUsers([]);
+      form.reset({
+        recipientIds: [],
+        subject,
+        body,
+        attachmentIds: [],
+      });
+    }
+  }, [open, mode, originalEmail.id]);
 
   const onSubmit = async (data: ReplyForwardFormData) => {
     const result =
@@ -264,7 +304,12 @@ export function ReplyForwardEmail({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) handleClose();
+      }}
+    >
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>

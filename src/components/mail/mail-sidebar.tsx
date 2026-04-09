@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 interface MailSidebarProps {
   stats: {
@@ -101,12 +102,20 @@ export function MailSidebar({
                     <Link
                       href={link.href}
                       className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                        "relative flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
                         isActive &&
                           "bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary",
                       )}
                     >
-                      <link.icon className="h-4 w-4" />
+                      <span className="relative inline-flex">
+                        <link.icon className="h-4 w-4" />
+                        {link.label ? (
+                          <span
+                            aria-hidden
+                            className="absolute -right-1 -top-1 size-2 rounded-full bg-destructive ring-2 ring-background"
+                          />
+                        ) : null}
+                      </span>
                       <span className="sr-only">{link.title}</span>
                     </Link>
                   </TooltipTrigger>
@@ -141,9 +150,12 @@ export function MailSidebar({
                   <span>{link.title}</span>
                 </div>
                 {link.label && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
-                    {link.label}
-                  </span>
+                  <Badge
+                    variant="destructive"
+                    className="h-5 min-w-5 shrink-0 rounded-full border-0 px-1.5 py-0 text-[10px] font-semibold tabular-nums leading-none shadow-none"
+                  >
+                    {Number(link.label) > 99 ? "99+" : link.label}
+                  </Badge>
                 )}
                 {!link.label && link.count > 0 && (
                   <span className="text-xs text-muted-foreground">

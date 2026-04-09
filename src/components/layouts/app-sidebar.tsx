@@ -39,8 +39,10 @@ import {
 import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import type { User } from "better-auth";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "convex/react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { getEmailStats } from "@/actions/mail/email";
 import { api } from "../../../convex/_generated/api";
 import { OrganizationSwitcher } from "../settings/organization-switcher";
 import { canAccessModule } from "@/lib/permissions/helpers";
@@ -386,6 +388,14 @@ export function AppSidebar({
   organizationId: string;
   employee: any;
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [mailUnreadCount, setMailUnreadCount] = useState(0);
+
+  const mailRouteSignature = pathname.startsWith("/mail")
+    ? `${pathname}?${searchParams.toString()}`
+    : pathname;
+
   // Query notifications - will return undefined if query fails or is loading
   const notifications = useQuery(api.notifications.getUserNotifications, {
     userId: userId,
@@ -396,6 +406,45 @@ export function AppSidebar({
     notifications && Array.isArray(notifications)
       ? notifications.filter((n) => !n.isRead).length
       : 0;
+
+  useEffect(() => {
+    if (!employee) return;
+    void mailRouteSignature;
+    let cancelled = false;
+
+    const load = async () => {
+      const res = await getEmailStats();
+      if (cancelled || !res.success || !res.data) return;
+      setMailUnreadCount(res.data.unreadCount);
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [mailRouteSignature, employee]);
+
+  useEffect(() => {
+    if (!employee) return;
+    const id = window.setInterval(() => {
+      getEmailStats().then((res) => {
+        if (res.success && res.data) setMailUnreadCount(res.data.unreadCount);
+      });
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [employee]);
+
+  useEffect(() => {
+    if (!employee) return;
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      getEmailStats().then((res) => {
+        if (res.success && res.data) setMailUnreadCount(res.data.unreadCount);
+      });
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [employee]);
 
   const isManager = !!employee?.isManager || employee?.role === "admin";
   const isAdmin = employee?.role === "admin";
@@ -464,6 +513,7 @@ export function AppSidebar({
       icon?: LucideIcon;
       isActive?: boolean;
       module?: string;
+      badge?: number;
       items?: Array<{ title: string; url: string }>;
     }> = [...base];
 
@@ -514,14 +564,19 @@ export function AppSidebar({
     };
 
     allItems.forEach((item) => {
+      const withMailBadge =
+        item.title === "Mail" && mailUnreadCount > 0
+          ? { ...item, badge: mailUnreadCount }
+          : item;
+
       if (["Dashboard", "Attendance"].includes(item.title)) {
-        groups.overview.push(item);
+        groups.overview.push(withMailBadge);
       } else if (
         ["Documents", "Mail", "Projects", "Task/Performance"].includes(
           item.title,
         )
       ) {
-        groups.modules.push(item);
+        groups.modules.push(withMailBadge);
       } else if (
         [
           "Hr",
@@ -540,14 +595,14 @@ export function AppSidebar({
           item.title,
         )
       ) {
-        groups.accounting.push(item);
+        groups.accounting.push(withMailBadge);
       } else {
-        groups.system.push(item);
+        groups.system.push(withMailBadge);
       }
     });
 
     return groups;
-  }, [isManager, isAdmin, employee]);
+  }, [isManager, isAdmin, employee, mailUnreadCount]);
 
   return (
     <Sidebar collapsible="icon" {...props}>

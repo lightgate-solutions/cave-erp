@@ -90,10 +90,27 @@ export function MailNav({ stats, onCompose }: MailNavProps) {
                 </div>
                 {item.badge > 0 && (
                   <Badge
-                    variant={active ? "secondary" : "outline"}
-                    className="h-5 min-w-[20px] flex items-center justify-center px-1.5 text-xs"
+                    variant={
+                      item.href === "/mail/inbox"
+                        ? active
+                          ? "secondary"
+                          : "destructive"
+                        : active
+                          ? "secondary"
+                          : "outline"
+                    }
+                    className={cn(
+                      "flex h-5 min-w-5 items-center justify-center px-1.5 text-xs font-semibold tabular-nums",
+                      item.href === "/mail/inbox" &&
+                        "rounded-full border-0 text-[10px] shadow-none",
+                      item.href === "/mail/inbox" &&
+                        active &&
+                        "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/25",
+                    )}
                   >
-                    {item.badge}
+                    {item.href === "/mail/inbox" && item.badge > 99
+                      ? "99+"
+                      : item.badge}
                   </Badge>
                 )}
               </Link>

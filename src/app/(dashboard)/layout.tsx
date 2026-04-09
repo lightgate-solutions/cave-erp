@@ -20,6 +20,7 @@ import {
   getCurrentAttendanceSettings,
 } from "@/actions/hr/attendance";
 import { ConvexClientProvider } from "@/lib/convex-client-provider";
+import { Suspense } from "react";
 
 export default async function RootLayout({
   children,
@@ -57,12 +58,14 @@ export default async function RootLayout({
     <section className="p-1">
       <ConvexClientProvider>
         <SidebarProvider>
-          <AppSidebar
-            user={session.user}
-            userId={authData.userId}
-            organizationId={organization.id}
-            employee={authData.employee}
-          />
+          <Suspense fallback={null}>
+            <AppSidebar
+              user={session.user}
+              userId={authData.userId}
+              organizationId={organization.id}
+              employee={authData.employee}
+            />
+          </Suspense>
           <SidebarInset>
             <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
               <div className="flex w-full items-center justify-between gap-2 px-4">
