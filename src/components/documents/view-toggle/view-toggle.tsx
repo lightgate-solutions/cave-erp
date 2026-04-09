@@ -12,7 +12,7 @@ export function ViewToggle() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const currentView = (searchParams?.get("view") as ViewType) ?? "table";
+  const currentView = (searchParams?.get("view") as ViewType) ?? "card";
 
   const setView = (view: ViewType) => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");

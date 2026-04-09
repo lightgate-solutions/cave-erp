@@ -3,7 +3,7 @@
 "use server";
 
 import { db } from "@/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, exists, inArray, or } from "drizzle-orm";
 import { getUser } from "../auth/dal";
 import {
   document,
@@ -22,10 +22,54 @@ import { createNotification } from "../notification/notification";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
+/** Joins to `employees` can return multiple rows per row if `auth_id` is duplicated in DB. */
+function dedupeDocumentsById<T extends { id: number | string }>(
+  rows: T[],
+): T[] {
+  const seen = new Set<number>();
+  const out: T[] = [];
+  for (const row of rows) {
+    const id = Number(row.id);
+    if (!Number.isFinite(id)) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(row);
+  }
+  return out;
+}
+
+/** Title, description, folder name, and tags — pass `db` or a transaction client. */
+function documentLibraryTextSearch(
+  searchQuery: string | null | undefined,
+  organizationId: string,
+  queryRoot: typeof db,
+) {
+  const needle = (searchQuery ?? "").trim();
+  if (needle.length === 0) return undefined;
+  return or(
+    sql`strpos(lower(coalesce(${document.title}, '')), lower(${needle})) > 0`,
+    sql`strpos(lower(coalesce(${document.description}, '')), lower(${needle})) > 0`,
+    sql`strpos(lower(coalesce(${documentFolders.name}, '')), lower(${needle})) > 0`,
+    exists(
+      queryRoot
+        .select({ id: documentTags.id })
+        .from(documentTags)
+        .where(
+          and(
+            eq(documentTags.documentId, document.id),
+            eq(documentTags.organizationId, organizationId),
+            sql`strpos(lower(${documentTags.tag}), lower(${needle})) > 0`,
+          ),
+        ),
+    ),
+  );
+}
+
 export async function getActiveFolderDocuments(
   folderId: number,
   page = 1,
   pageSize = 20,
+  searchQuery?: string | null,
 ) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
@@ -86,17 +130,25 @@ export async function getActiveFolderDocuments(
             )
           )`;
 
+      const textSearch = documentLibraryTextSearch(
+        searchQuery,
+        organization.id,
+        tx as unknown as typeof db,
+      );
+
       const [{ total }] = await tx
         .select({
           total: sql<number>`count(distinct ${document.id})`,
         })
         .from(document)
+        .leftJoin(documentFolders, eq(document.folderId, documentFolders.id))
         .where(
           and(
             eq(document.folderId, folderId),
             eq(document.status, "active"),
             eq(document.organizationId, organization.id),
             visibilityCondition,
+            ...(textSearch ? [textSearch] : []),
           ),
         );
 
@@ -134,17 +186,20 @@ export async function getActiveFolderDocuments(
             eq(document.status, "active"),
             eq(document.organizationId, organization.id),
             visibilityCondition,
+            ...(textSearch ? [textSearch] : []),
           ),
         )
         .orderBy(sql`${document.updatedAt} DESC`)
         .limit(pageSize)
         .offset(offset);
 
-      if (documents.length === 0) {
+      const uniqueDocuments = dedupeDocumentsById(documents);
+
+      if (uniqueDocuments.length === 0) {
         return { docs: [], total: Number(total ?? 0) };
       }
 
-      const docIds = documents.map((d) => d.id);
+      const docIds = uniqueDocuments.map((d) => d.id);
 
       const [tags, accessRules] = await Promise.all([
         tx
@@ -179,7 +234,7 @@ export async function getActiveFolderDocuments(
           .leftJoin(employees, eq(documentAccess.userId, employees.authId)),
       ]);
 
-      const enrichedDocs = documents.map((doc) => ({
+      const enrichedDocs = uniqueDocuments.map((doc) => ({
         ...doc,
         tags: tags.filter((t) => t.documentId === doc.id).map((t) => t.tag),
         accessRules: accessRules
@@ -489,6 +544,82 @@ export async function archiveDocumentAction(
   }
 }
 
+export async function unarchiveDocumentAction(
+  documentId: number,
+  pathname: string,
+) {
+  try {
+    const user = await getUser();
+    if (!user) {
+      return {
+        success: null,
+        error: { reason: "User not logged in" },
+      };
+    }
+
+    const organization = await auth.api.getFullOrganization({
+      headers: await headers(),
+    });
+    if (!organization) throw new Error("Organization not found");
+
+    const doc = await db.query.document.findFirst({
+      where: and(
+        eq(document.id, documentId),
+        eq(document.organizationId, organization.id),
+      ),
+    });
+
+    if (!doc) {
+      return {
+        success: null,
+        error: { reason: "Document not found" },
+      };
+    }
+    if (doc.status !== "archived") {
+      return {
+        success: null,
+        error: { reason: "Document is not archived" },
+      };
+    }
+    if (doc.uploadedBy !== user.authId && user.role !== "admin") {
+      return {
+        success: null,
+        error: { reason: "You don't have permission to restore this document" },
+      };
+    }
+
+    await db
+      .update(document)
+      .set({ status: "active", updatedAt: new Date() })
+      .where(
+        and(
+          eq(document.id, documentId),
+          eq(document.organizationId, organization.id),
+        ),
+      );
+
+    revalidatePath(pathname);
+    return {
+      success: { reason: "Document restored successfully" },
+      error: null,
+    };
+  } catch (err) {
+    if (err instanceof DrizzleQueryError) {
+      return {
+        success: null,
+        error: { reason: err.cause?.message || "Database error occurred" },
+      };
+    }
+
+    return {
+      error: {
+        reason: "Couldn't restore document. Please try again.",
+      },
+      success: null,
+    };
+  }
+}
+
 export async function getDocumentComments(documentId: number) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
@@ -555,7 +686,7 @@ export async function getDocumentComments(documentId: number) {
         )
         .orderBy(sql`${documentComments.createdAt} DESC`);
 
-      return comments;
+      return dedupeDocumentsById(comments);
     });
 
     return { success: result, error: null };
@@ -888,7 +1019,7 @@ export async function getDocumentVersions(documentId: number) {
         )
         .orderBy(sql`${documentVersions.createdAt} DESC`);
 
-      return rows;
+      return dedupeDocumentsById(rows);
     });
 
     return { success: versions, error: null };
@@ -1088,7 +1219,7 @@ export async function getDocumentLogs(documentId: number) {
         )
         .orderBy(sql`${documentLogs.createdAt} DESC`);
 
-      return rows;
+      return dedupeDocumentsById(rows);
     });
 
     return { success: logs, error: null };
@@ -1870,7 +2001,11 @@ export async function getMyDocumentAccess(documentId: number) {
  * Get all documents I own or have access to (public, departmental, or explicit share),
  * across all folders. Flat list, paginated.
  */
-export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
+export async function getAllAccessibleDocuments(
+  page = 1,
+  pageSize = 20,
+  searchQuery?: string | null,
+) {
   const user = await getUser();
   if (!user) throw new Error("User not logged in");
 
@@ -1897,16 +2032,24 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
       )
     )`;
 
+    const textSearch = documentLibraryTextSearch(
+      searchQuery,
+      organization.id,
+      db,
+    );
+
     const [{ total }] = await db
       .select({
         total: sql<number>`count(distinct ${document.id})`,
       })
       .from(document)
+      .leftJoin(documentFolders, eq(document.folderId, documentFolders.id))
       .where(
         and(
           eq(document.status, "active"),
           eq(document.organizationId, organization.id),
           visibilityCondition,
+          ...(textSearch ? [textSearch] : []),
         ),
       );
 
@@ -1943,13 +2086,15 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
           eq(document.status, "active"),
           eq(document.organizationId, organization.id),
           visibilityCondition,
+          ...(textSearch ? [textSearch] : []),
         ),
       )
       .orderBy(sql`${document.updatedAt} DESC`)
       .limit(pageSize)
       .offset(offset);
 
-    const docIds = rows.map((d) => d.id);
+    const uniqueRows = dedupeDocumentsById(rows);
+    const docIds = uniqueRows.map((d) => d.id);
     let tags: { documentId: number | null; tag: string }[] = [];
     let accessRules: {
       documentId: number;
@@ -1994,7 +2139,7 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
       ]);
     }
 
-    const enriched = rows.map((doc) => ({
+    const enriched = uniqueRows.map((doc) => ({
       ...doc,
       tags: tags.filter((t) => t.documentId === doc.id).map((t) => t.tag),
       accessRules: accessRules
@@ -2034,6 +2179,42 @@ export async function getAllAccessibleDocuments(page = 1, pageSize = 20) {
       error: { reason: "Couldn't fetch documents. Please try again." },
     };
   }
+}
+
+const SEARCH_PAGE_MAX = 100;
+
+export type AccessibleDocumentSearchRow = {
+  id: number;
+  title: string;
+  description: string | null;
+  tags: string[];
+  department: string | null;
+};
+
+/**
+ * Full-text-style search only over documents the user may already see in the
+ * current organization (same rules as getAllAccessibleDocuments).
+ */
+export async function searchAccessibleDocumentsLibrary(rawQuery: string) {
+  const q = (rawQuery ?? "").trim();
+  if (!q) {
+    return { success: [] as AccessibleDocumentSearchRow[], error: null };
+  }
+
+  const res = await getAllAccessibleDocuments(1, SEARCH_PAGE_MAX, q);
+  if (res.error) {
+    return { success: null, error: res.error };
+  }
+
+  const rows: AccessibleDocumentSearchRow[] = res.success.docs.map((d) => ({
+    id: d.id,
+    title: d.title,
+    description: d.description,
+    tags: d.tags,
+    department: d.department,
+  }));
+
+  return { success: rows, error: null };
 }
 
 export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
@@ -2115,7 +2296,8 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
       .limit(pageSize)
       .offset(offset);
 
-    const docIds = rows.map((d) => d.id);
+    const uniqueRowsArchived = dedupeDocumentsById(rows);
+    const docIds = uniqueRowsArchived.map((d) => d.id);
     let tags: { documentId: number | null; tag: string }[] = [];
     let accessRules: {
       documentId: number;
@@ -2160,7 +2342,7 @@ export async function getMyArchivedDocuments(page = 1, pageSize = 20) {
       ]);
     }
 
-    const enriched = rows.map((doc) => ({
+    const enriched = uniqueRowsArchived.map((doc) => ({
       ...doc,
       tags: tags.filter((t) => t.documentId === doc.id).map((t) => t.tag),
       accessRules: accessRules

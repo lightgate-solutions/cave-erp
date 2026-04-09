@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,54 +38,57 @@ export default function FoldersGrid({
   department: string;
 }) {
   const pathname = usePathname();
+  const showAllDocumentsEntry = pathname === "/documents";
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      <div className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-        <div className={`h-24 flex items-center justify-center`}>
-          <Folder size={56} className="text-slate-600" />
-        </div>
+      {showAllDocumentsEntry ? (
+        <div className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+          <div className={`h-24 flex items-center justify-center`}>
+            <Folder size={56} className="text-slate-600" />
+          </div>
 
-        <div className="p-4">
-          <h3 className="font-semibold text-foreground mb-1 truncate">
-            All Documents
-          </h3>
-          <p className="text-sm text-muted-foreground mb-3">
-            Last Modified: This week
-          </p>
+          <div className="p-4">
+            <h3 className="font-semibold text-foreground mb-1 truncate">
+              All Documents
+            </h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Last Modified: This week
+            </p>
 
-          <div className="flex gap-2">
-            <Button variant="default" size="sm" className="w-full" asChild>
-              <Link href={`/documents/all`} className="flex-1 ">
-                <LogIn size={16} className="mr-1" />
-                Enter
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="default" size="sm" className="w-full" asChild>
+                <Link href={`/documents/all`} className="flex-1 ">
+                  <LogIn size={16} className="mr-1" />
+                  Enter
+                </Link>
+              </Button>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="px-2 bg-transparent"
-                >
-                  <MoreVertical size={16} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled>
-                  <Archive size={16} className="mr-2" />
-                  Archive
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled className="text-red-600">
-                  <Trash2 size={16} className="mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="px-2 bg-transparent"
+                  >
+                    <MoreVertical size={16} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem disabled>
+                    <Archive size={16} className="mr-2" />
+                    Archive
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled className="text-red-600">
+                    <Trash2 size={16} className="mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
       {folders.map((folder, idx) => (
         <div
           key={idx}
@@ -175,6 +178,8 @@ function FoldersAction({
   pathname: string;
   type: "delete" | "archive";
 }) {
+  const router = useRouter();
+
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -198,7 +203,9 @@ function FoldersAction({
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {type === "delete" ? "Delete this folder?" : "Archive this folder?"}
+          </AlertDialogTitle>
           {type === "delete" ? (
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the
@@ -206,8 +213,8 @@ function FoldersAction({
             </AlertDialogDescription>
           ) : (
             <AlertDialogDescription>
-              This action cannot be undone. This will archive the folder and
-              move all its content to the archive page.
+              The folder and its documents will move to Documents → Archive. You
+              can restore them from the archive page at any time.
             </AlertDialogDescription>
           )}
         </AlertDialogHeader>
@@ -219,12 +226,13 @@ function FoldersAction({
                 const res = await deleteFolder(id, pathname);
                 if (res.error) {
                   toast.error(res.error.reason);
-                } else {
-                  toast.error(res.success.reason);
+                } else if (res.success) {
+                  toast.success(res.success.reason);
+                  router.refresh();
                 }
               }}
             >
-              Continue
+              Delete
             </AlertDialogAction>
           ) : (
             <AlertDialogAction
@@ -232,12 +240,13 @@ function FoldersAction({
                 const res = await archiveFolder(id, pathname);
                 if (res.error) {
                   toast.error(res.error.reason);
-                } else {
-                  toast.error(res.success.reason);
+                } else if (res.success) {
+                  toast.success(res.success.reason);
+                  router.refresh();
                 }
               }}
             >
-              Continue
+              Archive
             </AlertDialogAction>
           )}
         </AlertDialogFooter>

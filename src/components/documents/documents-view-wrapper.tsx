@@ -13,8 +13,10 @@ type DocumentType = NonNullable<
 export default function DocumentsViewWrapper({
   documents,
   paging,
+  listContext = "default",
 }: {
   documents: DocumentType[];
+  listContext?: "default" | "archived";
   paging?: {
     page: number;
     pageSize: number;
@@ -24,11 +26,23 @@ export default function DocumentsViewWrapper({
   };
 }) {
   const searchParams = useSearchParams();
-  const view = (searchParams?.get("view") as ViewType) ?? "table";
+  const view = (searchParams?.get("view") as ViewType) ?? "card";
 
   if (view === "table") {
-    return <DocumentsTable documents={documents} paging={paging} />;
+    return (
+      <DocumentsTable
+        documents={documents}
+        paging={paging}
+        listContext={listContext}
+      />
+    );
   }
 
-  return <DocumentsGrid documents={documents} paging={paging} />;
+  return (
+    <DocumentsGrid
+      documents={documents}
+      paging={paging}
+      listContext={listContext}
+    />
+  );
 }

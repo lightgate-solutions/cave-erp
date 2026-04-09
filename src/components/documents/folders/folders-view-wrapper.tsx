@@ -18,7 +18,7 @@ export default function FoldersViewWrapper({
   department: string;
 }) {
   const searchParams = useSearchParams();
-  const view = (searchParams?.get("view") as ViewType) ?? "table";
+  const view = (searchParams?.get("view") as ViewType) ?? "card";
 
   if (view === "card") {
     return <FoldersGrid folders={folders} department={department} />;

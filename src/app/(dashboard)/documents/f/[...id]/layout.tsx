@@ -83,6 +83,12 @@ export default async function DashboardLayout({
   }));
 
   const foldersNames = await getFoldersNames(foldersId);
+  const lockedFolderName = foldersNames[foldersNames.length - 1];
+  const lockedFolderDisplay = foldersNames.filter(Boolean).join(" / ");
+
+  if (lockedFolderName == null || lockedFolderName === "") {
+    notFound();
+  }
 
   const links = foldersId.map((_id, index) => {
     const href = `/documents/f/${foldersId.slice(0, index + 1).join("/")}`;
@@ -102,7 +108,13 @@ export default async function DashboardLayout({
           </p>
         </div>
 
-        <FoldersActions usersFolders={folders} department={user.department} />
+        <FoldersActions
+          usersFolders={folders}
+          department={user.department}
+          lockedFolderName={lockedFolderName}
+          lockedFolderDisplay={lockedFolderDisplay}
+          lockedParentFolderId={currentFolderId}
+        />
       </div>
 
       <Breadcrumb>

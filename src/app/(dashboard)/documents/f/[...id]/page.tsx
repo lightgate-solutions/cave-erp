@@ -17,8 +17,10 @@ export default async function Page({
   const pageSizeParam = Array.isArray(sp?.pageSize)
     ? sp?.pageSize[0]
     : sp?.pageSize;
+  const qParam = Array.isArray(sp?.q) ? sp?.q[0] : sp?.q;
   const page = Number(pageParam) > 0 ? Number(pageParam) : 1;
   const pageSize = Number(pageSizeParam) > 0 ? Number(pageSizeParam) : 20;
+  const folderSearchQuery = typeof qParam === "string" ? qParam : "";
   const user = await getUser();
   if (!user) notFound();
 
@@ -30,6 +32,7 @@ export default async function Page({
     Number(currentFolderId),
     page,
     pageSize,
+    folderSearchQuery,
   );
 
   if (documents.error) notFound();
@@ -39,6 +42,7 @@ export default async function Page({
       <FolderContentWrapper
         subFolders={subFolders}
         documents={documents.success.docs}
+        folderSearchQuery={folderSearchQuery}
         paging={{
           page: documents.success.page,
           pageSize: documents.success.pageSize,
