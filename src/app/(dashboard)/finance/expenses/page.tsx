@@ -7,11 +7,12 @@ export default function ExpensesPage() {
     <div className="p-2 space-y-4">
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
-          <BackButton />
+          <BackButton href="/finance" label="Back to Finance" />
           <div>
             <h1 className="text-2xl font-bold">Company Expenses</h1>
             <p className="text-sm text-muted-foreground">
-              Track and manage company expenses
+              Track and manage company expenses; go back to Finance for
+              balances, reports, and quick actions.
             </p>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { milestones } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireProjectPermission } from "@/actions/projects/permissions";
@@ -32,7 +32,8 @@ export async function GET(
           eq(milestones.projectId, projectId),
           eq(milestones.organizationId, organization.id),
         ),
-      );
+      )
+      .orderBy(desc(milestones.createdAt));
     return NextResponse.json({ milestones: rows });
   } catch (error) {
     console.error("Error fetching milestones:", error);
@@ -113,14 +114,24 @@ export async function PUT(
     } = body ?? {};
     if (!milestoneId)
       return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+    const patch: {
+      title: typeof title;
+      description: string | null;
+      dueDate: Date | null;
+      completed?: number;
+    } = {
+      title,
+      description: description ?? null,
+      dueDate: dueDate ? new Date(dueDate) : null,
+    };
+    if (completed !== undefined && completed !== null) {
+      patch.completed = completed ? 1 : 0;
+    }
+
     const [updated] = await db
       .update(milestones)
-      .set({
-        title,
-        description,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        completed: completed ? 1 : 0,
-      })
+      .set(patch)
       .where(
         and(
           eq(milestones.projectId, projectId),

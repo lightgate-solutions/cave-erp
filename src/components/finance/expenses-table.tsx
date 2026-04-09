@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Search, Filter } from "lucide-react";
+import { Pencil, Trash2, Search, Filter, Download } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -66,26 +67,71 @@ export function ExpensesTable() {
   const [limit, _setLimit] = useState(10);
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const categoryParam = category === "all" ? "" : category;
-      const res = await fetch(
-        `/api/finance/expenses?page=${page}&limit=${limit}&q=${encodeURIComponent(q)}&category=${encodeURIComponent(categoryParam)}`,
-      );
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+        q,
+      });
+      if (category !== "all") params.set("category", category);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+
+      const res = await fetch(`/api/finance/expenses?${params}`);
       const data = await res.json();
       setItems(data.expenses ?? []);
       setTotal(data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [page, limit, q, category]);
+  }, [page, limit, q, category, dateFrom, dateTo]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ q, export: "csv" });
+      if (category !== "all") params.set("category", category);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+
+      const res = await fetch(`/api/finance/expenses?${params}`);
+      if (!res.ok) {
+        toast.error("Could not export expenses");
+        return;
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition");
+      let filename = "company-expenses.csv";
+      const quoted = cd?.match(/filename="([^"]+)"/);
+      if (quoted?.[1]) filename = quoted[1];
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Export downloaded");
+    } catch {
+      toast.error("Could not export expenses");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function onDelete(id: number) {
     if (!confirm("Are you sure you want to delete this expense?")) {
@@ -122,43 +168,94 @@ export function ExpensesTable() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Expenses</CardTitle>
-          <ExpenseFormDialog
-            onCompleted={() => {
-              load();
-            }}
-            trigger={<Button>New Expense</Button>}
-          />
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={exporting}
+              onClick={() => exportCsv()}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {exporting ? "Exporting…" : "Export CSV"}
+            </Button>
+            <ExpenseFormDialog
+              onCompleted={() => {
+                load();
+              }}
+              trigger={<Button>New Expense</Button>}
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search expenses..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="pl-9"
-            />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search expenses..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select
+              value={category}
+              onValueChange={(v) => {
+                setCategory(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="All categories" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {expenseCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Select value={category} onValueChange={(v) => setCategory(v)}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <SelectValue placeholder="All categories" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {expenseCategories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
+            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+              <Label htmlFor="expense-date-from" className="text-xs">
+                From (expense date)
+              </Label>
+              <Input
+                id="expense-date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full sm:max-w-[200px]"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+              <Label htmlFor="expense-date-to" className="text-xs">
+                To (expense date)
+              </Label>
+              <Input
+                id="expense-date-to"
+                type="date"
+                value={dateTo}
+                onChange={(e) => {
+                  setDateTo(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full sm:max-w-[200px]"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="rounded-md border">
