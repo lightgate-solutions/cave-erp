@@ -46,7 +46,7 @@ export default function EditJournalPage() {
   const router = useRouter();
   const params = useParams();
   const { data: session } = authClient.useSession();
-  const organizationId = session?.session.activeOrganizationId;
+  const organizationId = session?.session?.activeOrganizationId;
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,8 +76,16 @@ export default function EditJournalPage() {
   // 2. Fetch Journal Data
   useEffect(() => {
     async function load() {
-      if (!organizationId || !params.id) return;
+      if (!params.id) {
+        setIsLoading(false);
+        return;
+      }
+      if (!organizationId) {
+        setIsLoading(false);
+        return;
+      }
 
+      setIsLoading(true);
       const res = await getJournalById(Number(params.id), organizationId);
       if (res.success && res.data) {
         const j = res.data;
@@ -189,14 +197,6 @@ export default function EditJournalPage() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center space-x-4">
@@ -210,181 +210,222 @@ export default function EditJournalPage() {
             Edit Journal Entry
           </h1>
           <p className="text-muted-foreground">
-            Modify journal transaction {journalNumber}.
+            {organizationId
+              ? `Modify journal transaction ${journalNumber || "…"}.`
+              : "Select an organization to load this journal."}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="space-y-2">
-          <Label>Date</Label>
-          <Input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+      {isLoading ? (
+        <div className="flex justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-        <div className="space-y-2">
-          <Label>Reference</Label>
-          <Input
-            placeholder="#REF"
-            value={reference}
-            onChange={(e) => setReference(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Journal #</Label>
-          <Input disabled value={journalNumber} />
-        </div>
-        <div className="col-span-3 space-y-2">
-          <Label>Description</Label>
-          <Input
-            placeholder="e.g. Monthly Depreciation"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Journal Lines</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[300px]">Account</TableHead>
-                <TableHead>Description (Optional)</TableHead>
-                <TableHead className="w-[150px] text-right">Debit</TableHead>
-                <TableHead className="w-[150px] text-right">Credit</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lines.map((line) => (
-                <TableRow key={line.id}>
-                  <TableCell>
-                    <Select
-                      value={line.accountId}
-                      onValueChange={(val) =>
-                        updateLine(line.id, { accountId: val })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Account" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accounts.map((acc) => (
-                          <SelectItem key={acc.id} value={String(acc.id)}>
-                            {acc.code} - {acc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={line.description}
-                      onChange={(e) =>
-                        updateLine(line.id, { description: e.target.value })
-                      }
-                      className="h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      className="h-8 text-right"
-                      value={line.debit}
-                      onKeyDown={(e) => {
-                        if (["e", "E", "+"].includes(e.key)) {
-                          e.preventDefault();
-                        }
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (parseFloat(val) !== 0) {
-                          updateLine(line.id, { debit: val, credit: "0.00" });
-                        } else {
-                          updateLine(line.id, { debit: val });
-                        }
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="h-8 text-right"
-                      value={line.credit}
-                      onKeyDown={(e) => {
-                        if (["e", "E", "+", "-"].includes(e.key)) {
-                          e.preventDefault();
-                        }
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (parseFloat(val) !== 0) {
-                          updateLine(line.id, { credit: val, debit: "0.00" });
-                        } else {
-                          updateLine(line.id, { credit: val });
-                        }
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeLine(line.id)}
-                      className="h-8 w-8 text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="p-4 flex justify-between items-center bg-gray-50 border-t">
-            <Button variant="outline" size="sm" onClick={addLine}>
-              <Plus className="mr-2 h-4 w-4" /> Add Line
-            </Button>
-            <div className="flex gap-8 text-sm font-medium">
-              <div className={!isBalanced ? "text-red-600" : ""}>
-                Total Debits: {totalDebits.toFixed(2)}
-              </div>
-              <div className={!isBalanced ? "text-red-600" : ""}>
-                Total Credits: {totalCredits.toFixed(2)}
-              </div>
-              <div
-                className={
-                  !isBalanced
-                    ? "text-red-600 font-bold"
-                    : "text-green-600 font-bold"
-                }
-              >
-                Difference: {(totalDebits - totalCredits).toFixed(2)}
-              </div>
+      ) : !organizationId ? (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-muted-foreground">
+              Choose an organization from the workspace switcher to edit this
+              journal.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Reference</Label>
+              <Input
+                placeholder="#REF"
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Journal #</Label>
+              <Input disabled value={journalNumber} />
+            </div>
+            <div className="col-span-3 space-y-2">
+              <Label>Description</Label>
+              <Input
+                placeholder="e.g. Monthly Depreciation"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      <div className="flex justify-end gap-4">
-        <Button variant="outline" asChild>
-          <Link href="/finance/gl/journals">Cancel</Link>
-        </Button>
-        <Button onClick={handleSubmit} disabled={isPending}>
-          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Update Journal
-        </Button>
-      </div>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Journal Lines</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[300px]">Account</TableHead>
+                    <TableHead>Description (Optional)</TableHead>
+                    <TableHead className="w-[150px] text-right">
+                      Debit
+                    </TableHead>
+                    <TableHead className="w-[150px] text-right">
+                      Credit
+                    </TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {lines.map((line) => (
+                    <TableRow key={line.id}>
+                      <TableCell>
+                        <Select
+                          value={line.accountId}
+                          onValueChange={(val) =>
+                            updateLine(line.id, { accountId: val })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Account" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {accounts.map((acc) => (
+                              <SelectItem key={acc.id} value={String(acc.id)}>
+                                {acc.code} - {acc.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={line.description}
+                          onChange={(e) =>
+                            updateLine(line.id, { description: e.target.value })
+                          }
+                          className="h-8"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="h-8 text-right"
+                          value={line.debit}
+                          onKeyDown={(e) => {
+                            if (["e", "E", "+"].includes(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (parseFloat(val) !== 0) {
+                              updateLine(line.id, {
+                                debit: val,
+                                credit: "0.00",
+                              });
+                            } else {
+                              updateLine(line.id, { debit: val });
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="h-8 text-right"
+                          value={line.credit}
+                          onKeyDown={(e) => {
+                            if (["e", "E", "+", "-"].includes(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (parseFloat(val) !== 0) {
+                              updateLine(line.id, {
+                                credit: val,
+                                debit: "0.00",
+                              });
+                            } else {
+                              updateLine(line.id, { credit: val });
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeLine(line.id)}
+                          className="h-8 w-8 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="flex items-center justify-between border-t border-border bg-muted/50 p-4 text-foreground">
+                <Button variant="outline" size="sm" onClick={addLine}>
+                  <Plus className="mr-2 h-4 w-4" /> Add Line
+                </Button>
+                <div className="flex gap-8 text-sm font-medium">
+                  <div
+                    className={
+                      !isBalanced
+                        ? "text-destructive"
+                        : "text-foreground tabular-nums"
+                    }
+                  >
+                    Total Debits: {totalDebits.toFixed(2)}
+                  </div>
+                  <div
+                    className={
+                      !isBalanced
+                        ? "text-destructive"
+                        : "text-foreground tabular-nums"
+                    }
+                  >
+                    Total Credits: {totalCredits.toFixed(2)}
+                  </div>
+                  <div
+                    className={
+                      !isBalanced
+                        ? "font-bold text-destructive tabular-nums"
+                        : "font-bold text-emerald-600 dark:text-emerald-400 tabular-nums"
+                    }
+                  >
+                    Difference: {(totalDebits - totalCredits).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-4">
+            <Button variant="outline" asChild>
+              <Link href="/finance/gl/journals">Cancel</Link>
+            </Button>
+            <Button onClick={handleSubmit} disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update Journal
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

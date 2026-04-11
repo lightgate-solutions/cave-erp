@@ -1,4 +1,3 @@
-import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -13,7 +12,7 @@ export default async function EditVendorPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
+  const { id } = await params;
 
   // Fetch vendor data from server
   const vendor = await getVendor(Number(id));

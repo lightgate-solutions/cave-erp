@@ -25,6 +25,18 @@ const FinanceChart = dynamic(
     ssr: false,
   },
 );
+const FinanceOverviewSnapshotChart = dynamic(
+  () =>
+    import("@/components/finance/finance-sidebar-operations-chart").then(
+      (mod) => ({ default: mod.FinanceSidebarOperationsChart }),
+    ),
+  {
+    loading: () => (
+      <div className="h-[280px] w-full animate-pulse rounded-xl border bg-muted/30" />
+    ),
+    ssr: false,
+  },
+);
 import type { DateRange } from "react-day-picker";
 import { addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -32,8 +44,53 @@ import { useRouter } from "next/navigation";
 import { BalanceUpdateDialog } from "@/components/finance/balance-update-dialog";
 import { ExpenseFormDialog } from "@/components/finance/expense-form-dialog";
 
+function FinanceOverviewSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-2">
+          <div className="h-8 w-48 rounded bg-muted animate-pulse" />
+          <div className="h-4 w-72 max-w-full rounded bg-muted animate-pulse" />
+        </div>
+        <div className="h-10 w-[300px] max-w-full rounded-md bg-muted animate-pulse" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3].map((k) => (
+          <Card key={k}>
+            <CardHeader className="space-y-2">
+              <div className="h-4 w-24 rounded bg-muted animate-pulse" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="h-8 w-32 rounded bg-muted animate-pulse" />
+              <div className="h-9 w-full max-w-[140px] rounded-md bg-muted animate-pulse" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="h-[280px] w-full rounded-xl border bg-muted/20 animate-pulse" />
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="col-span-4 h-64 rounded-lg bg-muted animate-pulse" />
+        <Card className="col-span-3">
+          <CardHeader>
+            <div className="h-5 w-28 rounded bg-muted animate-pulse" />
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            {[1, 2, 3].map((k) => (
+              <div
+                key={k}
+                className="h-16 w-full rounded-md border bg-muted/40 animate-pulse"
+              />
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function FinancePage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState({
     totalExpenses: "0",
     activeLoans: 0,
@@ -70,6 +127,14 @@ export default function FinancePage() {
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <FinanceOverviewSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
@@ -145,6 +210,8 @@ export default function FinancePage() {
           </CardContent>
         </Card>
       </div>
+
+      <FinanceOverviewSnapshotChart />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <FinanceChart data={stats.chartData} loading={loading} />

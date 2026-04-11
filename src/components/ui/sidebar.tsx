@@ -34,6 +34,25 @@ const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
+/** AppSidebar merges these with Sidebar HTML props; never forward to DOM/Radix. */
+const SIDEBAR_APP_ONLY_PROP_KEYS = [
+  "permissionContext",
+  "user",
+  "userId",
+  "organizationId",
+  "employee",
+] as const;
+
+function omitSidebarAppOnlyProps(
+  props: Record<string, unknown>,
+): Record<string, unknown> {
+  const out = { ...props };
+  for (const k of SIDEBAR_APP_ONLY_PROP_KEYS) {
+    delete out[k];
+  }
+  return out;
+}
+
 type SidebarContextProps = {
   state: "expanded" | "collapsed";
   open: boolean;
@@ -166,6 +185,9 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none";
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const domProps = omitSidebarAppOnlyProps(
+    props as Record<string, unknown>,
+  ) as typeof props;
 
   if (collapsible === "none") {
     return (
@@ -175,7 +197,7 @@ function Sidebar({
           "bg-sidebar text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col",
           className,
         )}
-        {...props}
+        {...domProps}
       >
         {children}
       </div>
@@ -184,7 +206,7 @@ function Sidebar({
 
   if (isMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...domProps}>
         <SheetContent
           data-sidebar="sidebar"
           data-slot="sidebar"
@@ -241,7 +263,7 @@ function Sidebar({
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
           className,
         )}
-        {...props}
+        {...domProps}
       >
         <div
           data-sidebar="sidebar"

@@ -22,11 +22,13 @@ export async function getOverallMetrics() {
   try {
     await requireInvoicingViewAccess();
 
-    const organization = await auth.api.getFullOrganization({
+    const session = await auth.api.getSession({
       headers: await headers(),
     });
+    /** Must match active org switch — do not use getFullOrganization() alone for scoping. */
+    const organizationId = session?.session?.activeOrganizationId;
 
-    if (!organization) {
+    if (!organizationId) {
       return null;
     }
 
@@ -39,7 +41,7 @@ export async function getOverallMetrics() {
         overdueRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${receivablesInvoices.status} = 'Overdue' THEN ${receivablesInvoices.amountDue} ELSE 0 END), 0)`,
       })
       .from(receivablesInvoices)
-      .where(eq(receivablesInvoices.organizationId, organization.id));
+      .where(eq(receivablesInvoices.organizationId, organizationId));
 
     // Get invoice counts by status
     const [counts] = await db
@@ -53,7 +55,7 @@ export async function getOverallMetrics() {
         cancelledInvoices: sql<number>`COUNT(CASE WHEN ${receivablesInvoices.status} = 'Cancelled' THEN 1 END)`,
       })
       .from(receivablesInvoices)
-      .where(eq(receivablesInvoices.organizationId, organization.id));
+      .where(eq(receivablesInvoices.organizationId, organizationId));
 
     // Calculate average payment time for paid invoices
     const paidInvoices = await db
@@ -64,7 +66,7 @@ export async function getOverallMetrics() {
       .from(receivablesInvoices)
       .where(
         and(
-          eq(receivablesInvoices.organizationId, organization.id),
+          eq(receivablesInvoices.organizationId, organizationId),
           eq(receivablesInvoices.status, "Paid"),
           sql`${receivablesInvoices.sentAt} IS NOT NULL`,
           sql`${receivablesInvoices.paidAt} IS NOT NULL`,
@@ -88,7 +90,7 @@ export async function getOverallMetrics() {
     const [clientCount] = await db
       .select({ count: count() })
       .from(clients)
-      .where(eq(clients.organizationId, organization.id));
+      .where(eq(clients.organizationId, organizationId));
 
     // Get active clients (clients with at least one invoice)
     const [activeClientCount] = await db
@@ -96,7 +98,7 @@ export async function getOverallMetrics() {
         count: sql<number>`COUNT(DISTINCT ${receivablesInvoices.clientId})`,
       })
       .from(receivablesInvoices)
-      .where(eq(receivablesInvoices.organizationId, organization.id));
+      .where(eq(receivablesInvoices.organizationId, organizationId));
 
     return {
       revenue: {

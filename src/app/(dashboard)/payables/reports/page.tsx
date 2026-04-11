@@ -34,6 +34,8 @@ import {
   getWHTReport,
 } from "@/actions/payables/analytics";
 import { ReportsFilter } from "@/components/payables/reports-filter";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 interface ReportsPageProps {
   searchParams: Promise<{
@@ -45,6 +47,9 @@ export default async function PayablesReportsPage({
   searchParams,
 }: ReportsPageProps) {
   const params = await searchParams;
+  const session = await auth.api.getSession({ headers: await headers() });
+  const activeOrgId = session?.session?.activeOrganizationId ?? "";
+
   const dateRange = params.dateRange || "month";
 
   // Calculate dates
@@ -114,7 +119,10 @@ export default async function PayablesReportsPage({
   );
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div
+      key={activeOrgId || "no-org"}
+      className="flex-1 space-y-4 p-4 md:p-8 pt-6"
+    >
       <ReportsFilter />
 
       {/* Quick Stats */}

@@ -22,6 +22,31 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { BETA_BILLING_DISABLED } from "@/lib/plans";
 
+/** Multiple `employees` rows can share the same `auth_id`; joins duplicate parent rows (documents, inbox rows, etc.). */
+function dedupeByNumericId<T extends { id: number | string }>(rows: T[]): T[] {
+  const seen = new Set<number>();
+  const out: T[] = [];
+  for (const row of rows) {
+    const id = Number(row.id);
+    if (!Number.isFinite(id)) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(row);
+  }
+  return out;
+}
+
+function dedupeByAuthId<T extends { authId: string }>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const row of rows) {
+    if (!row.authId || seen.has(row.authId)) continue;
+    seen.add(row.authId);
+    out.push(row);
+  }
+  return out;
+}
+
 /**
  * Send external email notifications to recipients who have email notifications enabled
  * This runs asynchronously and does not block the main email send operation
@@ -690,12 +715,15 @@ export async function getInboxEmails(page = 1, limit = 20) {
         .limit(limit)
         .offset(offset);
 
+      const uniqueEmails = dedupeByNumericId(emails);
+
       const [{ count }] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(emailRecipient)
         .where(
           and(
             eq(emailRecipient.recipientId, currentUser.authId),
+            eq(emailRecipient.organizationId, organization.id),
             eq(emailRecipient.isArchived, false),
             eq(emailRecipient.isDeleted, false),
           ),
@@ -704,7 +732,7 @@ export async function getInboxEmails(page = 1, limit = 20) {
       return {
         success: true,
         data: {
-          emails,
+          emails: uniqueEmails,
           pagination: {
             page,
             limit,
@@ -780,12 +808,15 @@ export async function getArchivedEmails(page = 1, limit = 20) {
         .limit(limit)
         .offset(offset);
 
+      const uniqueEmails = dedupeByNumericId(emails);
+
       const [{ count }] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(emailRecipient)
         .where(
           and(
             eq(emailRecipient.recipientId, currentUser.authId),
+            eq(emailRecipient.organizationId, organization.id),
             eq(emailRecipient.isArchived, true),
             eq(emailRecipient.isDeleted, false),
           ),
@@ -794,7 +825,7 @@ export async function getArchivedEmails(page = 1, limit = 20) {
       return {
         success: true,
         data: {
-          emails,
+          emails: uniqueEmails,
           pagination: {
             page,
             limit,
@@ -887,7 +918,12 @@ export async function getSentEmails(page = 1, limit = 20) {
       const [{ count }] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(email)
-        .where(eq(email.senderId, currentUser.authId));
+        .where(
+          and(
+            eq(email.senderId, currentUser.authId),
+            eq(email.organizationId, organization.id),
+          ),
+        );
 
       return {
         success: true,
@@ -968,12 +1004,15 @@ export async function getTrashEmails(page = 1, limit = 20) {
         .limit(limit)
         .offset(offset);
 
+      const uniqueEmails = dedupeByNumericId(emails);
+
       const [{ count }] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(emailRecipient)
         .where(
           and(
             eq(emailRecipient.recipientId, currentUser.authId),
+            eq(emailRecipient.organizationId, organization.id),
             eq(emailRecipient.isDeleted, true),
           ),
         );
@@ -981,7 +1020,7 @@ export async function getTrashEmails(page = 1, limit = 20) {
       return {
         success: true,
         data: {
-          emails,
+          emails: uniqueEmails,
           pagination: {
             page,
             limit,
@@ -1071,7 +1110,7 @@ export async function getEmailById(emailId: number) {
         return { success: false, data: null, error: "Unauthorized" };
       }
 
-      const recipients = await tx
+      const recipientsRaw = await tx
         .select({
           authId: employees.authId,
           name: employees.name,
@@ -1082,6 +1121,8 @@ export async function getEmailById(emailId: number) {
         .from(emailRecipient)
         .innerJoin(employees, eq(emailRecipient.recipientId, employees.authId))
         .where(eq(emailRecipient.emailId, emailId));
+
+      const recipients = dedupeByAuthId(recipientsRaw);
 
       const isUserSender = emailData.senderId === currentUser.authId;
       const isUserReceipient = recipients.some(
@@ -1708,6 +1749,21 @@ export async function getEmailStats() {
       };
     }
 
+    const h = await headers();
+    const organization = await auth.api.getFullOrganization({
+      headers: h,
+    });
+
+    if (!organization) {
+      return {
+        success: false,
+        error: "Organization not found",
+        data: null,
+      };
+    }
+
+    const orgId = organization.id;
+
     return await db.transaction(async (tx) => {
       const [{ unreadCount }] = await tx
         .select({ unreadCount: sql<number>`count(*)::int` })
@@ -1715,6 +1771,7 @@ export async function getEmailStats() {
         .where(
           and(
             eq(emailRecipient.recipientId, currentUser.authId),
+            eq(emailRecipient.organizationId, orgId),
             eq(emailRecipient.isRead, false),
             eq(emailRecipient.isArchived, false),
             eq(emailRecipient.isDeleted, false),
@@ -1727,6 +1784,7 @@ export async function getEmailStats() {
         .where(
           and(
             eq(emailRecipient.recipientId, currentUser.authId),
+            eq(emailRecipient.organizationId, orgId),
             eq(emailRecipient.isArchived, false),
             eq(emailRecipient.isDeleted, false),
           ),
@@ -1738,6 +1796,7 @@ export async function getEmailStats() {
         .where(
           and(
             eq(emailRecipient.recipientId, currentUser.authId),
+            eq(emailRecipient.organizationId, orgId),
             eq(emailRecipient.isArchived, true),
             eq(emailRecipient.isDeleted, false),
           ),
@@ -1746,7 +1805,12 @@ export async function getEmailStats() {
       const [{ sentCount }] = await tx
         .select({ sentCount: sql<number>`count(*)::int` })
         .from(email)
-        .where(eq(email.senderId, currentUser.authId));
+        .where(
+          and(
+            eq(email.senderId, currentUser.authId),
+            eq(email.organizationId, orgId),
+          ),
+        );
 
       const [{ trashCount }] = await tx
         .select({ trashCount: sql<number>`count(*)::int` })
@@ -1754,6 +1818,7 @@ export async function getEmailStats() {
         .where(
           and(
             eq(emailRecipient.recipientId, currentUser.authId),
+            eq(emailRecipient.organizationId, orgId),
             eq(emailRecipient.isDeleted, true),
           ),
         );
@@ -1991,7 +2056,7 @@ export async function getEmailAttachments(emailId: number) {
 
       return {
         success: true,
-        data: attachments,
+        data: dedupeByNumericId(attachments),
         error: null,
       };
     });
@@ -2140,7 +2205,7 @@ export async function getAccessibleDocumentsForAttachment() {
 
     return {
       success: true,
-      data: documents,
+      data: dedupeByNumericId(documents),
       error: null,
     };
   } catch (error) {
@@ -2229,6 +2294,8 @@ export async function getAccessibleDocumentsForAttachmentPaginated(
         .limit(limit)
         .offset(offset);
 
+      const uniqueDocuments = dedupeByNumericId(documents);
+
       // Get total count for pagination
       const [{ count }] = await tx
         .select({ count: sql<number>`count(*)::int` })
@@ -2238,7 +2305,7 @@ export async function getAccessibleDocumentsForAttachmentPaginated(
       return {
         success: true,
         data: {
-          documents,
+          documents: uniqueDocuments,
           pagination: {
             page,
             limit,

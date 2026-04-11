@@ -18,8 +18,6 @@ import {
 } from "../auth/dal-payables";
 import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import type { PaymentMethod } from "@/types/payables";
 import { sendPaymentConfirmationEmail as sendPaymentConfirmationEmailUtil } from "@/lib/emails";
 
@@ -51,18 +49,7 @@ export async function recordPayment(
   sendEmail = false,
 ) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     // Get bill with vendor for GL description
     const [billRow] = await db
@@ -71,7 +58,13 @@ export async function recordPayment(
         vendorName: vendors.name,
       })
       .from(payablesBills)
-      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(payablesBills.vendorId, vendors.id),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
       .where(
         and(
           eq(payablesBills.id, billId),
@@ -256,18 +249,7 @@ export async function recordPayment(
  */
 export async function updatePayment(id: number, data: UpdatePaymentInput) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     // Get existing payment
     const [existing] = await db
@@ -412,18 +394,7 @@ export async function updatePayment(id: number, data: UpdatePaymentInput) {
  */
 export async function deletePayment(id: number) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     // Get payment
     const [payment] = await db
@@ -534,15 +505,7 @@ export async function deletePayment(id: number) {
  */
 export async function getBillPayments(billId: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const payments = await db
       .select()
@@ -572,14 +535,7 @@ export async function postBillPaymentToGL(paymentId: number): Promise<{
   alreadyPosted?: boolean;
 }> {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-    if (!organization) {
-      return { success: false, error: "Organization not found" };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     const [row] = await db
       .select({
@@ -589,7 +545,13 @@ export async function postBillPaymentToGL(paymentId: number): Promise<{
       })
       .from(billPayments)
       .innerJoin(payablesBills, eq(billPayments.billId, payablesBills.id))
-      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(payablesBills.vendorId, vendors.id),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
       .where(
         and(
           eq(billPayments.id, paymentId),
@@ -689,15 +651,7 @@ export async function getAllPayments(filters?: {
   vendorId?: number;
 }) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const conditions = [eq(billPayments.organizationId, organization.id)];
 
@@ -730,7 +684,13 @@ export async function getAllPayments(filters?: {
       })
       .from(billPayments)
       .innerJoin(payablesBills, eq(billPayments.billId, payablesBills.id))
-      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(payablesBills.vendorId, vendors.id),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
       .where(
         filters?.vendorId
           ? and(...conditions, eq(vendors.id, filters.vendorId))
@@ -750,18 +710,7 @@ export async function getAllPayments(filters?: {
  */
 export async function sendPaymentConfirmationEmail(paymentId: number) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     // Get payment with bill and vendor details
     const [payment] = await db
@@ -772,7 +721,13 @@ export async function sendPaymentConfirmationEmail(paymentId: number) {
       })
       .from(billPayments)
       .innerJoin(payablesBills, eq(billPayments.billId, payablesBills.id))
-      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(payablesBills.vendorId, vendors.id),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
       .where(
         and(
           eq(billPayments.id, paymentId),

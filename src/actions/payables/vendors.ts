@@ -13,8 +13,6 @@ import {
 } from "../auth/dal-payables";
 import { and, count, desc, eq, ilike, or, sql, sum } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import type {
   VendorStatus,
   VendorCategory,
@@ -56,13 +54,7 @@ export interface UpdateVendorInput extends Partial<CreateVendorInput> {}
  */
 export async function generateVendorCode() {
   try {
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     const year = new Date().getFullYear();
     const prefix = `VEN-${year}-`;
@@ -101,18 +93,7 @@ export async function generateVendorCode() {
  */
 export async function createVendor(data: CreateVendorInput) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     // Generate vendor code
     const vendorCode = await generateVendorCode();
@@ -209,18 +190,7 @@ export async function createVendor(data: CreateVendorInput) {
  */
 export async function updateVendor(id: number, data: UpdateVendorInput) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Check if vendor exists
     const [existing] = await db
@@ -274,18 +244,7 @@ export async function updateVendor(id: number, data: UpdateVendorInput) {
  */
 export async function deleteVendor(id: number) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Check if vendor has any bills
     const [billCount] = await db
@@ -344,15 +303,7 @@ export async function deleteVendor(id: number) {
  */
 export async function getVendor(id: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     // Get vendor with relations
     const vendor = await db.query.vendors.findFirst({
@@ -410,15 +361,7 @@ export async function getAllVendors(filters?: {
   status?: VendorStatus;
 }) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const conditions = [eq(vendors.organizationId, organization.id)];
 
@@ -455,8 +398,8 @@ export async function getAllVendors(filters?: {
         status: vendors.status,
         defaultPaymentTerms: vendors.defaultPaymentTerms,
         createdAt: vendors.createdAt,
-        billCount: sql<number>`(SELECT COUNT(*) FROM ${payablesBills} WHERE ${payablesBills.vendorId} = ${vendors.id})`,
-        totalOutstanding: sql<string>`COALESCE((SELECT SUM(${payablesBills.amountDue}) FROM ${payablesBills} WHERE ${payablesBills.vendorId} = ${vendors.id}), 0)`,
+        billCount: sql<number>`(SELECT COUNT(*)::int FROM ${payablesBills} WHERE ${payablesBills.vendorId} = ${vendors.id} AND ${payablesBills.organizationId} = ${organization.id})`,
+        totalOutstanding: sql<string>`COALESCE((SELECT SUM(${payablesBills.amountDue}) FROM ${payablesBills} WHERE ${payablesBills.vendorId} = ${vendors.id} AND ${payablesBills.organizationId} = ${organization.id}), 0)`,
       })
       .from(vendors)
       .where(and(...conditions))
@@ -479,15 +422,7 @@ export async function getVendorBills(
   },
 ) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const conditions = [
       eq(payablesBills.vendorId, vendorId),
@@ -516,15 +451,7 @@ export async function getVendorBills(
  */
 export async function getVendorStats(vendorId: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const [stats] = await db
       .select({

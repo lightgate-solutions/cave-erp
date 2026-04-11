@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +13,8 @@ import {
   getGLAccount,
   getGLAccountActivity,
 } from "@/actions/finance/gl/accounts";
-import { AccountActivityCard } from "@/components/finance/account-activity-card";
+import { GL_ACCOUNT_ACTIVITY_PAGE_SIZE } from "@/lib/finance/gl-constants";
+import { AccountActivitySection } from "@/components/finance/account-activity-section";
 import { notFound } from "next/navigation";
 
 export default async function GLAccountDetailPage({
@@ -22,10 +22,11 @@ export default async function GLAccountDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ start?: string; end?: string }>;
+  searchParams: Promise<{ start?: string; end?: string; page?: string }>;
 }) {
   const { id } = await params;
-  const { start, end } = await searchParams;
+  const { start, end, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const accountId = Number.parseInt(id, 10);
   if (Number.isNaN(accountId)) {
     notFound();
@@ -33,7 +34,12 @@ export default async function GLAccountDetailPage({
 
   const [accountResult, activityResult] = await Promise.all([
     getGLAccount(accountId),
-    getGLAccountActivity(accountId, undefined, 500, start, end),
+    getGLAccountActivity(accountId, undefined, {
+      startDate: start,
+      endDate: end,
+      page,
+      pageSize: GL_ACCOUNT_ACTIVITY_PAGE_SIZE,
+    }),
   ]);
 
   if (!accountResult.success || !accountResult.data) {
@@ -41,7 +47,16 @@ export default async function GLAccountDetailPage({
   }
 
   const account = accountResult.data;
-  const activity = activityResult.success ? activityResult.data : [];
+  const activityPayload =
+    activityResult.success && activityResult.data
+      ? activityResult.data
+      : {
+          lines: [],
+          total: 0,
+          page: 1,
+          pageSize: GL_ACCOUNT_ACTIVITY_PAGE_SIZE,
+          priorBalance: 0,
+        };
 
   return (
     <div className="p-6 space-y-6">
@@ -142,27 +157,17 @@ export default async function GLAccountDetailPage({
           </CardContent>
         </Card>
 
-        <Suspense
-          fallback={
-            <Card>
-              <CardHeader>
-                <CardTitle>Transaction History</CardTitle>
-                <CardDescription>Loading…</CardDescription>
-              </CardHeader>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Loading…
-              </CardContent>
-            </Card>
-          }
-        >
-          <AccountActivityCard
-            accountCode={account.code}
-            accountName={account.name}
-            activity={activity}
-            startParam={start}
-            endParam={end}
-          />
-        </Suspense>
+        <AccountActivitySection
+          accountCode={account.code}
+          accountName={account.name}
+          activity={activityPayload.lines}
+          total={activityPayload.total}
+          page={activityPayload.page}
+          pageSize={activityPayload.pageSize}
+          priorBalance={activityPayload.priorBalance}
+          startParam={start}
+          endParam={end}
+        />
       </div>
     </div>
   );

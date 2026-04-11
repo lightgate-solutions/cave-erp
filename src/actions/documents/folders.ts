@@ -472,3 +472,169 @@ export async function archiveFolder(folderId: number, pathname: string) {
     };
   }
 }
+
+export async function unarchiveFolder(folderId: number, pathname: string) {
+  const user = await getUser();
+  if (!user) throw new Error("User not logged in");
+
+  const organization = await auth.api.getFullOrganization({
+    headers: await headers(),
+  });
+  if (!organization) throw new Error("Organization not found");
+
+  const organizationId = organization.id;
+
+  try {
+    return await db.transaction(async (tx) => {
+      const targetFolder = await tx
+        .select({
+          id: documentFolders.id,
+          parentId: documentFolders.parentId,
+          createdBy: documentFolders.createdBy,
+        })
+        .from(documentFolders)
+        .where(
+          and(
+            eq(documentFolders.id, folderId),
+            eq(documentFolders.organizationId, organizationId),
+          ),
+        )
+        .limit(1);
+
+      if (targetFolder.length === 0) {
+        return {
+          error: { reason: "Folder not found" },
+          success: null,
+        };
+      }
+
+      const isAdmin = user.role === "admin";
+      if (!isAdmin && targetFolder[0].createdBy !== user.authId) {
+        return {
+          error: { reason: "User doesn't have the proper permissions" },
+          success: null,
+        };
+      }
+
+      async function getAllSubfolderIds(
+        currentFolderId: number,
+      ): Promise<number[]> {
+        const subFolders = await tx
+          .select({ id: documentFolders.id })
+          .from(documentFolders)
+          .where(
+            and(
+              eq(documentFolders.parentId, currentFolderId),
+              eq(documentFolders.organizationId, organizationId),
+            ),
+          );
+
+        const subIds = subFolders.map((f) => f.id);
+        for (const subId of subIds) {
+          const nested = await getAllSubfolderIds(subId);
+          subIds.push(...nested);
+        }
+        return subIds;
+      }
+
+      const ancestorIds: number[] = [];
+      let parentIdCursor = targetFolder[0].parentId;
+      while (parentIdCursor !== null) {
+        const parentRow = await tx
+          .select({
+            id: documentFolders.id,
+            parentId: documentFolders.parentId,
+            createdBy: documentFolders.createdBy,
+          })
+          .from(documentFolders)
+          .where(
+            and(
+              eq(documentFolders.id, parentIdCursor),
+              eq(documentFolders.organizationId, organizationId),
+            ),
+          )
+          .limit(1);
+
+        if (parentRow.length === 0) {
+          break;
+        }
+
+        if (!isAdmin && parentRow[0].createdBy !== user.authId) {
+          return {
+            error: {
+              reason:
+                "This folder sits under an archived parent you are not allowed to restore. Restore the parent first, or ask an admin.",
+            },
+            success: null,
+          };
+        }
+
+        ancestorIds.push(parentRow[0].id);
+        parentIdCursor = parentRow[0].parentId;
+      }
+
+      const descendantIds = await getAllSubfolderIds(folderId);
+      const subtreeFolderIds = [folderId, ...descendantIds];
+      const folderIdsToActivate = [
+        ...new Set([...ancestorIds, ...subtreeFolderIds]),
+      ];
+
+      const docs = await tx
+        .select({ id: document.id })
+        .from(document)
+        .where(
+          and(
+            inArray(document.folderId, subtreeFolderIds),
+            eq(document.organizationId, organizationId),
+            eq(document.status, "archived"),
+          ),
+        );
+
+      const docIds = docs.map((d) => d.id);
+
+      if (docIds.length > 0) {
+        await tx
+          .update(document)
+          .set({ status: "active", updatedAt: new Date() })
+          .where(
+            and(
+              inArray(document.id, docIds),
+              eq(document.organizationId, organizationId),
+            ),
+          );
+      }
+
+      await tx
+        .update(documentFolders)
+        .set({ status: "active", updatedAt: new Date() })
+        .where(
+          and(
+            inArray(documentFolders.id, folderIdsToActivate),
+            eq(documentFolders.organizationId, organizationId),
+          ),
+        );
+
+      revalidatePath(pathname);
+      return {
+        success: {
+          reason: "Folder and related archived documents restored successfully",
+        },
+        error: null,
+      };
+    });
+  } catch (err) {
+    if (err instanceof DrizzleQueryError) {
+      return {
+        success: null,
+        error: { reason: err.cause?.message || "Database error occurred" },
+      };
+    }
+
+    return {
+      error: {
+        reason: "Couldn't restore folder. Check inputs and try again!",
+      },
+      success: null,
+    };
+  }
+}

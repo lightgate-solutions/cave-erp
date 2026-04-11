@@ -1,4 +1,3 @@
-import { use } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -43,7 +42,7 @@ export default async function VendorDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
+  const { id } = await params;
 
   // Fetch vendor data from server
   const vendor = await getVendor(Number(id));

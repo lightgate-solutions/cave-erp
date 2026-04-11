@@ -39,13 +39,18 @@ import {
 import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import type { User } from "better-auth";
-import { useMemo } from "react";
+
+/** Better Auth user may include `role` at runtime; types are not always extended. */
+type UserWithRole = User & { role?: string | null };
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "convex/react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { getEmailStats } from "@/actions/mail/email";
 import { api } from "../../../convex/_generated/api";
 import { OrganizationSwitcher } from "../settings/organization-switcher";
 import { canAccessModule } from "@/lib/permissions/helpers";
 import { MODULES } from "@/lib/permissions/types";
-import type { UserPermissionContext } from "@/lib/permissions/types";
+import { useDashboardPermission } from "@/components/layouts/dashboard-permission-context";
 
 const data = {
   org: [
@@ -374,18 +379,25 @@ const data = {
   ],
 };
 
-export function AppSidebar({
-  user,
-  userId,
-  organizationId,
-  employee,
-  ...props
-}: React.ComponentProps<typeof Sidebar> & {
-  user: User;
+type AppSidebarProps = {
+  user: UserWithRole;
   userId: string;
   organizationId: string;
   employee: any;
-}) {
+} & React.ComponentProps<typeof Sidebar>;
+
+export function AppSidebar(props: AppSidebarProps) {
+  const { user, userId, organizationId, employee, ...sidebarDomProps } = props;
+  const permissionContext = useDashboardPermission();
+
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [mailUnreadCount, setMailUnreadCount] = useState(0);
+
+  const mailRouteSignature = pathname.startsWith("/mail")
+    ? `${pathname}?${searchParams.toString()}`
+    : pathname;
+
   // Query notifications - will return undefined if query fails or is loading
   const notifications = useQuery(api.notifications.getUserNotifications, {
     userId: userId,
@@ -397,11 +409,50 @@ export function AppSidebar({
       ? notifications.filter((n) => !n.isRead).length
       : 0;
 
-  const isManager = !!employee?.isManager || employee?.role === "admin";
-  const isAdmin = employee?.role === "admin";
+  useEffect(() => {
+    if (!employee) return;
+    void mailRouteSignature;
+    let cancelled = false;
+
+    const load = async () => {
+      const res = await getEmailStats();
+      if (cancelled || !res.success || !res.data) return;
+      setMailUnreadCount(res.data.unreadCount);
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [mailRouteSignature, employee]);
+
+  useEffect(() => {
+    if (!employee) return;
+    const id = window.setInterval(() => {
+      getEmailStats().then((res) => {
+        if (res.success && res.data) setMailUnreadCount(res.data.unreadCount);
+      });
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [employee]);
+
+  useEffect(() => {
+    if (!employee) return;
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      getEmailStats().then((res) => {
+        if (res.success && res.data) setMailUnreadCount(res.data.unreadCount);
+      });
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [employee]);
+
+  const sessionIsAdmin = user.role === "admin";
+  const isAdmin = employee?.role === "admin" || sessionIsAdmin;
 
   const groupedItems = useMemo(() => {
-    if (!employee) {
+    if (!permissionContext) {
       return {
         overview: [],
         modules: [],
@@ -411,19 +462,39 @@ export function AppSidebar({
       };
     }
 
-    // Create user permission context
-    const userContext: UserPermissionContext = {
-      department: employee?.department || "operations",
-      role: employee?.role || "member",
-      isManager: isManager || false,
-    };
+    const userContext = permissionContext;
+    const isManager = userContext.isManager;
 
-    // Filter base items by permission
     const base = data.navMain.filter((item) => {
       if (item.title === "Task/Performance") return false;
-      if (!item.module) return true; // Allow items without module specified
+      if (!item.module) return true;
       return canAccessModule(userContext, item.module);
     });
+
+    const withoutDupHrTools = base.filter((item) => {
+      if (!canAccessModule(userContext, MODULES.HR_EMPLOYEES)) return true;
+      if (
+        ["Ask HR", "Loan Management", "Leave Management"].includes(item.title)
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    const withExpandedHr = withoutDupHrTools.map((item) =>
+      item.title === "Hr"
+        ? {
+            ...item,
+            items: [
+              ...(item.items ?? []),
+              { title: "My attendance", url: "/hr/attendance" },
+              { title: "Ask HR", url: "/hr/ask-hr" },
+              { title: "Leave management", url: "/hr/leaves" },
+              { title: "Loan management", url: "/hr/loans" },
+            ],
+          }
+        : item,
+    );
 
     const taskItem = {
       title: "Task/Performance",
@@ -464,8 +535,9 @@ export function AppSidebar({
       icon?: LucideIcon;
       isActive?: boolean;
       module?: string;
+      badge?: number;
       items?: Array<{ title: string; url: string }>;
-    }> = [...base];
+    }> = [...withExpandedHr];
 
     // Add task item if user has access
     if (canAccessModule(userContext, MODULES.TASKS)) {
@@ -514,14 +586,19 @@ export function AppSidebar({
     };
 
     allItems.forEach((item) => {
+      const withMailBadge =
+        item.title === "Mail" && mailUnreadCount > 0
+          ? { ...item, badge: mailUnreadCount }
+          : item;
+
       if (["Dashboard", "Attendance"].includes(item.title)) {
-        groups.overview.push(item);
+        groups.overview.push(withMailBadge);
       } else if (
         ["Documents", "Mail", "Projects", "Task/Performance"].includes(
           item.title,
         )
       ) {
-        groups.modules.push(item);
+        groups.modules.push(withMailBadge);
       } else if (
         [
           "Hr",
@@ -540,17 +617,17 @@ export function AppSidebar({
           item.title,
         )
       ) {
-        groups.accounting.push(item);
+        groups.accounting.push(withMailBadge);
       } else {
-        groups.system.push(item);
+        groups.system.push(withMailBadge);
       }
     });
 
     return groups;
-  }, [isManager, isAdmin, employee]);
+  }, [permissionContext, isAdmin, mailUnreadCount]);
 
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="icon" {...sidebarDomProps}>
       <SidebarHeader>
         <OrganizationSwitcher size="md" />
       </SidebarHeader>

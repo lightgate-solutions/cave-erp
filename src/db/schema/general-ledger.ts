@@ -11,6 +11,7 @@ import {
   numeric,
   boolean,
   unique,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { organization, user } from "./auth";
 
@@ -142,6 +143,11 @@ export const glJournals = pgTable(
       .notNull()
       .default("0.00"),
 
+    /** Accrual / adjustment documentation (audit) */
+    adjustmentReason: text("adjustment_reason"),
+    /** When set, this journal reverses the referenced posted journal (no delete). */
+    reversalOfJournalId: integer("reversal_of_journal_id"),
+
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -161,6 +167,12 @@ export const glJournals = pgTable(
     index("gl_journals_org_idx").on(table.organizationId),
     index("gl_journals_date_idx").on(table.transactionDate),
     index("gl_journals_source_idx").on(table.source, table.sourceId),
+    index("gl_journals_reversal_idx").on(table.reversalOfJournalId),
+    foreignKey({
+      columns: [table.reversalOfJournalId],
+      foreignColumns: [table.id],
+      name: "gl_journals_reversal_of_fk",
+    }).onDelete("set null"),
     unique("gl_journals_org_number_unique").on(
       table.organizationId,
       table.journalNumber,
@@ -226,6 +238,11 @@ export const glPeriods = pgTable(
     closedBy: text("closed_by").references(() => user.id, {
       onDelete: "set null",
     }),
+    reopenedAt: timestamp("reopened_at"),
+    reopenedBy: text("reopened_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    lastStatusChangeReason: text("last_status_change_reason"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at")
       .notNull()

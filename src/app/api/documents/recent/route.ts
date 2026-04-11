@@ -8,6 +8,19 @@ import { employees } from "@/db/schema/hr";
 import { eq, desc, and, or, inArray, sql, type SQL } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
+/** Several `employees` rows can match the same `auth_id`, duplicating joined document rows. */
+function dedupeByDocumentId<T extends { id: number }>(rows: T[]): T[] {
+  const seen = new Set<number>();
+  const out: T[] = [];
+  for (const row of rows) {
+    const id = Number(row.id);
+    if (!Number.isFinite(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(row);
+  }
+  return out;
+}
+
 export async function GET() {
   try {
     const h = await headers();
@@ -125,7 +138,7 @@ export async function GET() {
 
     // Get recent documents - join with versions to get file size
     // Select both title and name to ensure we have the document name
-    const recentDocs = await db
+    const recentDocsRaw = await db
       .select({
         id: document.id,
         title: document.title, // Keep original title field
@@ -144,7 +157,9 @@ export async function GET() {
       )
       .where(and(whereClause, eq(document.organizationId, organization.id)))
       .orderBy(desc(document.createdAt))
-      .limit(5);
+      .limit(25);
+
+    const recentDocs = dedupeByDocumentId(recentDocsRaw).slice(0, 5);
 
     // Filter out documents without valid IDs or names
     // Include documents even if size is null (join might fail if version doesn't exist yet)

@@ -7,6 +7,7 @@ import { documentFolders } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { Folder } from "lucide-react";
+import { RestoreArchivedFolderButton } from "@/components/documents/restore-archived-folder-button";
 import { ViewToggle } from "@/components/documents/view-toggle/view-toggle";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -141,9 +142,10 @@ export default async function Page({
                   <h3 className="font-semibold text-foreground mb-1 truncate">
                     {folder.name.charAt(0).toUpperCase() + folder.name.slice(1)}
                   </h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-3">
                     Last Modified: {folder.updatedAt.toLocaleDateString()}
                   </p>
+                  <RestoreArchivedFolderButton folderId={folder.id} />
                 </div>
               </div>
             ))}
@@ -193,6 +195,7 @@ export default async function Page({
         </div>
 
         <DocumentsViewWrapper
+          listContext="archived"
           documents={documents.success.docs}
           paging={{
             page: documents.success.page,

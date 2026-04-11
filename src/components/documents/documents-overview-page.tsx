@@ -1,9 +1,7 @@
 "use client";
 
-import { Dialog } from "../ui/dialog";
 import CreateFolderButton from "./folders/create-folder-button";
 import FoldersViewWrapper from "./folders/folders-view-wrapper";
-import UploadDocumentButton from "./upload-document-button";
 import { ViewToggle } from "./view-toggle/view-toggle";
 import { useState } from "react";
 import { DocumentSearch } from "./document-search";
@@ -37,19 +35,10 @@ export function DocumentsOverview({
           <DocumentSearch value={searchTerm} onChange={setSearchTerm} />
           <ViewToggle />
           <div className="space-y-2">
-            <Dialog>
-              <UploadDocumentButton
-                usersFolders={usersFolders}
-                department={department}
-              />
-            </Dialog>
-
-            <Dialog>
-              <CreateFolderButton
-                usersFolders={usersFolders}
-                department={department}
-              />
-            </Dialog>
+            <CreateFolderButton
+              usersFolders={usersFolders}
+              department={department}
+            />
           </div>
         </div>
       </div>

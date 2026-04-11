@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +32,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useRouter } from "next/navigation";
 
 export default function FoldersTable({
   folders,
@@ -48,6 +47,7 @@ export default function FoldersTable({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const showAllDocumentsEntry = pathname === "/documents";
 
   return (
     <div className="border rounded-lg">
@@ -61,46 +61,48 @@ export default function FoldersTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableRow
-            className="hover:bg-muted/50 cursor-pointer"
-            onClick={() => router.push("/documents/all")}
-          >
-            <TableCell>
-              <Folder size={24} className="text-slate-600" />
-            </TableCell>
-            <TableCell className="font-medium">All Documents</TableCell>
-            <TableCell className="text-muted-foreground">This week</TableCell>
-            <TableCell
-              className="text-right"
-              onClick={(e) => e.stopPropagation()}
+          {showAllDocumentsEntry ? (
+            <TableRow
+              className="hover:bg-muted/50 cursor-pointer"
+              onClick={() => router.push("/documents/all")}
             >
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/documents/all">
-                    <LogIn size={16} className="mr-1" />
-                    Enter
-                  </Link>
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="px-2">
-                      <MoreVertical size={16} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem disabled>
-                      <Archive size={16} className="mr-2" />
-                      Archive
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled className="text-red-600">
-                      <Trash2 size={16} className="mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </TableCell>
-          </TableRow>
+              <TableCell>
+                <Folder size={24} className="text-slate-600" />
+              </TableCell>
+              <TableCell className="font-medium">All Documents</TableCell>
+              <TableCell className="text-muted-foreground">This week</TableCell>
+              <TableCell
+                className="text-right"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/documents/all">
+                      <LogIn size={16} className="mr-1" />
+                      Enter
+                    </Link>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="px-2">
+                        <MoreVertical size={16} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem disabled>
+                        <Archive size={16} className="mr-2" />
+                        Archive
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled className="text-red-600">
+                        <Trash2 size={16} className="mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : null}
           {folders.map((folder, idx) => {
             const folderUrl =
               pathname === "/documents"
@@ -191,6 +193,8 @@ function FoldersAction({
   pathname: string;
   type: "delete" | "archive";
 }) {
+  const router = useRouter();
+
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -214,7 +218,9 @@ function FoldersAction({
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {type === "delete" ? "Delete this folder?" : "Archive this folder?"}
+          </AlertDialogTitle>
           {type === "delete" ? (
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the
@@ -222,8 +228,8 @@ function FoldersAction({
             </AlertDialogDescription>
           ) : (
             <AlertDialogDescription>
-              This action cannot be undone. This will archive the folder and
-              move all its content to the archive page.
+              The folder and its documents will move to Documents → Archive. You
+              can restore them from the archive page at any time.
             </AlertDialogDescription>
           )}
         </AlertDialogHeader>
@@ -235,12 +241,13 @@ function FoldersAction({
                 const res = await deleteFolder(id, pathname);
                 if (res.error) {
                   toast.error(res.error.reason);
-                } else {
-                  toast.error(res.success.reason);
+                } else if (res.success) {
+                  toast.success(res.success.reason);
+                  router.refresh();
                 }
               }}
             >
-              Continue
+              Delete
             </AlertDialogAction>
           ) : (
             <AlertDialogAction
@@ -248,12 +255,13 @@ function FoldersAction({
                 const res = await archiveFolder(id, pathname);
                 if (res.error) {
                   toast.error(res.error.reason);
-                } else {
-                  toast.error(res.success.reason);
+                } else if (res.success) {
+                  toast.success(res.success.reason);
+                  router.refresh();
                 }
               }}
             >
-              Continue
+              Archive
             </AlertDialogAction>
           )}
         </AlertDialogFooter>

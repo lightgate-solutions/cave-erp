@@ -38,7 +38,7 @@ type Transaction = {
   balanceBefore: string;
   balanceAfter: string;
   createdAt: string;
-  userId: number | null;
+  userId: string | null;
   userName: string | null;
   userEmail: string | null;
 };

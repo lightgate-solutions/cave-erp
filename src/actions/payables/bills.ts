@@ -21,8 +21,6 @@ import {
 } from "../auth/dal-payables";
 import { and, desc, eq, gte, ilike, lte, ne, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import type { BillStatus, LineItem, TaxItem } from "@/types/payables";
 import {
   calculateBillAmounts,
@@ -76,13 +74,7 @@ export interface DuplicateCheckResult {
  */
 export async function generateBillNumber() {
   try {
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     const year = new Date().getFullYear();
     const prefix = `BILL-${year}-`;
@@ -127,19 +119,7 @@ export async function checkForDuplicateBill(
   excludeBillId?: number,
 ): Promise<DuplicateCheckResult> {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        isDuplicate: false,
-        confidence: "low",
-        matches: [],
-      };
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     // 1. HIGH confidence: Exact match on vendor + invoice number
     const exactMatchConditions = [
@@ -258,18 +238,7 @@ export async function checkForDuplicateBill(
  */
 export async function createBill(data: CreateBillInput) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     // Verify vendor belongs to organization
     const [vendor] = await db
@@ -507,18 +476,7 @@ export async function createBill(data: CreateBillInput) {
  */
 export async function updateBill(id: number, data: UpdateBillInput) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     // Check if bill exists
     const [existing] = await db
@@ -690,18 +648,7 @@ export async function updateBill(id: number, data: UpdateBillInput) {
  */
 export async function deleteBill(id: number) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Get bill to check status
     const [bill] = await db
@@ -770,15 +717,7 @@ export async function deleteBill(id: number) {
  */
 export async function getBill(id: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     // Get bill with relations
     const bill = await db.query.payablesBills.findFirst({
@@ -841,17 +780,10 @@ export async function getAllBills(filters?: {
   endDate?: string;
 }) {
   try {
-    await requirePayablesViewAccess();
+    const { organization } = await requirePayablesViewAccess();
+    const organizationId = organization.id;
 
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
-
-    const conditions = [eq(payablesBills.organizationId, organization.id)];
+    const conditions = [eq(payablesBills.organizationId, organizationId)];
 
     if (filters?.search) {
       conditions.push(
@@ -897,8 +829,20 @@ export async function getAllBills(filters?: {
         createdAt: payablesBills.createdAt,
       })
       .from(payablesBills)
-      .leftJoin(vendors, eq(payablesBills.vendorId, vendors.id))
-      .leftJoin(purchaseOrders, eq(payablesBills.poId, purchaseOrders.id))
+      .leftJoin(
+        vendors,
+        and(
+          eq(payablesBills.vendorId, vendors.id),
+          eq(vendors.organizationId, organizationId),
+        ),
+      )
+      .leftJoin(
+        purchaseOrders,
+        and(
+          eq(payablesBills.poId, purchaseOrders.id),
+          eq(purchaseOrders.organizationId, organizationId),
+        ),
+      )
       .where(and(...conditions))
       .orderBy(desc(payablesBills.createdAt));
 
@@ -918,18 +862,7 @@ export async function updateBillStatus(
   reason?: string,
 ) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     const [bill] = await db
       .select()
@@ -1088,18 +1021,7 @@ export async function updateBillStatus(
  */
 export async function approveBill(id: number) {
   try {
-    const { userId } = await requirePayablesApprovalAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesApprovalAccess();
 
     const [bill] = await db
       .select()
@@ -1256,12 +1178,7 @@ export async function getBillGLPostingStatus(id: number): Promise<{
   journalNumber?: string;
 } | null> {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-    if (!organization) return null;
+    const { organization } = await requirePayablesViewAccess();
 
     const journal = await db.query.glJournals.findFirst({
       where: and(
@@ -1299,14 +1216,7 @@ export async function postBillToGL(id: number): Promise<{
   alreadyPosted?: boolean;
 }> {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-    if (!organization) {
-      return { success: false, error: "Organization not found" };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     const [bill] = await db
       .select()
@@ -1426,18 +1336,7 @@ export async function postBillToGL(id: number): Promise<{
  */
 export async function matchBillToPO(billId: number, poId: number) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     // Get PO with line items
     const po = await db.query.purchaseOrders.findFirst({
@@ -1550,18 +1449,7 @@ export async function matchBillToPO(billId: number, poId: number) {
  */
 export async function sendBillReceivedConfirmation(billId: number) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     const bill = await getBill(billId);
 

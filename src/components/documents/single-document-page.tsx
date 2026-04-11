@@ -1273,9 +1273,9 @@ function DocumentPage({
                       No history yet.
                     </div>
                   ) : (
-                    logs.map((l) => (
+                    logs.map((l, idx) => (
                       <div
-                        key={l.id}
+                        key={`log-${Number(l.id)}-${idx}`}
                         className="flex items-center justify-between border rounded-md p-3"
                       >
                         <div>

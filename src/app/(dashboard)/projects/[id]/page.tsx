@@ -83,6 +83,7 @@ export default function ProjectDetailPage({
   );
   const [canManage, setCanManage] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [milestoneSaving, setMilestoneSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,7 +97,16 @@ export default function ProjectDetailPage({
     const m = await mRes.json();
     const e = await eRes.json();
     setProject(p.project);
-    setMilestones(m.milestones ?? []);
+    const rawMilestones: Milestone[] = m.milestones ?? [];
+    const seenIds = new Set<number>();
+    setMilestones(
+      rawMilestones.filter((row) => {
+        const mid = Number(row.id);
+        if (!Number.isFinite(mid) || seenIds.has(mid)) return false;
+        seenIds.add(mid);
+        return true;
+      }),
+    );
     setExpenses(e.expenses ?? []);
     setCanManage(manageAccess);
     setLoading(false);
@@ -133,28 +143,43 @@ export default function ProjectDetailPage({
   );
 
   async function saveMilestone() {
-    if (editingMilestone?.id) {
-      await fetch(`/api/projects/${projectId}/milestones`, {
-        method: "PUT",
-        body: JSON.stringify({
-          id: editingMilestone.id,
-          title,
-          description,
-          dueDate,
-        }),
-      });
-    } else {
-      await fetch(`/api/projects/${projectId}/milestones`, {
-        method: "POST",
-        body: JSON.stringify({ title, description, dueDate }),
-      });
+    if (milestoneSaving) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    setMilestoneSaving(true);
+    try {
+      if (editingMilestone?.id) {
+        const res = await fetch(`/api/projects/${projectId}/milestones`, {
+          method: "PUT",
+          body: JSON.stringify({
+            id: editingMilestone.id,
+            title: trimmed,
+            description,
+            dueDate,
+            completed: editingMilestone.completed,
+          }),
+        });
+        if (!res.ok) return;
+      } else {
+        const res = await fetch(`/api/projects/${projectId}/milestones`, {
+          method: "POST",
+          body: JSON.stringify({
+            title: trimmed,
+            description,
+            dueDate,
+          }),
+        });
+        if (!res.ok) return;
+      }
+      setTitle("");
+      setDescription("");
+      setDueDate("");
+      setEditingMilestone(null);
+      setOpen(false);
+      await load();
+    } finally {
+      setMilestoneSaving(false);
     }
-    setTitle("");
-    setDescription("");
-    setDueDate("");
-    setEditingMilestone(null);
-    setOpen(false);
-    load();
   }
 
   function openNewMilestone() {
@@ -430,8 +455,15 @@ export default function ProjectDetailPage({
                           </div>
                         </div>
                         <DialogFooter>
-                          <Button onClick={saveMilestone}>
-                            {editingMilestone ? "Save" : "Add"}
+                          <Button
+                            onClick={saveMilestone}
+                            disabled={milestoneSaving || !title.trim()}
+                          >
+                            {milestoneSaving
+                              ? "Saving…"
+                              : editingMilestone
+                                ? "Save"
+                                : "Add"}
                           </Button>
                         </DialogFooter>
                       </DialogContent>

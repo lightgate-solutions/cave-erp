@@ -12,6 +12,37 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function buildExpenseDateFilter(
+  dateFrom: string | null,
+  dateTo: string | null,
+): ReturnType<typeof sql> {
+  const fromOk = dateFrom && ISO_DATE.test(dateFrom) ? dateFrom : null;
+  const toOk = dateTo && ISO_DATE.test(dateTo) ? dateTo : null;
+  if (fromOk && toOk) {
+    const start = new Date(`${fromOk}T00:00:00.000Z`);
+    const end = new Date(`${toOk}T23:59:59.999Z`);
+    return sql`AND "expenseDate" >= ${start} AND "expenseDate" <= ${end}`;
+  }
+  if (fromOk) {
+    const start = new Date(`${fromOk}T00:00:00.000Z`);
+    return sql`AND "expenseDate" >= ${start}`;
+  }
+  if (toOk) {
+    const end = new Date(`${toOk}T23:59:59.999Z`);
+    return sql`AND "expenseDate" <= ${end}`;
+  }
+  return sql``;
+}
+
+function escapeCsvCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const organization = await auth.api.getFullOrganization({
@@ -22,14 +53,20 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
+    const exportCsv = searchParams.get("export") === "csv";
     const page = Number(searchParams.get("page") || "1");
-    const limit = Number(searchParams.get("limit") || "10");
-    const offset = (page - 1) * limit;
+    const limit = exportCsv
+      ? 50_000
+      : Number(searchParams.get("limit") || "10");
+    const offset = exportCsv ? 0 : (page - 1) * limit;
     const q = searchParams.get("q") || "";
     const category = searchParams.get("category") || "";
     const sortBy = searchParams.get("sortBy") || "createdAt";
     const sortDirection =
       searchParams.get("sortDirection") === "asc" ? "asc" : "desc";
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    const dateFilter = buildExpenseDateFilter(dateFrom, dateTo);
 
     const qFilter = q
       ? sql`AND (title ILIKE ${`%${q}%`} OR description ILIKE ${`%${q}%`} OR category ILIKE ${`%${q}%`})`
@@ -38,15 +75,38 @@ export async function GET(request: NextRequest) {
 
     const countQuery = sql`
       WITH all_expenses AS (
-        SELECT id, category, title, description, organization_id FROM company_expenses
+        SELECT 
+          id,
+          title,
+          description,
+          amount,
+          category,
+          expense_date as "expenseDate",
+          created_at as "createdAt",
+          updated_at as "updatedAt",
+          'company' as "type",
+          organization_id
+        FROM company_expenses
         UNION ALL
-        SELECT id, 'Project Expense' as category, title, notes as description, organization_id FROM expenses
+        SELECT 
+          id,
+          title,
+          notes as description,
+          amount::numeric as amount,
+          'Project Expense' as category,
+          COALESCE(spent_at, created_at) as "expenseDate",
+          created_at as "createdAt",
+          updated_at as "updatedAt",
+          'project' as "type",
+          organization_id
+        FROM expenses
       )
-      SELECT count(*) as count 
+      SELECT count(*)::int as count 
       FROM all_expenses 
       WHERE organization_id = ${organization.id} 
       ${qFilter} 
       ${catFilter}
+      ${dateFilter}
     `;
     const totalResult = await db.execute(countQuery);
     const total = Number(totalResult.rows[0].count || 0);
@@ -108,12 +168,47 @@ export async function GET(request: NextRequest) {
       WHERE organization_id = ${organization.id}
       ${qFilter}
       ${catFilter}
+      ${dateFilter}
       ORDER BY ${sql.raw(`"${sortCol}"`)} ${dir}
       LIMIT ${limit} OFFSET ${offset}
     `;
 
     const rowsResult = await db.execute(dataQuery);
-    const rows = rowsResult.rows;
+    const rows = rowsResult.rows as Record<string, unknown>[];
+
+    if (exportCsv) {
+      const headerRow = [
+        "id",
+        "title",
+        "description",
+        "amount",
+        "category",
+        "expenseDate",
+        "type",
+        "createdAt",
+        "updatedAt",
+      ];
+      const lines = [
+        headerRow.join(","),
+        ...rows.map((r) => headerRow.map((h) => escapeCsvCell(r[h])).join(",")),
+      ];
+      const csv = `\uFEFF${lines.join("\n")}`;
+      const rangePart =
+        dateFrom && dateTo
+          ? `${dateFrom}_to_${dateTo}`
+          : dateFrom
+            ? `from_${dateFrom}`
+            : dateTo
+              ? `to_${dateTo}`
+              : "all";
+      return new NextResponse(csv, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="company-expenses-${rangePart}.csv"`,
+        },
+      });
+    }
 
     return NextResponse.json({
       expenses: rows,

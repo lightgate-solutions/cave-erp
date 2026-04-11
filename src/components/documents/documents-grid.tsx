@@ -8,6 +8,7 @@
 
 import {
   Archive,
+  ArchiveRestore,
   Calendar,
   CheckCircle,
   Clock,
@@ -54,6 +55,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import {
   archiveDocumentAction,
   deleteDocumentAction,
+  unarchiveDocumentAction,
   type getActiveFolderDocuments,
   getDocumentComments,
   addDocumentComment,
@@ -103,8 +105,10 @@ type DocumentType = NonNullable<
 export default function DocumentsGrid({
   documents,
   paging,
+  listContext = "default",
 }: {
   documents: DocumentType[];
+  listContext?: "default" | "archived";
   paging?: {
     page: number;
     pageSize: number;
@@ -117,9 +121,21 @@ export default function DocumentsGrid({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const page = paging?.page ?? Number(searchParams?.get("page") ?? 1);
+  const useArchiveDocPagination = listContext === "archived";
+  const page =
+    paging?.page ??
+    Number(
+      useArchiveDocPagination
+        ? (searchParams?.get("dPage") ?? 1)
+        : (searchParams?.get("page") ?? 1),
+    );
   const pageSize =
-    paging?.pageSize ?? Number(searchParams?.get("pageSize") ?? 20);
+    paging?.pageSize ??
+    Number(
+      useArchiveDocPagination
+        ? (searchParams?.get("dPageSize") ?? 20)
+        : (searchParams?.get("pageSize") ?? 20),
+    );
   const total = paging?.total;
   const totalPages =
     paging?.totalPages ??
@@ -135,17 +151,22 @@ export default function DocumentsGrid({
     if (p < 1) return;
     if (totalPages && p > totalPages) return;
     const params = new URLSearchParams(searchParams?.toString() ?? "");
-    params.set("page", String(p));
-    params.set("pageSize", String(pageSize));
+    if (useArchiveDocPagination) {
+      params.set("dPage", String(p));
+      params.set("dPageSize", String(pageSize));
+    } else {
+      params.set("page", String(p));
+      params.set("pageSize", String(pageSize));
+    }
     router.push(`${pathname}?${params.toString()}`);
   }
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-4 2xl:grid-cols-5 gap-6">
-        {documents.map((doc, idx) => (
+        {documents.map((doc) => (
           <div
-            key={idx}
+            key={doc.id}
             className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
           >
             <div className={`h-24 flex items-center justify-center`}>
@@ -176,7 +197,9 @@ export default function DocumentsGrid({
                   <DropdownMenuContent align="end" className="space-y-1">
                     <DropdownMenuItem className="hover:cursor-pointer " asChild>
                       <DocumentsActions
-                        type="archive"
+                        type={
+                          listContext === "archived" ? "unarchive" : "archive"
+                        }
                         id={doc.id}
                         pathname={pathname}
                       />
@@ -203,7 +226,11 @@ export default function DocumentsGrid({
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
             {total !== undefined && start !== undefined && end !== undefined
-              ? `Showing ${start}-${end} of ${total}`
+              ? total === 0
+                ? listContext === "archived"
+                  ? "No archived documents"
+                  : "No documents in this folder"
+                : `Showing ${start}-${end} of ${total}`
               : null}
           </div>
           <div className="flex gap-2">
@@ -613,160 +640,170 @@ function DocumentSheet({
                   Download
                 </Button>
               </ButtonGroup>
-              <ButtonGroup>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <Share />
-                      Share
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Share document</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="user@example.com"
-                          value={shareEmail}
-                          onChange={(e) => setShareEmail(e.target.value)}
-                        />
-                        <select
-                          className="border rounded px-2 text-sm"
-                          value={shareLevel}
-                          onChange={(e) =>
-                            setShareLevel(
-                              e.target.value as "view" | "edit" | "manage",
-                            )
-                          }
-                        >
-                          <option value="view">View</option>
-                          <option value="edit">Edit</option>
-                          <option value="manage">Manage</option>
-                        </select>
-                        <Button onClick={handleShareAdd}>Add</Button>
-                      </div>
-
-                      {shareSuggestionsLoading && (
-                        <div className="text-xs text-muted-foreground">
-                          Searching…
-                        </div>
-                      )}
-                      {shareSuggestions.length > 0 && (
-                        <div className="border rounded p-2 max-h-40 overflow-y-auto">
-                          {shareSuggestions.map((s: any) => (
-                            <div
-                              key={s.id}
-                              className="flex items-center justify-between py-1 hover:bg-muted/50 px-2 rounded cursor-pointer"
-                              onClick={() => setShareEmail(s.email)}
+              {doc.status === "active" ? (
+                <>
+                  <ButtonGroup>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline">
+                          <Share />
+                          Share
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Share document</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="user@example.com"
+                              value={shareEmail}
+                              onChange={(e) => setShareEmail(e.target.value)}
+                            />
+                            <select
+                              className="border rounded px-2 text-sm"
+                              value={shareLevel}
+                              onChange={(e) =>
+                                setShareLevel(
+                                  e.target.value as "view" | "edit" | "manage",
+                                )
+                              }
                             >
-                              <div className="text-sm">
-                                {s.name} •{" "}
-                                <span className="text-muted-foreground">
-                                  {s.email}
-                                </span>
-                              </div>
-                              <Badge variant="outline">{s.department}</Badge>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                              <option value="view">View</option>
+                              <option value="edit">Edit</option>
+                              <option value="manage">Manage</option>
+                            </select>
+                            <Button onClick={handleShareAdd}>Add</Button>
+                          </div>
 
-                      <div className="space-y-2">
-                        <div className="text-sm font-medium">
-                          Current shares
-                        </div>
-                        {sharesLoading ? (
-                          <div className="text-xs text-muted-foreground">
-                            Loading shares…
-                          </div>
-                        ) : shares.length === 0 ? (
-                          <div className="text-xs text-muted-foreground">
-                            No shares yet.
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {shares.map((u: any) => (
-                              <div
-                                key={u.userId}
-                                className="flex items-center justify-between border rounded p-2"
-                              >
-                                <div className="text-sm">
-                                  {u.name ?? "User"} •{" "}
-                                  <span className="text-muted-foreground">
-                                    {u.email}
-                                  </span>{" "}
-                                  • {u.accessLevel}
-                                </div>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleShareRemove(u.userId)}
+                          {shareSuggestionsLoading && (
+                            <div className="text-xs text-muted-foreground">
+                              Searching…
+                            </div>
+                          )}
+                          {shareSuggestions.length > 0 && (
+                            <div className="border rounded p-2 max-h-40 overflow-y-auto">
+                              {shareSuggestions.map((s: any) => (
+                                <div
+                                  key={s.id}
+                                  className="flex items-center justify-between py-1 hover:bg-muted/50 px-2 rounded cursor-pointer"
+                                  onClick={() => setShareEmail(s.email)}
                                 >
-                                  <Trash2 className="w-4 h-4 mr-1" />
-                                  Remove
-                                </Button>
+                                  <div className="text-sm">
+                                    {s.name} •{" "}
+                                    <span className="text-muted-foreground">
+                                      {s.email}
+                                    </span>
+                                  </div>
+                                  <Badge variant="outline">
+                                    {s.department}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="space-y-2">
+                            <div className="text-sm font-medium">
+                              Current shares
+                            </div>
+                            {sharesLoading ? (
+                              <div className="text-xs text-muted-foreground">
+                                Loading shares…
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </ButtonGroup>
-              <ButtonGroup>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <Edit2 />
-                      New Version
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle></DialogTitle>
-                    </DialogHeader>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        onSubmit();
-                      }}
-                      className="space-y-6"
-                    >
-                      <Dropzone
-                        provider="cloudflare-r2"
-                        variant="compact"
-                        maxFiles={10}
-                        maxSize={1024 * 1024 * 50} // 50MB
-                        onFilesChange={(files) => setFiles(files)}
-                      />
-                      <Button type="submit" disabled={isUploading}>
-                        {isUploading && <Spinner />}
-                        {!isUploading ? "Submit" : "Uploading..."}
-                      </Button>
-                      {isUploading && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">
-                              {progress < 100
-                                ? "Uploading document.pdf..."
-                                : "Upload complete!"}
-                            </span>
-                            <span className="font-medium">{progress}%</span>
-                          </div>
-                          <Progress value={progress} className="w-full" />
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            {progress > 100 && (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : shares.length === 0 ? (
+                              <div className="text-xs text-muted-foreground">
+                                No shares yet.
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                {shares.map((u: any) => (
+                                  <div
+                                    key={u.userId}
+                                    className="flex items-center justify-between border rounded p-2"
+                                  >
+                                    <div className="text-sm">
+                                      {u.name ?? "User"} •{" "}
+                                      <span className="text-muted-foreground">
+                                        {u.email}
+                                      </span>{" "}
+                                      • {u.accessLevel}
+                                    </div>
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleShareRemove(u.userId)
+                                      }
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-1" />
+                                      Remove
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
                         </div>
-                      )}
-                    </form>
-                  </DialogContent>
-                </Dialog>
+                      </DialogContent>
+                    </Dialog>
+                  </ButtonGroup>
+                  <ButtonGroup>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline">
+                          <Edit2 />
+                          New Version
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle></DialogTitle>
+                        </DialogHeader>
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            onSubmit();
+                          }}
+                          className="space-y-6"
+                        >
+                          <Dropzone
+                            provider="cloudflare-r2"
+                            variant="compact"
+                            maxFiles={10}
+                            maxSize={1024 * 1024 * 50} // 50MB
+                            onFilesChange={(files) => setFiles(files)}
+                          />
+                          <Button type="submit" disabled={isUploading}>
+                            {isUploading && <Spinner />}
+                            {!isUploading ? "Submit" : "Uploading..."}
+                          </Button>
+                          {isUploading && (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                  {progress < 100
+                                    ? "Uploading document.pdf..."
+                                    : "Upload complete!"}
+                                </span>
+                                <span className="font-medium">{progress}%</span>
+                              </div>
+                              <Progress value={progress} className="w-full" />
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                {progress > 100 && (
+                                  <CheckCircle className="h-4 w-4 text-green-500" />
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </ButtonGroup>
+                </>
+              ) : null}
+              <ButtonGroup>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="px-2 bg-transparent">
@@ -776,7 +813,9 @@ function DocumentSheet({
                   <DropdownMenuContent align="end" className="space-y-1">
                     <DropdownMenuItem className="hover:cursor-pointer " asChild>
                       <DocumentsActions
-                        type="archive"
+                        type={
+                          doc.status === "archived" ? "unarchive" : "archive"
+                        }
                         id={doc.id}
                         pathname={pathname}
                       />
@@ -983,7 +1022,7 @@ function DocumentSheet({
                       const isCurrent = v.versionNumber === doc.currentVersion;
                       return (
                         <div
-                          key={v.id}
+                          key={`${v.id}-v${v.versionNumber}`}
                           className="flex items-center justify-between border rounded-md p-3"
                         >
                           <div className="flex flex-col">
@@ -1390,9 +1429,9 @@ function DocumentSheet({
                       No history yet.
                     </div>
                   ) : (
-                    logs.map((l) => (
+                    logs.map((l, idx) => (
                       <div
-                        key={l.id}
+                        key={`log-${Number(l.id)}-${idx}`}
                         className="flex items-center justify-between border rounded-md p-3"
                       >
                         <div>
@@ -1423,8 +1462,10 @@ function DocumentsActions({
 }: {
   id: number;
   pathname: string;
-  type: "delete" | "archive";
+  type: "delete" | "archive" | "unarchive";
 }) {
+  const router = useRouter();
+
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -1435,6 +1476,14 @@ function DocumentsActions({
           >
             <Trash2 className="mr-2" size={16} />
             Delete
+          </Button>
+        ) : type === "unarchive" ? (
+          <Button
+            variant="outline"
+            className="flex w-full gap-3 hover:cursor-pointer"
+          >
+            <ArchiveRestore className="mr-2" size={16} />
+            Restore
           </Button>
         ) : (
           <Button
@@ -1454,6 +1503,11 @@ function DocumentsActions({
               This action cannot be undone. This will permanently delete the
               file and all its data from our servers.
             </AlertDialogDescription>
+          ) : type === "unarchive" ? (
+            <AlertDialogDescription>
+              This will move the document back to your library as an active
+              document.
+            </AlertDialogDescription>
           ) : (
             <AlertDialogDescription>
               This action cannot be undone. This will archive the file move all
@@ -1469,12 +1523,27 @@ function DocumentsActions({
                 const res = await deleteDocumentAction(id, pathname);
                 if (res.error) {
                   toast.error(res.error.reason);
-                } else {
-                  toast.error(res.success.reason);
+                } else if (res.success) {
+                  toast.success(res.success.reason);
+                  router.refresh();
                 }
               }}
             >
               Continue
+            </AlertDialogAction>
+          ) : type === "unarchive" ? (
+            <AlertDialogAction
+              onClick={async () => {
+                const res = await unarchiveDocumentAction(id, pathname);
+                if (res.error) {
+                  toast.error(res.error.reason);
+                } else if (res.success) {
+                  toast.success(res.success.reason);
+                  router.refresh();
+                }
+              }}
+            >
+              Restore
             </AlertDialogAction>
           ) : (
             <AlertDialogAction
@@ -1482,8 +1551,9 @@ function DocumentsActions({
                 const res = await archiveDocumentAction(id, pathname);
                 if (res.error) {
                   toast.error(res.error.reason);
-                } else {
-                  toast.error(res.success.reason);
+                } else if (res.success) {
+                  toast.success(res.success.reason);
+                  router.refresh();
                 }
               }}
             >

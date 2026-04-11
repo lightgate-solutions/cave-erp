@@ -79,23 +79,32 @@ export function CreateOrganizationButton() {
       form.reset();
       setOpen(false);
 
-      // Create employee record for the organization owner
-      // Pass organizationId directly to avoid race condition with session update
+      const activeRes = await authClient.organization.setActive({
+        organizationId: res.data.id,
+      });
+      if (activeRes.error) {
+        toast.error(
+          activeRes.error.message || "Failed to activate new organization",
+        );
+        return;
+      }
+
       const { createEmployee } = await import("@/actions/hr/employees");
-      await createEmployee({
+      const empRes = await createEmployee({
         name: userData!.user!.name,
         email: userData!.user!.email,
         authId: userData!.user!.id,
         role: "admin",
         isManager: true,
-        organizationId: res.data.id, // Pass the new org ID directly
+        organizationId: res.data.id,
         data: {
           department: "admin",
         },
       });
-
-      // Set active organization after employee is created
-      await authClient.organization.setActive({ organizationId: res.data.id });
+      if (empRes.error) {
+        toast.error(empRes.error.reason || "Failed to create owner employee");
+        return;
+      }
 
       toast.success("Organization created successfully!");
       setTimeout(() => {

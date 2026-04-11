@@ -4,7 +4,7 @@
 
 "use client";
 import { Dropzone, type FileWithMetadata } from "@/components/ui/dropzone";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
@@ -106,21 +106,27 @@ const uploadSchema = z.object({
 export default function UploadDocumentButton({
   usersFolders,
   department,
+  lockedFolderName,
+  lockedFolderDisplay,
 }: {
   usersFolders: { name: string; path?: string }[];
   department: string;
+  /** When set (e.g. inside a folder route), upload targets this folder only—no folder picker. */
+  lockedFolderName?: string | null;
+  lockedFolderDisplay?: string | null;
 }) {
   const router = useRouter();
   const [files, setFiles] = useState<FileWithMetadata[]>();
   const [newTag, setNewTag] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const folderIsLocked = Boolean(lockedFolderName);
 
   const form = useForm<z.infer<typeof uploadSchema>>({
     resolver: zodResolver(uploadSchema),
     defaultValues: {
       title: "",
       description: "",
-      folder: "personal",
+      folder: lockedFolderName ?? "personal",
       public: false,
       departmental: false,
       status: "active",
@@ -129,6 +135,12 @@ export default function UploadDocumentButton({
       shares: [],
     },
   });
+
+  useEffect(() => {
+    if (lockedFolderName) {
+      form.setValue("folder", lockedFolderName);
+    }
+  }, [lockedFolderName, form]);
 
   const {
     fields: tagFields,
@@ -370,7 +382,15 @@ export default function UploadDocumentButton({
   ];
 
   return (
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+    <Dialog
+      open={dialogOpen}
+      onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (open && lockedFolderName) {
+          form.setValue("folder", lockedFolderName);
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button className="hover:cursor-pointer" size="lg">
           Upload Document
@@ -411,49 +431,81 @@ export default function UploadDocumentButton({
               <Controller
                 name="folder"
                 control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field
-                    orientation="responsive"
-                    data-invalid={fieldState.invalid}
-                  >
-                    <FieldContent>
-                      <FieldLabel htmlFor="folder">Folder *</FieldLabel>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                      <Select
-                        name={field.name}
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <SelectTrigger
-                          name="folder"
-                          aria-invalid={fieldState.invalid}
-                          className="w-full"
+                render={({ field, fieldState }) =>
+                  folderIsLocked ? (
+                    <Field
+                      orientation="responsive"
+                      data-invalid={fieldState.invalid}
+                    >
+                      <FieldContent>
+                        <FieldLabel htmlFor="folder-locked">Folder</FieldLabel>
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                        <Input
+                          id="folder-locked"
+                          readOnly
+                          aria-readonly
+                          value={(() => {
+                            const raw =
+                              lockedFolderDisplay ?? field.value ?? "";
+                            return raw.charAt(0).toUpperCase() + raw.slice(1);
+                          })()}
+                          className="bg-muted"
+                        />
+                        <FieldDescription>
+                          Files are uploaded to this folder. Open a different
+                          folder from the sidebar to upload elsewhere.
+                        </FieldDescription>
+                      </FieldContent>
+                    </Field>
+                  ) : (
+                    <Field
+                      orientation="responsive"
+                      data-invalid={fieldState.invalid}
+                    >
+                      <FieldContent>
+                        <FieldLabel htmlFor="folder">Folder *</FieldLabel>
+                        {fieldState.invalid && (
+                          <FieldError errors={[fieldState.error]} />
+                        )}
+                        <Select
+                          name={field.name}
+                          value={field.value}
+                          onValueChange={field.onChange}
                         >
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                        <SelectContent position="item-aligned">
-                          {[
-                            ...new Map(
-                              safeFolders.map((f) => [f.name.toLowerCase(), f]),
-                            ).values(),
-                          ].map((folder, idx) => (
-                            <SelectItem key={idx} value={folder.name}>
-                              {(folder.path ?? folder.name)
-                                .charAt(0)
-                                .toUpperCase() +
-                                (folder.path ?? folder.name).slice(1)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FieldDescription>
-                        Select folder to drop documents.
-                      </FieldDescription>
-                    </FieldContent>
-                  </Field>
-                )}
+                          <SelectTrigger
+                            name="folder"
+                            aria-invalid={fieldState.invalid}
+                            className="w-full"
+                          >
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent position="item-aligned">
+                            {[
+                              ...new Map(
+                                safeFolders.map((f) => [
+                                  f.name.toLowerCase(),
+                                  f,
+                                ]),
+                              ).values(),
+                            ].map((folder, idx) => (
+                              <SelectItem key={idx} value={folder.name}>
+                                {(folder.path ?? folder.name)
+                                  .charAt(0)
+                                  .toUpperCase() +
+                                  (folder.path ?? folder.name).slice(1)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FieldDescription>
+                          Select folder to drop documents.
+                        </FieldDescription>
+                      </FieldContent>
+                    </Field>
+                  )
+                }
               />
 
               <Controller

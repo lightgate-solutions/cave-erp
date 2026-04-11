@@ -58,6 +58,36 @@ export const getUser = cache(async () => {
   return user;
 });
 
+/**
+ * For RBAC, Better Auth `session.user.role === "admin"` must count as admin even when
+ * the HR `employees.role` is still `user`. Used by layouts (`RequirePermission`) and
+ * should match the sidebar’s merged session + employee logic.
+ */
+export const getUserPermissionContext = cache(
+  async (): Promise<UserPermissionContext | null> => {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user.id) return null;
+
+    const sessionIsAdmin =
+      (session.user as { role?: string | null }).role === "admin";
+
+    const employeeUser = await getUser();
+
+    if (!employeeUser && !sessionIsAdmin) return null;
+
+    return {
+      department:
+        (employeeUser?.department as UserPermissionContext["department"]) ??
+        (sessionIsAdmin ? DEPARTMENTS.ADMIN : DEPARTMENTS.OPERATIONS),
+      role: employeeUser?.role === "admin" || sessionIsAdmin ? "admin" : "user",
+      isManager:
+        !!employeeUser?.isManager ||
+        employeeUser?.role === "admin" ||
+        sessionIsAdmin,
+    };
+  },
+);
+
 export const getSessionRole = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
   return session?.user?.role ?? null;
@@ -177,11 +207,18 @@ export const requireFinance = cache(async () => {
 // Generic helper to require specific module access
 export const requireModuleAccess = cache(async (module: Module) => {
   const authData = await requireAuth();
+  const sessionIsAdmin = authData.role === "admin";
 
   const userContext: UserPermissionContext = {
-    department: authData.employee?.department,
-    role: authData.role === "admin" ? "admin" : "user",
-    isManager: authData.employee?.isManager,
+    department:
+      (authData.employee?.department as UserPermissionContext["department"]) ??
+      (sessionIsAdmin ? DEPARTMENTS.ADMIN : DEPARTMENTS.OPERATIONS),
+    role:
+      authData.employee?.role === "admin" || sessionIsAdmin ? "admin" : "user",
+    isManager:
+      !!authData.employee?.isManager ||
+      authData.employee?.role === "admin" ||
+      sessionIsAdmin,
   };
 
   if (!canAccessModule(userContext, module)) {

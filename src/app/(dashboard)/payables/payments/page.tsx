@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { DollarSign } from "lucide-react";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +37,9 @@ export default async function PaymentsPage({
   searchParams,
 }: PaymentsPageProps) {
   const params = await searchParams;
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  const activeOrgId = session?.session?.activeOrganizationId ?? "";
 
   // Process date range
   let startDate: string | undefined;
@@ -106,7 +111,10 @@ export default async function PaymentsPage({
   };
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div
+      key={activeOrgId || "no-org"}
+      className="flex-1 space-y-4 p-4 md:p-8 pt-6"
+    >
       <PaymentsToolbar />
 
       {/* Summary Cards */}

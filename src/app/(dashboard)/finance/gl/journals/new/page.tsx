@@ -173,7 +173,9 @@ export default function NewJournalPage() {
             New Journal Entry
           </h1>
           <p className="text-muted-foreground">
-            Record a manual journal transaction.
+            {organizationId
+              ? "Record a manual journal transaction."
+              : "Select an organization before posting a journal."}
           </p>
         </div>
       </div>
@@ -314,22 +316,34 @@ export default function NewJournalPage() {
               ))}
             </TableBody>
           </Table>
-          <div className="p-4 flex justify-between items-center bg-gray-50 border-t">
+          <div className="flex items-center justify-between border-t border-border bg-muted/50 p-4 text-foreground">
             <Button variant="outline" size="sm" onClick={addLine}>
               <Plus className="mr-2 h-4 w-4" /> Add Line
             </Button>
             <div className="flex gap-8 text-sm font-medium">
-              <div className={!isBalanced ? "text-red-600" : ""}>
+              <div
+                className={
+                  !isBalanced
+                    ? "text-destructive"
+                    : "text-foreground tabular-nums"
+                }
+              >
                 Total Debits: {totalDebits.toFixed(2)}
               </div>
-              <div className={!isBalanced ? "text-red-600" : ""}>
+              <div
+                className={
+                  !isBalanced
+                    ? "text-destructive"
+                    : "text-foreground tabular-nums"
+                }
+              >
                 Total Credits: {totalCredits.toFixed(2)}
               </div>
               <div
                 className={
                   !isBalanced
-                    ? "text-red-600 font-bold"
-                    : "text-green-600 font-bold"
+                    ? "font-bold text-destructive tabular-nums"
+                    : "font-bold text-emerald-600 dark:text-emerald-400 tabular-nums"
                 }
               >
                 Difference: {(totalDebits - totalCredits).toFixed(2)}

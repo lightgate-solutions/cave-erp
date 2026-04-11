@@ -18,6 +18,7 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 
 export function NavMain({
   items,
@@ -29,6 +30,7 @@ export function NavMain({
     url: string;
     icon?: LucideIcon;
     isActive?: boolean;
+    badge?: number;
     items?: {
       title: string;
       url: string;
@@ -132,22 +134,48 @@ export function NavMain({
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
                 asChild
-                tooltip={item.title}
+                tooltip={
+                  item.badge && item.badge > 0
+                    ? {
+                        children: `${item.title} · ${item.badge} unread`,
+                      }
+                    : item.title
+                }
                 isActive={isActive}
                 className={cn(
                   "transition-all duration-200",
                   isActive && "font-semibold text-primary bg-primary/10",
                 )}
               >
-                <Link href={item.url} className="flex items-center">
-                  {item.icon &&
-                    React.createElement(item.icon, {
-                      className: cn(
-                        "h-5 w-5 transition-colors",
-                        isActive ? "text-primary" : "text-muted-foreground",
-                      ),
-                    })}
-                  <span>{item.title}</span>
+                <Link
+                  href={item.url}
+                  className="flex min-w-0 flex-1 items-center gap-2"
+                >
+                  {item.icon ? (
+                    <span className="relative shrink-0">
+                      {React.createElement(item.icon, {
+                        className: cn(
+                          "h-5 w-5 transition-colors",
+                          isActive ? "text-primary" : "text-muted-foreground",
+                        ),
+                      })}
+                      {item.badge != null && item.badge > 0 ? (
+                        <span
+                          aria-hidden
+                          className="absolute -right-0.5 -top-0.5 hidden size-2 rounded-full bg-destructive ring-2 ring-sidebar group-data-[collapsible=icon]:block"
+                        />
+                      ) : null}
+                    </span>
+                  ) : null}
+                  <span className="truncate">{item.title}</span>
+                  {item.badge != null && item.badge > 0 ? (
+                    <Badge
+                      variant="destructive"
+                      className="ml-auto h-5 min-w-5 shrink-0 rounded-full border-0 px-1.5 py-0 text-[10px] font-semibold tabular-nums leading-none group-data-[collapsible=icon]:hidden pointer-events-none shadow-none"
+                    >
+                      {item.badge > 99 ? "99+" : item.badge}
+                    </Badge>
+                  ) : null}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

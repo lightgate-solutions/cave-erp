@@ -12,8 +12,6 @@ import {
 } from "@/db/schema";
 import { requirePayablesViewAccess } from "../auth/dal-payables";
 import { and, count, desc, eq, gte, lte, or, sql } from "drizzle-orm";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import type { BillTaxType } from "@/types/payables";
 
 /**
@@ -21,13 +19,10 @@ import type { BillTaxType } from "@/types/payables";
  */
 export async function getOverallMetrics() {
   try {
-    await requirePayablesViewAccess();
+    const { organization } = await requirePayablesViewAccess();
+    const organizationId = organization.id;
 
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
+    if (!organizationId) {
       return {
         payables: {
           total: "0.00",
@@ -52,7 +47,7 @@ export async function getOverallMetrics() {
       .from(payablesBills)
       .where(
         and(
-          eq(payablesBills.organizationId, organization.id),
+          eq(payablesBills.organizationId, organizationId),
           sql`${payablesBills.status} != 'Cancelled'`,
         ),
       );
@@ -68,7 +63,7 @@ export async function getOverallMetrics() {
       .from(payablesBills)
       .where(
         and(
-          eq(payablesBills.organizationId, organization.id),
+          eq(payablesBills.organizationId, organizationId),
           sql`${payablesBills.status} != 'Cancelled'`,
         ),
       );
@@ -80,7 +75,7 @@ export async function getOverallMetrics() {
         active: sql<number>`COUNT(CASE WHEN ${vendors.status} = 'Active' THEN 1 END)`,
       })
       .from(vendors)
-      .where(eq(vendors.organizationId, organization.id));
+      .where(eq(vendors.organizationId, organizationId));
 
     // Calculate average payment time (days from bill date to payment date)
     const [avgPaymentTimeResult] = await db
@@ -89,7 +84,7 @@ export async function getOverallMetrics() {
       })
       .from(billPayments)
       .innerJoin(payablesBills, eq(billPayments.billId, payablesBills.id))
-      .where(eq(billPayments.organizationId, organization.id));
+      .where(eq(billPayments.organizationId, organizationId));
 
     return {
       payables: {
@@ -131,15 +126,7 @@ export async function getOverallMetrics() {
  */
 export async function getAPAgingSummary() {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const aging = await db
       .select({
@@ -156,7 +143,13 @@ export async function getAPAgingSummary() {
         totalOutstanding: sql<string>`COALESCE(SUM(${payablesBills.amountDue}), 0)`,
       })
       .from(payablesBills)
-      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(payablesBills.vendorId, vendors.id),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
       .where(
         and(
           eq(payablesBills.organizationId, organization.id),
@@ -182,15 +175,7 @@ export async function getAPAgingSummary() {
  */
 export async function getAPAgingDetails(bucket: string) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     // Build date condition based on bucket
     let dateCondition: any;
@@ -226,7 +211,13 @@ export async function getAPAgingDetails(bucket: string) {
         daysOverdue: sql<number>`EXTRACT(DAY FROM (CURRENT_DATE - ${payablesBills.dueDate}::date))`,
       })
       .from(payablesBills)
-      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(payablesBills.vendorId, vendors.id),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
       .where(
         and(
           eq(payablesBills.organizationId, organization.id),
@@ -252,15 +243,7 @@ export async function getAPAgingDetails(bucket: string) {
  */
 export async function getCashFlowForecast(months = 3) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const endDate = new Date();
     endDate.setMonth(endDate.getMonth() + months);
@@ -300,18 +283,7 @@ export async function getCashFlowForecast(months = 3) {
  */
 export async function getVendorAnalytics(limit = 10) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        topVendors: [],
-        avgSpendPerVendor: "0.00",
-      };
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     // Get top vendors by total spend
     const topVendors = await db
@@ -329,6 +301,7 @@ export async function getVendorAnalytics(limit = 10) {
         payablesBills,
         and(
           eq(vendors.id, payablesBills.vendorId),
+          eq(payablesBills.organizationId, organization.id),
           sql`${payablesBills.status} != 'Cancelled'`,
         ),
       )
@@ -378,15 +351,7 @@ export async function getVendorAnalytics(limit = 10) {
  */
 export async function getPaymentMethodBreakdown() {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const breakdown = await db
       .select({
@@ -415,15 +380,7 @@ export async function getTaxSummaryReport(
   endDate?: string,
 ) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const conditions = [eq(billTaxes.organizationId, organization.id)];
 
@@ -471,15 +428,7 @@ export async function getTaxSummaryReport(
  */
 export async function getWHTReport(startDate: string, endDate: string) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const whtReport = await db
       .select({
@@ -496,7 +445,13 @@ export async function getWHTReport(startDate: string, endDate: string) {
       })
       .from(billTaxes)
       .innerJoin(payablesBills, eq(billTaxes.billId, payablesBills.id))
-      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(payablesBills.vendorId, vendors.id),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
       .where(
         and(
           eq(billTaxes.organizationId, organization.id),
@@ -520,15 +475,7 @@ export async function getWHTReport(startDate: string, endDate: string) {
  */
 export async function getVATReport(startDate: string, endDate: string) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const vatReport = await db
       .select({
@@ -545,7 +492,13 @@ export async function getVATReport(startDate: string, endDate: string) {
       })
       .from(billTaxes)
       .innerJoin(payablesBills, eq(billTaxes.billId, payablesBills.id))
-      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(payablesBills.vendorId, vendors.id),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
       .where(
         and(
           eq(billTaxes.organizationId, organization.id),
@@ -572,25 +525,7 @@ export async function getBillAnalyticsByDateRange(
   endDate: string,
 ) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        summary: {
-          totalBills: 0,
-          totalAmount: "0.00",
-          totalPaid: "0.00",
-          totalOutstanding: "0.00",
-        },
-        byStatus: [],
-        byCategory: [],
-        byMonth: [],
-      };
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     // Summary
     const [summary] = await db
@@ -636,7 +571,13 @@ export async function getBillAnalyticsByDateRange(
         totalAmount: sql<string>`COALESCE(SUM(${payablesBills.total}), 0)`,
       })
       .from(payablesBills)
-      .innerJoin(vendors, eq(payablesBills.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(payablesBills.vendorId, vendors.id),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
       .where(
         and(
           eq(payablesBills.organizationId, organization.id),
@@ -698,23 +639,7 @@ export async function getBillAnalyticsByDateRange(
  */
 export async function getPOAnalytics() {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        summary: {
-          totalPOs: 0,
-          totalAmount: "0.00",
-          totalBilled: "0.00",
-          unbilled: "0.00",
-        },
-        byStatus: [],
-      };
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     // Summary
     const [summary] = await db

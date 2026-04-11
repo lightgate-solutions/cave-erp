@@ -87,6 +87,7 @@ export async function updatePeriodStatus(
   status: "Open" | "Closed" | "Locked",
   userId?: string,
   passedOrgId?: string,
+  reason?: string,
 ) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
@@ -95,17 +96,50 @@ export async function updatePeriodStatus(
     if (!organizationId) {
       return { success: false, error: "Unauthorized: No active organization" };
     }
+
+    const [existing] = await db
+      .select()
+      .from(glPeriods)
+      .where(
+        and(eq(glPeriods.id, id), eq(glPeriods.organizationId, organizationId)),
+      )
+      .limit(1);
+
+    if (!existing) {
+      return { success: false, error: "Period not found" };
+    }
+
+    const wasRestricted =
+      existing.status === "Closed" || existing.status === "Locked";
+    const isReopen = status === "Open" && wasRestricted;
+
+    const updateValues: {
+      status: typeof status;
+      closedBy: string | null;
+      lastStatusChangeReason: string | null;
+      reopenedAt?: Date | null;
+      reopenedBy?: string | null;
+    } = {
+      status,
+      closedBy:
+        status === "Closed" || status === "Locked" ? (userId ?? null) : null,
+      lastStatusChangeReason: reason?.trim() || null,
+    };
+    if (isReopen) {
+      updateValues.reopenedAt = new Date();
+      updateValues.reopenedBy = userId ?? null;
+    }
+
     await db
       .update(glPeriods)
-      .set({
-        status,
-        closedBy: status === "Closed" || status === "Locked" ? userId : null,
-      })
+      .set(updateValues)
       .where(
         and(eq(glPeriods.id, id), eq(glPeriods.organizationId, organizationId)),
       );
 
-    revalidatePath("/finance/gl/settings");
+    revalidatePath("/finance/gl/periods");
+    revalidatePath("/finance/gl/reports");
+    revalidatePath("/finance/gl/journals");
     return { success: true };
   } catch (error) {
     console.error("Failed to update period status:", error);
