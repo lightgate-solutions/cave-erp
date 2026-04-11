@@ -1,5 +1,29 @@
-import type { TrialBalanceItem } from "@/actions/finance/gl/reports";
+import type {
+  IncomeStatementReport,
+  TrialBalanceItem,
+} from "@/actions/finance/gl/reports";
 import { format } from "date-fns";
+
+/** Classic trial balance: one amount per row — net debit (Dr − Cr) or net credit. */
+export function classicTrialBalanceDebitCredit(item: TrialBalanceItem): {
+  debit: number;
+  credit: number;
+} {
+  const d = item.closingDebits ?? item.totalDebits;
+  const c = item.closingCredits ?? item.totalCredits;
+  const net = d - c;
+  if (net > 1e-6) return { debit: net, credit: 0 };
+  if (net < -1e-6) return { debit: 0, credit: -net };
+  return { debit: 0, credit: 0 };
+}
+
+export function formatTrialBalanceFigure(n: number): string {
+  if (n === 0) return "";
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
 
 /** jspdf-autotable adds lastAutoTable to the doc instance at runtime (not in jsPDF types) */
 type DocWithAutoTable = { lastAutoTable?: { finalY: number } };
@@ -42,25 +66,36 @@ export function exportTrialBalanceToCSV(
   endDate: Date,
 ) {
   const period = `${format(startDate, "yyyy-MM-dd")}_to_${format(endDate, "yyyy-MM-dd")}`;
+  const header = ["Account", "Debit", "Credit"];
   const rows: string[][] = [
     [
       "Trial Balance",
       `Period: ${format(startDate, "PP")} - ${format(endDate, "PP")}`,
     ],
     [],
-    ["Account", "Type", "Debit", "Credit"],
+    header,
   ];
+  let sumDr = 0;
+  let sumCr = 0;
   for (const item of data) {
+    const { debit, credit } = classicTrialBalanceDebitCredit(item);
+    sumDr += debit;
+    sumCr += credit;
+  }
+  for (const item of data) {
+    const { debit, credit } = classicTrialBalanceDebitCredit(item);
+    if (debit <= 1e-6 && credit <= 1e-6) continue;
     rows.push([
       `${item.accountCode} - ${item.accountName}`,
-      item.accountType,
-      item.totalDebits > 0 ? item.totalDebits.toFixed(2) : "",
-      item.totalCredits > 0 ? item.totalCredits.toFixed(2) : "",
+      debit > 0 ? formatTrialBalanceFigure(debit) : "",
+      credit > 0 ? formatTrialBalanceFigure(credit) : "",
     ]);
   }
-  const totalDebit = data.reduce((s, i) => s + i.totalDebits, 0);
-  const totalCredit = data.reduce((s, i) => s + i.totalCredits, 0);
-  rows.push(["Total", "", totalDebit.toFixed(2), totalCredit.toFixed(2)]);
+  rows.push([
+    "TOTAL",
+    formatTrialBalanceFigure(sumDr),
+    formatTrialBalanceFigure(sumCr),
+  ]);
 
   const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
   downloadCsv(`Trial_Balance_${period}.csv`, csv);
@@ -74,7 +109,7 @@ export async function exportTrialBalanceToPDF(
   const { jsPDF } = await import("jspdf");
   const autoTable = (await import("jspdf-autotable")).default;
 
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: "portrait" });
   doc.setFontSize(16);
   doc.text("Trial Balance", 14, 16);
   doc.setFontSize(10);
@@ -84,24 +119,42 @@ export async function exportTrialBalanceToPDF(
     24,
   );
 
-  const body = data.map((item) => [
-    `${item.accountCode} - ${item.accountName}`,
-    item.accountType,
-    item.totalDebits > 0 ? item.totalDebits.toFixed(2) : "-",
-    item.totalCredits > 0 ? item.totalCredits.toFixed(2) : "-",
+  let sumDr = 0;
+  let sumCr = 0;
+  for (const item of data) {
+    const { debit, credit } = classicTrialBalanceDebitCredit(item);
+    sumDr += debit;
+    sumCr += credit;
+  }
+  const head = [["Account", "Debit", "Credit"]];
+  const body: string[][] = data
+    .filter((item) => {
+      const { debit, credit } = classicTrialBalanceDebitCredit(item);
+      return debit > 1e-6 || credit > 1e-6;
+    })
+    .map((item) => {
+      const { debit, credit } = classicTrialBalanceDebitCredit(item);
+      return [
+        `${item.accountCode} - ${item.accountName}`,
+        debit > 0 ? formatTrialBalanceFigure(debit) : "",
+        credit > 0 ? formatTrialBalanceFigure(credit) : "",
+      ];
+    });
+  body.push([
+    "TOTAL",
+    formatTrialBalanceFigure(sumDr),
+    formatTrialBalanceFigure(sumCr),
   ]);
-  const totalDebit = data.reduce((s, i) => s + i.totalDebits, 0);
-  const totalCredit = data.reduce((s, i) => s + i.totalCredits, 0);
-  body.push(["Total", "", totalDebit.toFixed(2), totalCredit.toFixed(2)]);
 
   autoTable(doc, {
     startY: 30,
-    head: [["Account", "Type", "Debit", "Credit"]],
+    head,
     body,
-    foot: [["", "", "", ""]],
+    foot: [head[0].map(() => "")],
     theme: "grid",
     headStyles: { fillColor: [66, 66, 66] },
     margin: { left: 14 },
+    styles: { fontSize: 10 },
   });
 
   const period = `${format(startDate, "yyyy-MM-dd")}_to_${format(endDate, "yyyy-MM-dd")}`;
@@ -110,26 +163,33 @@ export async function exportTrialBalanceToPDF(
 
 // --- Income Statement ---
 
-interface IncomeStatementData {
-  revenue: {
-    accountId: number;
-    accountName: string;
-    totalDebits: number;
-    totalCredits: number;
-  }[];
-  expenses: {
-    accountId: number;
-    accountName: string;
-    totalDebits: number;
-    totalCredits: number;
-  }[];
-  totalRevenue: number;
-  totalExpenses: number;
-  netIncome: number;
+function plRevenueAmount(item: { totalCredits: number; totalDebits: number }) {
+  return item.totalCredits - item.totalDebits;
+}
+
+function plExpenseAmount(item: { totalDebits: number; totalCredits: number }) {
+  return item.totalDebits - item.totalCredits;
+}
+
+export function formatIncomeStatementExpenseParens(amount: number): string {
+  const a = Math.abs(amount);
+  if (a < 1e-9) return "(0)";
+  return `(${formatTrialBalanceFigure(a)})`;
+}
+
+/** Legacy name — some bundles still reference `formatIsParens` after the rename. */
+export const formatIsParens = formatIncomeStatementExpenseParens;
+
+export function formatIncomeStatementRevenue(n: number): string {
+  return formatTrialBalanceFigure(Math.max(0, n));
+}
+
+export function formatIncomeStatementProfit(n: number): string {
+  return formatTrialBalanceFigure(n);
 }
 
 export function exportIncomeStatementToCSV(
-  data: IncomeStatementData,
+  data: IncomeStatementReport,
   startDate: Date,
   endDate: Date,
 ) {
@@ -145,28 +205,44 @@ export function exportIncomeStatementToCSV(
   for (const item of data.revenue) {
     rows.push([
       item.accountName,
-      (item.totalCredits - item.totalDebits).toFixed(2),
+      formatIncomeStatementRevenue(plRevenueAmount(item)),
     ]);
   }
-  rows.push(["Total Revenue", data.totalRevenue.toFixed(2)]);
+  if (data.revenue.length > 1) {
+    rows.push([
+      "Total Revenue",
+      formatIncomeStatementRevenue(data.totalRevenue),
+    ]);
+  }
+  if (data.costOfGoodsSold.length > 0) {
+    rows.push([]);
+    rows.push(["Cost of Goods Sold", ""]);
+    for (const item of data.costOfGoodsSold) {
+      rows.push([
+        item.accountName,
+        formatIncomeStatementExpenseParens(plExpenseAmount(item)),
+      ]);
+    }
+  }
   rows.push([]);
-  rows.push(["Expenses", ""]);
-  for (const item of data.expenses) {
+  rows.push(["Gross Profit", formatIncomeStatementProfit(data.grossProfit)]);
+  rows.push([]);
+  rows.push(["Operating Expenses", ""]);
+  for (const item of data.operatingExpenses) {
     rows.push([
       item.accountName,
-      (item.totalDebits - item.totalCredits).toFixed(2),
+      formatIncomeStatementExpenseParens(plExpenseAmount(item)),
     ]);
   }
-  rows.push(["Total Expenses", data.totalExpenses.toFixed(2)]);
   rows.push([]);
-  rows.push(["Net Income", data.netIncome.toFixed(2)]);
+  rows.push(["Net Profit", formatIncomeStatementProfit(data.netIncome)]);
 
   const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
   downloadCsv(`Income_Statement_${period}.csv`, csv);
 }
 
 export async function exportIncomeStatementToPDF(
-  data: IncomeStatementData,
+  data: IncomeStatementReport,
   startDate: Date,
   endDate: Date,
 ) {
@@ -185,14 +261,20 @@ export async function exportIncomeStatementToPDF(
 
   let startY = 30;
 
+  const revBody: string[][] = data.revenue.map((item) => [
+    item.accountName,
+    formatIncomeStatementRevenue(plRevenueAmount(item)),
+  ]);
+  if (data.revenue.length > 1) {
+    revBody.push([
+      "Total Revenue",
+      formatIncomeStatementRevenue(data.totalRevenue),
+    ]);
+  }
+
   doc.setFontSize(11);
   doc.text("Revenue", 14, startY);
   startY += 6;
-  const revBody = data.revenue.map((item) => [
-    item.accountName,
-    (item.totalCredits - item.totalDebits).toFixed(2),
-  ]);
-  revBody.push(["Total Revenue", data.totalRevenue.toFixed(2)]);
   autoTable(doc, {
     startY,
     head: [["Account", "Amount"]],
@@ -201,20 +283,47 @@ export async function exportIncomeStatementToPDF(
     headStyles: { fillColor: [66, 66, 66] },
     margin: { left: 14 },
   });
-  startY = getTableFinalY(doc as DocWithAutoTable, startY) + 12;
+  startY = getTableFinalY(doc as DocWithAutoTable, startY) + 10;
+
+  if (data.costOfGoodsSold.length > 0) {
+    doc.setFontSize(11);
+    doc.text("Cost of Goods Sold", 14, startY);
+    startY += 6;
+    const cogsBody = data.costOfGoodsSold.map((item) => [
+      item.accountName,
+      formatIncomeStatementExpenseParens(plExpenseAmount(item)),
+    ]);
+    autoTable(doc, {
+      startY,
+      head: [["Account", "Amount"]],
+      body: cogsBody,
+      theme: "grid",
+      headStyles: { fillColor: [66, 66, 66] },
+      margin: { left: 14 },
+    });
+    startY = getTableFinalY(doc as DocWithAutoTable, startY) + 10;
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("Gross Profit", 14, startY);
+  doc.text(formatIncomeStatementProfit(data.grossProfit), 190, startY, {
+    align: "right",
+  });
+  doc.setFont("helvetica", "normal");
+  startY += 12;
 
   doc.setFontSize(11);
-  doc.text("Expenses", 14, startY);
+  doc.text("Operating Expenses", 14, startY);
   startY += 6;
-  const expBody = data.expenses.map((item) => [
+  const opBody = data.operatingExpenses.map((item) => [
     item.accountName,
-    (item.totalDebits - item.totalCredits).toFixed(2),
+    formatIncomeStatementExpenseParens(plExpenseAmount(item)),
   ]);
-  expBody.push(["Total Expenses", data.totalExpenses.toFixed(2)]);
   autoTable(doc, {
     startY,
     head: [["Account", "Amount"]],
-    body: expBody,
+    body: opBody.length > 0 ? opBody : [["—", "(0)"]],
     theme: "grid",
     headStyles: { fillColor: [66, 66, 66] },
     margin: { left: 14 },
@@ -223,8 +332,10 @@ export async function exportIncomeStatementToPDF(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text("Net Income", 14, startY);
-  doc.text(data.netIncome.toFixed(2), 190, startY, { align: "right" });
+  doc.text("Net Profit", 14, startY);
+  doc.text(formatIncomeStatementProfit(data.netIncome), 190, startY, {
+    align: "right",
+  });
   doc.setFont("helvetica", "normal");
 
   const period = `${format(startDate, "yyyy-MM-dd")}_to_${format(endDate, "yyyy-MM-dd")}`;

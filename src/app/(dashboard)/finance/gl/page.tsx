@@ -39,10 +39,10 @@ async function FinancialStats() {
 
   if (!organizationId) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+      <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="min-w-0">
           <CardContent className="pt-6">
-            <p className="text-muted-foreground text-sm">
+            <p className="text-xs text-muted-foreground leading-snug sm:text-sm">
               Select an organization to view financial stats.
             </p>
           </CardContent>
@@ -63,63 +63,76 @@ async function FinancialStats() {
   const equity = bsData.success && bsData.data ? bsData.data.totalEquity : 0;
   const netIncome = plData.success && plData.data ? plData.data.netIncome : 0;
 
+  const currency = (n: number) =>
+    `$${n.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
-          <Landmark className="h-4 w-4 text-muted-foreground" />
+    <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
+          <CardTitle className="min-w-0 text-xs font-medium leading-snug sm:text-sm">
+            Total Assets
+          </CardTitle>
+          <Landmark className="h-4 w-4 shrink-0 text-muted-foreground" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            ${assets.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        <CardContent className="min-w-0">
+          <div className="break-words text-lg font-bold tabular-nums tracking-tight sm:text-xl md:text-2xl">
+            {currency(assets)}
           </div>
-          <p className="text-xs text-muted-foreground">
-            As of {today.toLocaleDateString()}
+          <p className="mt-1 text-xs text-muted-foreground leading-snug">
+            As of{" "}
+            <span className="whitespace-nowrap">
+              {today.toLocaleDateString()}
+            </span>
           </p>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
+          <CardTitle className="min-w-0 text-xs font-medium leading-snug sm:text-sm">
             Total Liabilities
           </CardTitle>
-          <TrendingDown className="h-4 w-4 text-red-500" />
+          <TrendingDown className="h-4 w-4 shrink-0 text-red-500" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            $
-            {liabilities.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-            })}
+        <CardContent className="min-w-0">
+          <div className="break-words text-lg font-bold tabular-nums tracking-tight sm:text-xl md:text-2xl">
+            {currency(liabilities)}
           </div>
-          <p className="text-xs text-muted-foreground">Outstanding debts</p>
+          <p className="mt-1 text-xs text-muted-foreground leading-snug">
+            Outstanding debts
+          </p>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Equity</CardTitle>
-          <Briefcase className="h-4 w-4 text-blue-500" />
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
+          <CardTitle className="min-w-0 text-xs font-medium leading-snug sm:text-sm">
+            Total Equity
+          </CardTitle>
+          <Briefcase className="h-4 w-4 shrink-0 text-blue-500" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            ${equity.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        <CardContent className="min-w-0">
+          <div className="break-words text-lg font-bold tabular-nums tracking-tight sm:text-xl md:text-2xl">
+            {currency(equity)}
           </div>
-          <p className="text-xs text-muted-foreground">Net worth</p>
+          <p className="mt-1 text-xs text-muted-foreground leading-snug">
+            Net worth
+          </p>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
+          <CardTitle className="min-w-0 text-xs font-medium leading-snug sm:text-sm">
             Net Income (MTD)
           </CardTitle>
-          <DollarSign className="h-4 w-4 text-green-500" />
+          <DollarSign className="h-4 w-4 shrink-0 text-green-500" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            ${netIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        <CardContent className="min-w-0">
+          <div className="break-words text-lg font-bold tabular-nums tracking-tight sm:text-xl md:text-2xl">
+            {currency(netIncome)}
           </div>
-          <p className="text-xs text-muted-foreground">Month to Date</p>
+          <p className="mt-1 text-xs text-muted-foreground leading-snug">
+            Month to Date
+          </p>
         </CardContent>
       </Card>
     </div>
@@ -161,88 +174,93 @@ async function OperationalOverview() {
     },
   ];
 
+  const money = (n: number) =>
+    `$${n.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-      <Card className="col-span-4">
-        <CardHeader>
-          <CardTitle>Cash Flow Forecast</CardTitle>
-          <CardDescription>
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-7 lg:gap-4">
+      <Card className="min-w-0 overflow-hidden lg:col-span-4">
+        <CardHeader className="space-y-1 sm:space-y-1.5">
+          <CardTitle className="text-lg font-semibold leading-tight sm:text-xl">
+            Cash Flow Forecast
+          </CardTitle>
+          <CardDescription className="text-xs leading-snug sm:text-sm">
             Comparison of expected receivables vs payables
           </CardDescription>
         </CardHeader>
-        <CardContent className="pl-2">
+        <CardContent className="px-2 pt-0 sm:px-4 sm:pt-2">
           <CashFlowChart data={chartData} />
         </CardContent>
       </Card>
 
-      <Card className="col-span-3">
-        <CardHeader>
-          <CardTitle>Pending Transactions</CardTitle>
-          <CardDescription>
+      <Card className="min-w-0 overflow-hidden lg:col-span-3">
+        <CardHeader className="space-y-1 sm:space-y-1.5">
+          <CardTitle className="text-lg font-semibold leading-tight sm:text-xl">
+            Pending Transactions
+          </CardTitle>
+          <CardDescription className="text-xs leading-snug sm:text-sm">
             Summary of what you owe and what is owed to you
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-8">
-            <div className="flex items-center">
-              <span className="relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full mr-4 bg-green-100 items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-green-600" />
-              </span>
-              <div className="space-y-1">
-                <p className="text-sm font-medium leading-none">
-                  Expecting to Receive
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {receivablesCount} invoices pending
-                </p>
+        <CardContent className="px-3 sm:px-6">
+          <div className="space-y-6 sm:space-y-8">
+            <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-green-100 dark:bg-green-950/50">
+                    <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-sm font-medium leading-snug">
+                      Expecting to Receive
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-snug sm:text-sm">
+                      {receivablesCount} invoices pending
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 pl-12 text-base font-semibold tabular-nums sm:ml-auto sm:pl-0 sm:text-right sm:text-lg">
+                  {money(receivablesPending)}
+                </div>
               </div>
-              <div className="ml-auto font-medium">
-                $
-                {receivablesPending.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
-              </div>
+              {receivablesOverdue > 0 && (
+                <div className="mt-3 flex items-start gap-1.5 pl-12 text-xs leading-relaxed text-red-600 sm:pl-12 sm:text-sm dark:text-red-400">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0 break-words">
+                    Of which {money(receivablesOverdue)} is overdue
+                  </span>
+                </div>
+              )}
             </div>
-            {receivablesOverdue > 0 && (
-              <div className="flex items-center pl-14 text-sm text-red-500">
-                <AlertCircle className="mr-1 h-3 w-3" />
-                Of which $
-                {receivablesOverdue.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}{" "}
-                is overdue
-              </div>
-            )}
 
-            <div className="flex items-center">
-              <span className="relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full mr-4 bg-red-100 items-center justify-center">
-                <TrendingDown className="h-4 w-4 text-red-600" />
-              </span>
-              <div className="space-y-1">
-                <p className="text-sm font-medium leading-none">
-                  Expect to Pay
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {payablesCount} bills outstanding
-                </p>
+            <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 dark:bg-red-950/50">
+                    <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-sm font-medium leading-snug">
+                      Expect to Pay
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-snug sm:text-sm">
+                      {payablesCount} bills outstanding
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 pl-12 text-base font-semibold tabular-nums sm:ml-auto sm:pl-0 sm:text-right sm:text-lg">
+                  {money(payablesOutstanding)}
+                </div>
               </div>
-              <div className="ml-auto font-medium">
-                $
-                {payablesOutstanding.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
-              </div>
+              {payablesOverdue > 0 && (
+                <div className="mt-3 flex items-start gap-1.5 pl-12 text-xs leading-relaxed text-red-600 sm:pl-12 sm:text-sm dark:text-red-400">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0 break-words">
+                    Of which {money(payablesOverdue)} is overdue
+                  </span>
+                </div>
+              )}
             </div>
-            {payablesOverdue > 0 && (
-              <div className="flex items-center pl-14 text-sm text-red-500">
-                <AlertCircle className="mr-1 h-3 w-3" />
-                Of which $
-                {payablesOverdue.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}{" "}
-                is overdue
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -252,18 +270,30 @@ async function OperationalOverview() {
 
 export default async function GLDashboardPage() {
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">
+    <div className="flex-1 space-y-4 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
+      <div className="min-w-0">
+        <h2 className="break-words text-2xl font-bold tracking-tight sm:text-3xl">
           General Ledger Dashboard
         </h2>
       </div>
 
-      <Suspense fallback={<div>Loading financial stats...</div>}>
+      <Suspense
+        fallback={
+          <div className="text-sm text-muted-foreground animate-pulse">
+            Loading financial stats…
+          </div>
+        }
+      >
         <FinancialStats />
       </Suspense>
 
-      <Suspense fallback={<div>Loading operational overview...</div>}>
+      <Suspense
+        fallback={
+          <div className="text-sm text-muted-foreground animate-pulse">
+            Loading operational overview…
+          </div>
+        }
+      >
         <OperationalOverview />
       </Suspense>
     </div>

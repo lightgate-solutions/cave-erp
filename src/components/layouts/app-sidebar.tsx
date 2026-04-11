@@ -39,6 +39,9 @@ import {
 import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import type { User } from "better-auth";
+
+/** Better Auth user may include `role` at runtime; types are not always extended. */
+type UserWithRole = User & { role?: string | null };
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -47,7 +50,7 @@ import { api } from "../../../convex/_generated/api";
 import { OrganizationSwitcher } from "../settings/organization-switcher";
 import { canAccessModule } from "@/lib/permissions/helpers";
 import { MODULES } from "@/lib/permissions/types";
-import type { UserPermissionContext } from "@/lib/permissions/types";
+import { useDashboardPermission } from "@/components/layouts/dashboard-permission-context";
 
 const data = {
   org: [
@@ -376,18 +379,17 @@ const data = {
   ],
 };
 
-export function AppSidebar({
-  user,
-  userId,
-  organizationId,
-  employee,
-  ...props
-}: React.ComponentProps<typeof Sidebar> & {
-  user: User;
+type AppSidebarProps = {
+  user: UserWithRole;
   userId: string;
   organizationId: string;
   employee: any;
-}) {
+} & React.ComponentProps<typeof Sidebar>;
+
+export function AppSidebar(props: AppSidebarProps) {
+  const { user, userId, organizationId, employee, ...sidebarDomProps } = props;
+  const permissionContext = useDashboardPermission();
+
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mailUnreadCount, setMailUnreadCount] = useState(0);
@@ -446,11 +448,11 @@ export function AppSidebar({
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [employee]);
 
-  const isManager = !!employee?.isManager || employee?.role === "admin";
-  const isAdmin = employee?.role === "admin";
+  const sessionIsAdmin = user.role === "admin";
+  const isAdmin = employee?.role === "admin" || sessionIsAdmin;
 
   const groupedItems = useMemo(() => {
-    if (!employee) {
+    if (!permissionContext) {
       return {
         overview: [],
         modules: [],
@@ -460,19 +462,39 @@ export function AppSidebar({
       };
     }
 
-    // Create user permission context
-    const userContext: UserPermissionContext = {
-      department: employee?.department || "operations",
-      role: employee?.role || "member",
-      isManager: isManager || false,
-    };
+    const userContext = permissionContext;
+    const isManager = userContext.isManager;
 
-    // Filter base items by permission
     const base = data.navMain.filter((item) => {
       if (item.title === "Task/Performance") return false;
-      if (!item.module) return true; // Allow items without module specified
+      if (!item.module) return true;
       return canAccessModule(userContext, item.module);
     });
+
+    const withoutDupHrTools = base.filter((item) => {
+      if (!canAccessModule(userContext, MODULES.HR_EMPLOYEES)) return true;
+      if (
+        ["Ask HR", "Loan Management", "Leave Management"].includes(item.title)
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    const withExpandedHr = withoutDupHrTools.map((item) =>
+      item.title === "Hr"
+        ? {
+            ...item,
+            items: [
+              ...(item.items ?? []),
+              { title: "My attendance", url: "/hr/attendance" },
+              { title: "Ask HR", url: "/hr/ask-hr" },
+              { title: "Leave management", url: "/hr/leaves" },
+              { title: "Loan management", url: "/hr/loans" },
+            ],
+          }
+        : item,
+    );
 
     const taskItem = {
       title: "Task/Performance",
@@ -515,7 +537,7 @@ export function AppSidebar({
       module?: string;
       badge?: number;
       items?: Array<{ title: string; url: string }>;
-    }> = [...base];
+    }> = [...withExpandedHr];
 
     // Add task item if user has access
     if (canAccessModule(userContext, MODULES.TASKS)) {
@@ -602,10 +624,10 @@ export function AppSidebar({
     });
 
     return groups;
-  }, [isManager, isAdmin, employee, mailUnreadCount]);
+  }, [permissionContext, isAdmin, mailUnreadCount]);
 
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="icon" {...sidebarDomProps}>
       <SidebarHeader>
         <OrganizationSwitcher size="md" />
       </SidebarHeader>

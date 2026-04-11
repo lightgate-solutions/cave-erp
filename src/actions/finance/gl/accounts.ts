@@ -6,12 +6,13 @@ import {
   glJournalLines,
   glJournals,
 } from "@/db/schema/general-ledger";
-import { eq, and, asc, desc, gte, lte } from "drizzle-orm";
+import { eq, and, asc, gte, lte, sql, or, lt } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { z } from "zod";
+import { GL_ACCOUNT_ACTIVITY_PAGE_SIZE } from "@/lib/finance/gl-constants";
 
 /** Default GL accounts created for every organization. Used by receivables, payables, and manual journals. */
 const DEFAULT_GL_ACCOUNTS = [
@@ -78,19 +79,26 @@ export async function ensureDefaultGLAccounts(
   );
   if (toInsert.length === 0) return;
 
-  await db.insert(glAccounts).values(
-    toInsert.map((a) => ({
-      organizationId,
-      code: a.code,
-      name: a.name,
-      type: a.type,
-      accountClass: a.accountClass,
-      description: a.description,
-      isSystem: a.isSystem,
-      currentBalance: "0.00",
-      allowManualJournals: true,
-    })),
-  );
+  // Multiple concurrent callers (e.g. Promise.all on the GL dashboard) may all pass
+  // the existence check before any insert commits; ignore duplicate (org, code).
+  await db
+    .insert(glAccounts)
+    .values(
+      toInsert.map((a) => ({
+        organizationId,
+        code: a.code,
+        name: a.name,
+        type: a.type,
+        accountClass: a.accountClass,
+        description: a.description,
+        isSystem: a.isSystem,
+        currentBalance: "0.00",
+        allowManualJournals: true,
+      })),
+    )
+    .onConflictDoNothing({
+      target: [glAccounts.organizationId, glAccounts.code],
+    });
 }
 
 const accountSchema = z.object({
@@ -118,6 +126,21 @@ const accountSchema = z.object({
 });
 
 export type AccountFormValues = z.infer<typeof accountSchema>;
+
+const accountClassForType: Record<
+  z.infer<typeof accountSchema>["type"],
+  NonNullable<AccountFormValues["accountClass"]>
+> = {
+  Asset: "Current Asset",
+  Liability: "Current Liability",
+  Equity: "Equity",
+  Income: "Revenue",
+  Expense: "Expense",
+};
+
+const updateAccountPayloadSchema = accountSchema
+  .partial()
+  .omit({ organizationId: true });
 
 export async function createAccount(data: AccountFormValues) {
   try {
@@ -161,7 +184,7 @@ export async function createAccount(data: AccountFormValues) {
 
 export async function updateAccount(
   id: number,
-  data: Partial<AccountFormValues>,
+  data: Partial<Omit<AccountFormValues, "organizationId">>,
 ) {
   try {
     const session = await auth.api.getSession({
@@ -172,27 +195,59 @@ export async function updateAccount(
       return { success: false, error: "Unauthorized: No active organization" };
     }
 
+    const parsed = updateAccountPayloadSchema.safeParse(data);
+    if (!parsed.success) {
+      return { success: false, error: "Invalid account data" };
+    }
+
     const account = await db.query.glAccounts.findFirst({
       where: and(
         eq(glAccounts.id, id),
         eq(glAccounts.organizationId, organizationId),
       ),
-      columns: { isSystem: true },
+      columns: { isSystem: true, code: true },
     });
     if (!account) {
       return { success: false, error: "Account not found" };
     }
-    if (account.isSystem) {
+
+    const patch = { ...parsed.data } as Partial<AccountFormValues>;
+
+    if (
+      account.isSystem &&
+      patch.code !== undefined &&
+      patch.code !== account.code
+    ) {
       return {
         success: false,
         error:
-          "System default accounts cannot be edited. You can add custom accounts instead.",
+          "System account codes cannot be changed (they are referenced by invoicing and payables). You can rename the account or change its type.",
       };
+    }
+
+    if (patch.code !== undefined && patch.code !== account.code) {
+      const duplicate = await db.query.glAccounts.findFirst({
+        where: and(
+          eq(glAccounts.organizationId, organizationId),
+          eq(glAccounts.code, patch.code),
+        ),
+        columns: { id: true },
+      });
+      if (duplicate && duplicate.id !== id) {
+        return {
+          success: false,
+          error: "Another account already uses this code",
+        };
+      }
+    }
+
+    if (patch.type !== undefined && patch.accountClass === undefined) {
+      patch.accountClass = accountClassForType[patch.type];
     }
 
     await db
       .update(glAccounts)
-      .set(data)
+      .set(patch)
       .where(
         and(
           eq(glAccounts.id, id),
@@ -201,6 +256,7 @@ export async function updateAccount(
       );
 
     revalidatePath("/finance/gl/accounts");
+    revalidatePath(`/finance/gl/accounts/${id}`);
     return { success: true };
   } catch (error) {
     console.error("Failed to update account:", error);
@@ -217,6 +273,17 @@ export async function deleteAccount(id: number, passedOrgId?: string) {
       session?.session?.activeOrganizationId ?? passedOrgId;
     if (!organizationId) {
       return { success: false, error: "Unauthorized: No active organization" };
+    }
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const sessionUser = session.user as { role?: string | null };
+    if (sessionUser.role !== "admin") {
+      return {
+        success: false,
+        error: "Only organization administrators can delete accounts.",
+      };
     }
 
     const account = await db.query.glAccounts.findFirst({
@@ -315,17 +382,45 @@ export async function getGLAccount(id: number, passedOrgId?: string) {
   }
 }
 
+export type GLAccountActivityPage = {
+  lines: Array<{
+    id: number;
+    journalId: number;
+    description: string | null;
+    debit: string;
+    credit: string;
+    journalNumber: string | null;
+    journalDescription: string | null;
+    transactionDate: string | null;
+    source: string;
+    status: string;
+  }>;
+  total: number;
+  page: number;
+  pageSize: number;
+  /** Sum of (debit − credit) for all lines strictly before this page (for running balance). */
+  priorBalance: number;
+};
+
+const GL_ACTIVITY_MAX_PAGE_SIZE = 5000;
+
 /**
- * Get transaction history (journal lines) for a GL account.
+ * Get transaction history (journal lines) for a GL account, **oldest to newest**, paginated.
  * Optional startDate/endDate in YYYY-MM-DD format to filter by journal transaction date.
  */
 export async function getGLAccountActivity(
   accountId: number,
   passedOrgId?: string,
-  limit = 50,
-  startDate?: string,
-  endDate?: string,
-) {
+  options: {
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    pageSize?: number;
+  } = {},
+): Promise<
+  | { success: true; data: GLAccountActivityPage }
+  | { success: false; error: string; data: null }
+> {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -333,42 +428,97 @@ export async function getGLAccountActivity(
     const organizationId =
       session?.session?.activeOrganizationId ?? passedOrgId;
     if (!organizationId) {
-      return { success: false, error: "Unauthorized", data: [] };
+      return { success: false, error: "Unauthorized", data: null };
     }
+
+    const pageSize = Math.min(
+      Math.max(1, options.pageSize ?? GL_ACCOUNT_ACTIVITY_PAGE_SIZE),
+      GL_ACTIVITY_MAX_PAGE_SIZE,
+    );
+    const requestedPage = Math.max(1, options.page ?? 1);
 
     const conditions = [
       eq(glJournalLines.accountId, accountId),
       eq(glJournalLines.organizationId, organizationId),
     ];
-    if (startDate) {
-      conditions.push(gte(glJournals.transactionDate, startDate));
+    if (options.startDate) {
+      conditions.push(gte(glJournals.transactionDate, options.startDate));
     }
-    if (endDate) {
-      conditions.push(lte(glJournals.transactionDate, endDate));
+    if (options.endDate) {
+      conditions.push(lte(glJournals.transactionDate, options.endDate));
     }
 
-    const lines = await db
-      .select({
-        id: glJournalLines.id,
-        journalId: glJournalLines.journalId,
-        description: glJournalLines.description,
-        debit: glJournalLines.debit,
-        credit: glJournalLines.credit,
-        journalNumber: glJournals.journalNumber,
-        journalDescription: glJournals.description,
-        transactionDate: glJournals.transactionDate,
-        source: glJournals.source,
-        status: glJournals.status,
-      })
+    const lineSelect = {
+      id: glJournalLines.id,
+      journalId: glJournalLines.journalId,
+      description: glJournalLines.description,
+      debit: glJournalLines.debit,
+      credit: glJournalLines.credit,
+      journalNumber: glJournals.journalNumber,
+      journalDescription: glJournals.description,
+      transactionDate: glJournals.transactionDate,
+      source: glJournals.source,
+      status: glJournals.status,
+    } as const;
+
+    const [countRow] = await db
+      .select({ total: sql<number>`cast(count(*) as int)` })
+      .from(glJournalLines)
+      .innerJoin(glJournals, eq(glJournalLines.journalId, glJournals.id))
+      .where(and(...conditions));
+
+    const total = Number(countRow?.total ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(requestedPage, totalPages);
+    const offset = (page - 1) * pageSize;
+
+    const pageLines = await db
+      .select(lineSelect)
       .from(glJournalLines)
       .innerJoin(glJournals, eq(glJournalLines.journalId, glJournals.id))
       .where(and(...conditions))
-      .orderBy(desc(glJournals.transactionDate), desc(glJournalLines.id))
-      .limit(limit);
+      .orderBy(asc(glJournals.transactionDate), asc(glJournalLines.id))
+      .limit(pageSize)
+      .offset(offset);
 
-    return { success: true, data: lines };
+    let priorBalance = 0;
+    if (offset > 0 && pageLines.length > 0) {
+      const first = pageLines[0];
+      const td = first.transactionDate;
+      if (td != null) {
+        const priorWhere = and(
+          ...conditions,
+          or(
+            lt(glJournals.transactionDate, td),
+            and(
+              eq(glJournals.transactionDate, td),
+              lt(glJournalLines.id, first.id),
+            ),
+          ),
+        );
+        const [priorRow] = await db
+          .select({
+            prior: sql<string>`coalesce(sum(${glJournalLines.debit}::numeric - ${glJournalLines.credit}::numeric), 0)`,
+          })
+          .from(glJournalLines)
+          .innerJoin(glJournals, eq(glJournalLines.journalId, glJournals.id))
+          .where(priorWhere);
+        priorBalance = Number(priorRow?.prior ?? 0);
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        lines: pageLines,
+        total,
+        page,
+        pageSize,
+        priorBalance,
+      },
+    };
   } catch (error) {
     console.error("Failed to get account activity:", error);
-    return { success: false, error: "Failed to get activity", data: [] };
+    return { success: false, error: "Failed to get activity", data: null };
   }
 }

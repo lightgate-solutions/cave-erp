@@ -34,11 +34,22 @@ export async function GET(request: NextRequest) {
         balanceAfter: balanceTransactions.balanceAfter,
         createdAt: balanceTransactions.createdAt,
         userId: balanceTransactions.userId,
-        userName: employees.name,
-        userEmail: employees.email,
+        userName: sql<string | null>`
+          (SELECT ${employees.name} FROM ${employees}
+           WHERE ${employees.authId} = ${balanceTransactions.userId}
+             AND ${employees.organizationId} = ${balanceTransactions.organizationId}
+           ORDER BY ${employees.id} ASC
+           LIMIT 1)
+        `,
+        userEmail: sql<string | null>`
+          (SELECT ${employees.email} FROM ${employees}
+           WHERE ${employees.authId} = ${balanceTransactions.userId}
+             AND ${employees.organizationId} = ${balanceTransactions.organizationId}
+           ORDER BY ${employees.id} ASC
+           LIMIT 1)
+        `,
       })
       .from(balanceTransactions)
-      .leftJoin(employees, eq(employees.authId, balanceTransactions.userId))
       .where(
         and(where, eq(balanceTransactions.organizationId, organization.id)),
       )

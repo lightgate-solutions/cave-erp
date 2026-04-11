@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, Loader2, Lock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -52,6 +53,13 @@ export default function GLPeriodsPage() {
     startDate: "",
     endDate: "",
   });
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusChangeContext, setStatusChangeContext] = useState<{
+    id: number;
+    periodName: string;
+    nextStatus: "Open" | "Closed" | "Locked";
+  } | null>(null);
+  const [statusNote, setStatusNote] = useState("");
 
   const fetchPeriods = useCallback(async () => {
     if (!organizationId) return;
@@ -95,19 +103,50 @@ export default function GLPeriodsPage() {
     });
   };
 
-  const handleStatusChange = (
+  const openStatusChangeDialog = (
     id: number,
-    status: "Open" | "Closed" | "Locked",
+    periodName: string,
+    nextStatus: "Open" | "Closed" | "Locked",
   ) => {
+    setStatusChangeContext({ id, periodName, nextStatus });
+    setStatusNote("");
+    setStatusDialogOpen(true);
+  };
+
+  const closeStatusChangeDialog = () => {
+    setStatusDialogOpen(false);
+    setStatusChangeContext(null);
+    setStatusNote("");
+  };
+
+  const confirmStatusChange = () => {
+    if (!statusChangeContext || !organizationId) return;
+
+    const { id, nextStatus } = statusChangeContext;
+    let reason: string | undefined;
+
+    if (nextStatus === "Open") {
+      const trimmed = statusNote.trim();
+      if (!trimmed) {
+        toast.error("A reason is required to reopen a period.");
+        return;
+      }
+      reason = trimmed;
+    } else {
+      reason = statusNote.trim() || undefined;
+    }
+
     startTransition(async () => {
       const result = await updatePeriodStatus(
         id,
-        status,
+        nextStatus,
         session?.user?.id,
         organizationId ?? undefined,
+        reason,
       );
       if (result.success) {
-        toast.success(`Period ${status.toLowerCase()}`);
+        toast.success(`Period ${nextStatus.toLowerCase()}`);
+        closeStatusChangeDialog();
         fetchPeriods();
       } else {
         toast.error(result.error);
@@ -115,87 +154,81 @@ export default function GLPeriodsPage() {
     });
   };
 
-  if (!organizationId) {
-    return (
-      <div className="p-6">
-        <h1 className="text-3xl font-bold tracking-tight">Fiscal Periods</h1>
-        <p className="text-muted-foreground mt-2">
-          Select an organization to manage fiscal periods.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Fiscal Periods</h1>
           <p className="text-muted-foreground">
-            Control when journal entries can be posted. Posting is allowed only
-            in open periods.
+            {organizationId
+              ? "Control when journal entries can be posted. Posting is allowed only in open periods."
+              : "Select an organization to manage fiscal periods."}
           </p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> New Period
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create fiscal period</DialogTitle>
-              <DialogDescription>
-                Add a period (e.g. month or quarter). Journals can only be
-                posted when their date falls in an open period.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="periodName">Period name</Label>
-                <Input
-                  id="periodName"
-                  placeholder="e.g. Jan 2026"
-                  value={formData.periodName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, periodName: e.target.value })
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="startDate">Start date</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, startDate: e.target.value })
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="endDate">End date</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={formData.endDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, endDate: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>
-                Cancel
+        {organizationId ? (
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" /> New Period
               </Button>
-              <Button onClick={handleCreate} disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create fiscal period</DialogTitle>
+                <DialogDescription>
+                  Add a period (e.g. month or quarter). Journals can only be
+                  posted when their date falls in an open period.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="periodName">Period name</Label>
+                  <Input
+                    id="periodName"
+                    placeholder="e.g. Jan 2026"
+                    value={formData.periodName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, periodName: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="startDate">Start date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, startDate: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="endDate">End date</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, endDate: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreate} disabled={isPending}>
+                  {isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Create
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </div>
 
       <div className="border rounded-md">
@@ -210,7 +243,17 @@ export default function GLPeriodsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {!organizationId ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  Choose an organization from the workspace switcher to load
+                  fiscal periods.
+                </TableCell>
+              </TableRow>
+            ) : isLoading ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
@@ -261,7 +304,13 @@ export default function GLPeriodsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleStatusChange(period.id, "Closed")}
+                        onClick={() =>
+                          openStatusChangeDialog(
+                            period.id,
+                            period.periodName,
+                            "Closed",
+                          )
+                        }
                         disabled={isPending}
                       >
                         <Lock className="h-4 w-4 mr-1" /> Close
@@ -270,7 +319,13 @@ export default function GLPeriodsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleStatusChange(period.id, "Open")}
+                        onClick={() =>
+                          openStatusChangeDialog(
+                            period.id,
+                            period.periodName,
+                            "Open",
+                          )
+                        }
                         disabled={isPending}
                       >
                         <Unlock className="h-4 w-4 mr-1" /> Reopen
@@ -283,6 +338,82 @@ export default function GLPeriodsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog
+        open={statusDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) closeStatusChangeDialog();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {statusChangeContext?.nextStatus === "Open"
+                ? "Reopen period"
+                : statusChangeContext?.nextStatus === "Closed"
+                  ? "Close period"
+                  : "Change period status"}
+            </DialogTitle>
+            <DialogDescription>
+              {statusChangeContext?.nextStatus === "Open" ? (
+                <>
+                  Reason for reopening{" "}
+                  <span className="font-medium text-foreground">
+                    {statusChangeContext.periodName}
+                  </span>{" "}
+                  (required for the audit trail).
+                </>
+              ) : (
+                <>
+                  Optional note for this status change (stored for audit) when
+                  closing{" "}
+                  <span className="font-medium text-foreground">
+                    {statusChangeContext?.periodName}
+                  </span>
+                  .
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 py-2">
+            <Label htmlFor="status-change-note">
+              {statusChangeContext?.nextStatus === "Open"
+                ? "Reason"
+                : "Note (optional)"}
+            </Label>
+            <Textarea
+              id="status-change-note"
+              value={statusNote}
+              onChange={(e) => setStatusNote(e.target.value)}
+              placeholder={
+                statusChangeContext?.nextStatus === "Open"
+                  ? "e.g. Management approval for late adjustment entries"
+                  : "e.g. Month-end close completed — no further postings"
+              }
+              rows={4}
+              className="min-h-[100px] resize-y"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeStatusChangeDialog}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmStatusChange}
+              disabled={isPending}
+            >
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

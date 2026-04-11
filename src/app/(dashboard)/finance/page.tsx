@@ -25,6 +25,18 @@ const FinanceChart = dynamic(
     ssr: false,
   },
 );
+const FinanceOverviewSnapshotChart = dynamic(
+  () =>
+    import("@/components/finance/finance-sidebar-operations-chart").then(
+      (mod) => ({ default: mod.FinanceSidebarOperationsChart }),
+    ),
+  {
+    loading: () => (
+      <div className="h-[280px] w-full animate-pulse rounded-xl border bg-muted/30" />
+    ),
+    ssr: false,
+  },
+);
 import type { DateRange } from "react-day-picker";
 import { addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -55,6 +67,7 @@ function FinanceOverviewSkeleton() {
           </Card>
         ))}
       </div>
+      <div className="h-[280px] w-full rounded-xl border bg-muted/20 animate-pulse" />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <div className="col-span-4 h-64 rounded-lg bg-muted animate-pulse" />
         <Card className="col-span-3">
@@ -197,6 +210,8 @@ export default function FinancePage() {
           </CardContent>
         </Card>
       </div>
+
+      <FinanceOverviewSnapshotChart />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <FinanceChart data={stats.chartData} loading={loading} />

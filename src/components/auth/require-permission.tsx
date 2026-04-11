@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
-import { getUser } from "@/actions/auth/dal";
+import { getUserPermissionContext } from "@/actions/auth/dal";
 import {
   canAccessRoute,
   getUnauthorizedRedirect,
 } from "@/lib/permissions/helpers";
-import type { UserPermissionContext } from "@/lib/permissions/types";
 
 interface RequirePermissionProps {
   children: React.ReactNode;
@@ -15,17 +14,11 @@ export async function RequirePermission({
   children,
   route,
 }: RequirePermissionProps) {
-  const user = await getUser();
+  const userContext = await getUserPermissionContext();
 
-  if (!user) {
+  if (!userContext) {
     redirect("/auth/login");
   }
-
-  const userContext: UserPermissionContext = {
-    department: user.department,
-    role: user.role,
-    isManager: user.isManager,
-  };
 
   const hasAccess = canAccessRoute(userContext, route);
 

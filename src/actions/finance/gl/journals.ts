@@ -13,13 +13,20 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { z } from "zod";
 
-const journalLineSchema = z.object({
-  accountId: z.number(),
-  description: z.string().optional(),
-  debit: z.number().min(0),
-  credit: z.number().min(0),
-  entityId: z.string().optional(),
-});
+const journalLineSchema = z
+  .object({
+    accountId: z.number(),
+    description: z.string().optional(),
+    debit: z.number().min(0),
+    credit: z.number().min(0),
+    entityId: z.string().optional(),
+  })
+  .refine((line) => !(line.debit > 0 && line.credit > 0), {
+    message: "Each line must not have both debit and credit",
+  })
+  .refine((line) => line.debit > 0 || line.credit > 0, {
+    message: "Each line must have either a debit or a credit",
+  });
 
 const journalSchema = z.object({
   transactionDate: z.date(),
@@ -40,28 +47,75 @@ const journalSchema = z.object({
   status: z.enum(["Draft", "Posted", "Voided"]).default("Draft"),
   lines: z.array(journalLineSchema).min(2),
   createdById: z.string().optional(),
+  organizationId: z.string().optional(),
+  adjustmentReason: z.string().optional(),
+  reversalOfJournalId: z.number().int().positive().optional(),
 });
 
 export type JournalFormValues = z.infer<typeof journalSchema>;
 
-export async function createJournal(
-  data: Omit<JournalFormValues, "organizationId"> & { organizationId?: string },
-) {
+/** Enforces fiscal period rules when periods exist (open only; closed/locked blocked). */
+export async function validateTransactionDateInOpenPeriod(
+  organizationId: string,
+  transactionDate: Date,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const txStr = transactionDate.toISOString().split("T")[0];
+  const anyPeriod = await db.query.glPeriods.findFirst({
+    where: eq(glPeriods.organizationId, organizationId),
+    columns: { id: true },
+  });
+  if (!anyPeriod) {
+    return { ok: true };
+  }
+
+  const enclosing = await db.query.glPeriods.findFirst({
+    where: and(
+      eq(glPeriods.organizationId, organizationId),
+      lte(glPeriods.startDate, txStr),
+      gte(glPeriods.endDate, txStr),
+    ),
+  });
+
+  if (!enclosing) {
+    return {
+      ok: false,
+      error:
+        "Transaction date is not inside any fiscal period. Create a period that contains this date.",
+    };
+  }
+
+  if (enclosing.status === "Open") {
+    return { ok: true };
+  }
+
+  if (enclosing.status === "Locked") {
+    return {
+      ok: false,
+      error:
+        "This fiscal period is locked. Reopen it from Fiscal Periods (with a documented reason) before posting.",
+    };
+  }
+
+  return {
+    ok: false,
+    error:
+      "This fiscal period is closed. Reopen it from Fiscal Periods (with audit reason) or choose a date in an open period.",
+  };
+}
+
+export async function createJournal(data: JournalFormValues) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.session?.userId) {
       return { success: false, error: "Unauthorized: Not signed in" };
     }
-    const validated = journalSchema.parse(data) as JournalFormValues & {
-      organizationId?: string;
-    };
+    const validated = journalSchema.parse(data);
     // Use caller-provided org when present (e.g. from payables/receivables server actions); otherwise session org
     const organizationId =
       validated.organizationId?.trim() || session.session.activeOrganizationId;
     if (!organizationId) {
       return { success: false, error: "Unauthorized: No active organization" };
     }
-    validated.organizationId = organizationId;
 
     // 1. Validate Double Entry (Debits = Credits)
     const totalDebits = validated.lines.reduce(
@@ -80,6 +134,16 @@ export async function createJournal(
         success: false,
         error: `Journal does not balance. Total Debits: ${totalDebits}, Total Credits: ${totalCredits}`,
       };
+    }
+
+    if (validated.status === "Posted") {
+      const periodOk = await validateTransactionDateInOpenPeriod(
+        organizationId,
+        validated.transactionDate,
+      );
+      if (!periodOk.ok) {
+        return { success: false, error: periodOk.error };
+      }
     }
 
     // 2. Generate Journal Number (Simple sequence for now)
@@ -114,6 +178,8 @@ export async function createJournal(
           createdBy: validated.createdById,
           postedBy:
             validated.status === "Posted" ? validated.createdById : undefined,
+          adjustmentReason: validated.adjustmentReason ?? null,
+          reversalOfJournalId: validated.reversalOfJournalId ?? null,
         })
         .returning();
 
@@ -217,25 +283,13 @@ export async function postJournal(journalId: number, userId: string) {
       return { success: false, error: "Cannot post a voided journal" };
     }
 
-    const txDate = journal.transactionDate;
-    const openPeriod = await db.query.glPeriods.findFirst({
-      where: and(
-        eq(glPeriods.organizationId, organizationId),
-        eq(glPeriods.status, "Open"),
-        lte(glPeriods.startDate, txDate),
-        gte(glPeriods.endDate, txDate),
-      ),
-    });
-    const anyPeriod = await db.query.glPeriods.findFirst({
-      where: eq(glPeriods.organizationId, organizationId),
-      columns: { id: true },
-    });
-    if (anyPeriod && !openPeriod) {
-      return {
-        success: false,
-        error:
-          "Transaction date falls outside an open period. Create or open a period for this date, or post without period control.",
-      };
+    const txDate = new Date(journal.transactionDate);
+    const periodOk = await validateTransactionDateInOpenPeriod(
+      organizationId,
+      txDate,
+    );
+    if (!periodOk.ok) {
+      return { success: false, error: periodOk.error };
     }
 
     await db
@@ -300,10 +354,7 @@ export async function getJournalById(id: number, passedOrgId?: string) {
   }
 }
 
-export async function updateJournal(
-  id: number,
-  data: Omit<JournalFormValues, "organizationId"> & { organizationId?: string },
-) {
+export async function updateJournal(id: number, data: JournalFormValues) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const organizationId = session?.session?.activeOrganizationId;
@@ -328,10 +379,7 @@ export async function updateJournal(
       };
     }
 
-    const validated = journalSchema.parse(data) as JournalFormValues & {
-      organizationId?: string;
-    };
-    validated.organizationId = organizationId;
+    const validated = journalSchema.parse(data);
 
     // 1. Validate Balance
     const totalDebits = validated.lines.reduce(
@@ -371,6 +419,8 @@ export async function updateJournal(
           status: validated.status,
           totalDebits: String(totalDebits),
           totalCredits: String(totalCredits),
+          adjustmentReason: validated.adjustmentReason ?? null,
+          reversalOfJournalId: validated.reversalOfJournalId ?? null,
         })
         .where(
           and(
@@ -419,6 +469,76 @@ export async function updateJournal(
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to update journal",
+    };
+  }
+}
+
+/**
+ * Post a reversing journal (swap debits/credits) instead of deleting history.
+ * Original journal stays Posted for audit; reversal links via reversalOfJournalId.
+ */
+export async function reversePostedJournal(
+  journalId: number,
+  options?: { reversalDate?: Date; reason?: string },
+) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    const organizationId = session?.session?.activeOrganizationId;
+    const userId = session?.session?.userId ?? session?.user?.id;
+    if (!organizationId || !userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const existing = await db.query.glJournals.findFirst({
+      where: and(
+        eq(glJournals.id, journalId),
+        eq(glJournals.organizationId, organizationId),
+      ),
+      with: {
+        lines: true,
+      },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Journal not found" };
+    }
+    if (existing.status !== "Posted") {
+      return {
+        success: false,
+        error: "Only posted journals can be reversed (use delete for drafts).",
+      };
+    }
+
+    const reversalDate = options?.reversalDate ?? new Date();
+    const lines = existing.lines.map((l) => ({
+      accountId: l.accountId,
+      description:
+        l.description ?? `Reversal of line — ${existing.description}`,
+      debit: Number(l.credit),
+      credit: Number(l.debit),
+    }));
+
+    return await createJournal({
+      transactionDate: reversalDate,
+      postingDate: reversalDate,
+      description: `Reversal of ${existing.journalNumber}`,
+      reference: existing.journalNumber,
+      source: "Manual",
+      status: "Posted",
+      lines,
+      createdById: userId,
+      organizationId,
+      adjustmentReason:
+        options?.reason ??
+        `System reversal of ${existing.journalNumber} (audit-preserving)`,
+      reversalOfJournalId: journalId,
+    });
+  } catch (error) {
+    console.error("reverseJournal:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to reverse journal",
     };
   }
 }

@@ -168,23 +168,35 @@ function Switcher({
     } else {
       form.reset();
 
-      // Create employee record for the organization owner
-      // Pass organizationId directly to avoid race condition with session update
+      // requireAuth() (used by createEmployee) calls getFullOrganization(), which
+      // needs activeOrganizationId in the session — set it before the server action.
+      const activeRes = await authClient.organization.setActive({
+        organizationId: res.data.id,
+      });
+      if (activeRes.error) {
+        toast.error(
+          activeRes.error.message || "Failed to activate new organization",
+        );
+        return;
+      }
+
       const { createEmployee } = await import("@/actions/hr/employees");
-      await createEmployee({
+      const empRes = await createEmployee({
         name: userData!.user!.name,
         email: userData!.user!.email,
         authId: userData!.user!.id,
         role: "admin",
         isManager: true,
-        organizationId: res.data.id, // Pass the new org ID directly
+        organizationId: res.data.id,
         data: {
           department: "admin",
         },
       });
+      if (empRes.error) {
+        toast.error(empRes.error.reason || "Failed to create owner employee");
+        return;
+      }
 
-      // Now set active organization after employee is created
-      await authClient.organization.setActive({ organizationId: res.data.id });
       setOpen(false);
       router.refresh();
     }

@@ -38,6 +38,21 @@ All general ledger data is **organization-scoped**:
 | **8. Audit trail (basic)** | Done | `createdBy`, `postedBy` on journals; source/reference for AR/AP |
 | **9. Risk / access** | Partial | Role-based module access; GL mutations scoped to session org |
 
+## General Ledger — control objectives vs implementation
+
+Reference mapping for ERP GL expectations (items 4–11 style). **Done** = enforced in code or available in UI; **Partial** = subset or simplified; **Not yet** = not built.
+
+| Objective | Status | How it works in Cave ERP today |
+|-----------|--------|--------------------------------|
+| **4. Account balances & running totals** | Partial | Posted activity rolls into `gl_accounts.currentBalance`. **Trial balance** (date range) now includes **opening** (before range), **period** debits/credits, **closing** roll-forward, and **calendar YTD** through range end. Multi-period history = run TB for successive ranges. |
+| **5. Financial period management** | Partial | `gl_periods`: Open / Closed / Locked; posting only if date falls in an **Open** period when any period exists. **Locked** and **Closed** block posting with explicit errors. **Reopen** records `reopenedAt`, `reopenedBy`, and optional **lastStatusChangeReason** (prompt on reopen). Financial **year** = you model via period names / boundaries (no separate FY table). |
+| **6. Trial balance engine** | Partial | Account, period debits/credits, opening/closing/YTD columns, and row totals; UI shows **period debits vs credits** balance check. |
+| **7. Financial statements** | Partial | **P&L** (Income/Expense by account), **Balance sheet** (Assets/Liabilities/Equity + dynamic retained earnings). **Cash flow**: new **indirect operating** approximation (NI ± ΔAR 1200 / ΔAP 2000); investing/financing placeholders until accounts are mapped. **Cost of Sales** / COS section on P&L: use `account_class` **Cost of Goods Sold** in COA — statement grouping can be extended. |
+| **8. Adjustments, accruals, reversals** | Partial | **adjustment_reason** on journals for documentation. **reversePostedJournal()** posts an opposite **Posted** entry with `reversal_of_journal_id` (no deletion of posted history). **Year-end close** = manual/system journals + closed periods (no automated close wizard). |
+| **9. Audit trail & compliance** | Partial | Journals: `created_by`, `posted_by`, timestamps, source, reference, adjustment reason, reversal link. **Period** reopen and status reason stored. **Not yet**: field-level before/after log table or approval workflow. |
+| **10. Multi-entity & dimensions** | Partial | `entity_id` on **journal lines** for branch/BU-style tagging. **Not yet**: department / project / cost center columns, multicurrency, consolidated reporting. |
+| **11. Key business rules** | Partial | **Journals must balance** (create/post/update). **Closed/locked periods** cannot receive posts (including `createJournal` with `Posted`). **Posted journals** are not edited or deleted — use **reversal**. **Account types** drive BS vs P&L placement. Source modules map to default GL accounts (1000, 1200, 2000, 4000, 6000). |
+
 ## Not Implemented (Future Work)
 
 | Article feature / process | Priority | Notes |

@@ -14,12 +14,13 @@ import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import NotificationBell from "@/components/ui/notification-bell";
 import { AttendanceSignInPopup } from "@/components/hr/attendance-signin-popup";
-import { requireAuth } from "@/actions/auth/dal";
+import { getUserPermissionContext, requireAuth } from "@/actions/auth/dal";
 import {
   getMyTodayAttendance,
   getCurrentAttendanceSettings,
 } from "@/actions/hr/attendance";
 import { ConvexClientProvider } from "@/lib/convex-client-provider";
+import { DashboardPermissionProvider } from "@/components/layouts/dashboard-permission-context";
 import { Suspense } from "react";
 
 export default async function RootLayout({
@@ -54,18 +55,22 @@ export default async function RootLayout({
     redirect("/organizations");
   }
 
+  const permissionContext = await getUserPermissionContext();
+
   return (
     <section className="p-1">
       <ConvexClientProvider>
         <SidebarProvider>
-          <Suspense fallback={null}>
-            <AppSidebar
-              user={session.user}
-              userId={authData.userId}
-              organizationId={organization.id}
-              employee={authData.employee}
-            />
-          </Suspense>
+          <DashboardPermissionProvider value={permissionContext}>
+            <Suspense fallback={null}>
+              <AppSidebar
+                user={session.user}
+                userId={authData.userId}
+                organizationId={organization.id}
+                employee={authData.employee}
+              />
+            </Suspense>
+          </DashboardPermissionProvider>
           <SidebarInset>
             <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
               <div className="flex w-full items-center justify-between gap-2 px-4">
