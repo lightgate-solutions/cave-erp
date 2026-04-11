@@ -9,7 +9,6 @@ import { type ReactNode, Suspense } from "react";
 import { AccountDeletion } from "@/components/settings/account-deletion";
 import LinkedAccountsTab from "@/components/settings/accounts-tab";
 import BillingsTab from "@/components/settings/billings-tab";
-import { CreateOrganizationButton } from "@/components/settings/create-organization";
 import { InvitesCard } from "@/components/settings/invites-card";
 import { MembersTable } from "@/components/settings/members-table";
 import { OrganizationDeletion } from "@/components/settings/organization-deletion";
@@ -193,7 +192,6 @@ export default async function Page({
         {hasAdminAccess && (
           <>
             <TabsContent value="organizations" className="space-y-4">
-              <CreateOrganizationButton />
               <InvitesCard />
             </TabsContent>
 

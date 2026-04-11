@@ -22,6 +22,7 @@ import {
 } from "./emails";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { user as userSchema } from "@/db/schema/auth";
+import { redisClient } from "./redis-client";
 
 export const auth = betterAuth({
   appName: "Cave ERP",
@@ -94,8 +95,19 @@ export const auth = betterAuth({
       enabled: true,
       maxAge: 5 * 60, // Cache duration in seconds
     },
+    storeSessionInDatabase: false,
   },
 
+  secondaryStorage: {
+    get: async (key) => {
+      return await redisClient.get(key);
+    },
+    set: async (key, value, ttl) => {
+      if (ttl) await redisClient.set(key, JSON.stringify(value), { ex: ttl });
+      else await redisClient.set(key, JSON.stringify(value));
+    },
+    delete: async (key) => (await redisClient.del(key)).toString(),
+  },
   plugins: [
     nextCookies(),
     username(),

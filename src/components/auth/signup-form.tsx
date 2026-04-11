@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import * as z from "zod";
@@ -53,9 +53,7 @@ const signUpSchema = z
 type SignUpFormType = z.infer<typeof signUpSchema>;
 
 export function SignupForm() {
-  const [email, setEmail] = useState("");
-  const [timeToNextResend, setTimeToNextResend] = useState(60);
-  const interval = useRef<NodeJS.Timeout>(undefined);
+  const router = useRouter();
 
   const form = useForm<SignUpFormType>({
     resolver: zodResolver(signUpSchema),
@@ -88,69 +86,8 @@ export function SignupForm() {
     );
 
     if (res.error == null && !res.data.user.emailVerified) {
-      setEmail(data.email);
+      router.push(`/auth/verify-email?email=${encodeURIComponent(data.email)}`);
     }
-  }
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <>
-  useEffect(() => {
-    startEmailVerificationCountdown();
-  }, []);
-
-  function startEmailVerificationCountdown(time = 60) {
-    setTimeToNextResend(time);
-
-    clearInterval(interval.current);
-    interval.current = setInterval(() => {
-      setTimeToNextResend((t) => {
-        const newT = t - 1;
-
-        if (newT <= 0) {
-          clearInterval(interval.current);
-          return 0;
-        }
-        return newT;
-      });
-    }, 1000);
-  }
-
-  if (email) {
-    return (
-      <Card>
-        <CardHeader className="text-2xl font-bold">
-          <CardTitle>Verify Your Email</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground mt-2">
-              We sent you a verification link. Please check your email and click
-              the link to verify your account.
-            </p>
-
-            <BetterAuthActionButton
-              variant="outline"
-              className="w-full hover:cursor-pointer"
-              successMessage="Verification email sent!"
-              disabled={timeToNextResend > 0}
-              action={() => {
-                startEmailVerificationCountdown();
-                return authClient.sendVerificationEmail({
-                  email,
-                  callbackURL: callbackUrl,
-                });
-              }}
-            >
-              {timeToNextResend > 0
-                ? `Resend Email (${timeToNextResend})`
-                : "Resend Email"}
-            </BetterAuthActionButton>
-          </div>
-        </CardContent>
-        <CardFooter className="text-sm text-muted-foreground">
-          Can't find the email? Check spam folder
-        </CardFooter>
-      </Card>
-    );
   }
 
   return (

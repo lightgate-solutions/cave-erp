@@ -1,9 +1,8 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { redirectIfUnverifiedEmail } from "@/lib/redirect-email-verification";
 
-export default async function AuthLayout({
+export default async function VerifyEmailLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -11,9 +10,14 @@ export default async function AuthLayout({
   const session = await auth.api.getSession({
     headers: await headers(),
   });
-  if (!session) redirect("/auth/login");
 
-  redirectIfUnverifiedEmail(session.user);
+  if (!session?.user.id) {
+    redirect("/auth/login");
+  }
 
-  return <div>{children}</div>;
+  if (session.user.emailVerified) {
+    redirect("/");
+  }
+
+  return <>{children}</>;
 }

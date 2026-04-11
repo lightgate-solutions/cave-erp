@@ -10,7 +10,9 @@ export function AccountDeletion() {
       variant="destructive"
       className="w-full"
       successMessage="Account deletion initiated. Please check your email to confirm."
-      action={() => authClient.deleteUser({ callbackURL: "https://cave.ng/" })}
+      action={() =>
+        authClient.deleteUser({ callbackURL: "https://cave-erp.com/" })
+      }
     >
       Delete Account Permanently
     </BetterAuthActionButton>

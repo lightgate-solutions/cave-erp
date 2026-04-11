@@ -9,6 +9,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { auth } from "@/lib/auth";
+import { redirectIfUnverifiedEmail } from "@/lib/redirect-email-verification";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -32,6 +33,8 @@ export default async function RootLayout({
     headers: await headers(),
   });
   if (!session) redirect("/auth/login");
+
+  redirectIfUnverifiedEmail(session.user);
 
   const data = await auth.api.listOrganizations({
     headers: await headers(),

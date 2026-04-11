@@ -1,7 +1,47 @@
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const passwordSendEmail = process.env.RESEND_PASSWORD_RESET_EMAIL;
+
+const GENERIC_RESEND_FETCH_ERROR =
+  "Unable to fetch data. The request could not be resolved.";
+
+function getResendFromEmail(): string {
+  const from =
+    process.env.RESEND_PASSWORD_RESET_EMAIL?.trim() ||
+    process.env.RESEND_SENDER_EMAIL?.trim();
+  if (!from) {
+    throw new Error(
+      "Set RESEND_PASSWORD_RESET_EMAIL or RESEND_SENDER_EMAIL to a verified Resend sender address.",
+    );
+  }
+  return from;
+}
+
+/** Resend swallows the real fetch error; this logs the underlying failure. */
+async function logResendNetworkFailure(): Promise<void> {
+  const base =
+    (typeof process !== "undefined" && process.env?.RESEND_BASE_URL) ||
+    "https://api.resend.com";
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    await fetch(base, { method: "GET", signal: controller.signal });
+    clearTimeout(timeout);
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    const cause = "cause" in err && err.cause != null ? err.cause : undefined;
+    console.error(
+      "[Resend] Reachability check failed for",
+      base,
+      "-",
+      err.message,
+      cause !== undefined ? `(cause: ${String(cause)})` : "",
+    );
+  }
+  console.error(
+    "[Resend] If this is a local or self-hosted Node issue and IPv6 routing is broken, run with NODE_OPTIONS=--dns-result-order=ipv4first (see package.json dev/start scripts).",
+  );
+}
 
 export async function sendEmail({
   to,
@@ -18,8 +58,16 @@ export async function sendEmail({
   replyTo?: string;
   attachments?: { filename: string; content: Buffer | string }[];
 }) {
+  if (!process.env.RESEND_API_KEY?.trim()) {
+    throw new Error(
+      "RESEND_API_KEY is missing. Add it to your environment to send email.",
+    );
+  }
+
+  const fromAddress = getResendFromEmail();
+
   const { data, error } = await resend.emails.send({
-    from: `Cave ERP <${passwordSendEmail}>`,
+    from: `Cave ERP <${fromAddress}>`,
     to: to,
     subject: subject,
     replyTo: replyTo ? replyTo : "contact@lightgatesolutions.com",
@@ -29,7 +77,10 @@ export async function sendEmail({
   });
 
   if (error) {
-    console.error("Resend API Error");
+    console.error("Resend API Error", error);
+    if (error.message === GENERIC_RESEND_FETCH_ERROR) {
+      await logResendNetworkFailure();
+    }
     throw new Error(`Failed to send email: ${error.message}`);
   }
 
