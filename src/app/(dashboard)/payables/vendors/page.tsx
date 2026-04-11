@@ -1,16 +1,10 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -19,8 +13,27 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { VendorsTable } from "@/components/payables/vendors-table";
+import { VendorsFiltersForm } from "@/components/payables/vendors-filters-form";
 import { getAllVendors } from "@/actions/payables/vendors";
 import type { VendorStatus } from "@/types/payables";
+
+function vendorListFiltersFromSearchParams(params: {
+  search?: string;
+  category?: string;
+  status?: string;
+}) {
+  return {
+    search: params.search,
+    category:
+      params.category && params.category !== "all"
+        ? params.category
+        : undefined,
+    status:
+      params.status && params.status !== "all"
+        ? (params.status as VendorStatus)
+        : undefined,
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +47,8 @@ interface VendorsPageProps {
     search?: string;
     category?: string;
     status?: string;
+    /** Cache-bust only; ignored for filtering */
+    _refresh?: string;
   }>;
 }
 
@@ -44,13 +59,11 @@ async function VendorsContent({
     search?: string;
     category?: string;
     status?: string;
+    _refresh?: string;
   };
 }) {
-  const vendors = await getAllVendors({
-    search: searchParams.search,
-    category: searchParams.category,
-    status: searchParams.status as VendorStatus | undefined,
-  });
+  const filters = vendorListFiltersFromSearchParams(searchParams);
+  const vendors = await getAllVendors(filters);
 
   return <VendorsTable vendors={vendors} />;
 }
@@ -58,8 +71,14 @@ async function VendorsContent({
 export default async function VendorsPage({ searchParams }: VendorsPageProps) {
   const params = await searchParams;
 
+  const session = await auth.api.getSession({ headers: await headers() });
+  const activeOrgId = session?.session?.activeOrganizationId ?? "";
+
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div
+      key={activeOrgId || "no-org"}
+      className="flex-1 space-y-4 p-4 md:p-8 pt-6"
+    >
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Vendors</h2>
@@ -84,45 +103,11 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search vendors..."
-                  className="pl-8"
-                  name="search"
-                  defaultValue={params.search}
-                />
-              </div>
-            </div>
-            <Select name="category" defaultValue={params.category}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="Services">Services</SelectItem>
-                <SelectItem value="Goods">Goods</SelectItem>
-                <SelectItem value="Utilities">Utilities</SelectItem>
-                <SelectItem value="Custom">Custom</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select name="status" defaultValue={params.status}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Inactive">Inactive</SelectItem>
-                <SelectItem value="Suspended">Suspended</SelectItem>
-                <SelectItem value="Archived">Archived</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button type="submit">Apply Filters</Button>
-          </form>
+          <VendorsFiltersForm
+            initialSearch={params.search ?? ""}
+            initialCategory={params.category ?? "all"}
+            initialStatus={params.status ?? "all"}
+          />
         </CardContent>
       </Card>
 

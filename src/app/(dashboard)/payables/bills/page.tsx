@@ -1,6 +1,7 @@
-import { Suspense } from "react";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,38 +40,43 @@ interface BillsPageProps {
   }>;
 }
 
-async function BillsContent({
-  searchParams,
-}: {
-  searchParams: {
-    search?: string;
-    status?: string;
-    vendorId?: string;
-    startDate?: string;
-    endDate?: string;
-  };
+function billsListFiltersFromSearchParams(params: {
+  search?: string;
+  status?: string;
+  vendorId?: string;
+  startDate?: string;
+  endDate?: string;
 }) {
-  const rawBills = await getAllBills({
-    search: searchParams.search,
-    status: searchParams.status as BillStatus | undefined,
-    vendorId: searchParams.vendorId ? Number(searchParams.vendorId) : undefined,
-    startDate: searchParams.startDate,
-    endDate: searchParams.endDate,
-  });
+  return {
+    search: params.search,
+    status:
+      params.status && params.status !== "all"
+        ? (params.status as BillStatus)
+        : undefined,
+    vendorId: params.vendorId ? Number(params.vendorId) : undefined,
+    startDate: params.startDate,
+    endDate: params.endDate,
+  };
+}
 
+export default async function BillsPage({ searchParams }: BillsPageProps) {
+  const params = await searchParams;
+  const filters = billsListFiltersFromSearchParams(params);
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  const activeOrgId = session?.session?.activeOrganizationId ?? "";
+
+  const rawBills = await getAllBills(filters);
   const bills = rawBills.map((b) => ({
     ...b,
     vendorName: b.vendorName ?? "",
   }));
 
-  return <BillsTable bills={bills} />;
-}
-
-export default async function BillsPage({ searchParams }: BillsPageProps) {
-  const params = await searchParams;
-
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div
+      key={activeOrgId || "no-org"}
+      className="flex-1 space-y-4 p-4 md:p-8 pt-6"
+    >
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Bills</h2>
@@ -95,7 +101,11 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="flex flex-col md:flex-row gap-4">
+          <form
+            method="get"
+            className="flex flex-col md:flex-row gap-4"
+            action="/payables/bills"
+          >
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -108,7 +118,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
                 />
               </div>
             </div>
-            <Select name="status" defaultValue={params.status}>
+            <Select name="status" defaultValue={params.status ?? "all"}>
               <SelectTrigger className="w-full md:w-[200px]">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
@@ -137,9 +147,7 @@ export default async function BillsPage({ searchParams }: BillsPageProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Suspense fallback={<div>Loading bills...</div>}>
-            <BillsContent searchParams={params} />
-          </Suspense>
+          <BillsTable bills={bills} />
         </CardContent>
       </Card>
     </div>

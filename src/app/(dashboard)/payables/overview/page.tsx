@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { AlertCircle, TrendingDown, TrendingUp } from "lucide-react";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 import {
   Card,
@@ -22,9 +24,9 @@ export const metadata = {
   description: "Accounts Payable aging analysis and overview",
 };
 
-async function AgingAnalysis() {
+async function AgingAnalysis({ orgKey }: { orgKey: string }) {
   const agingData = await getAPAgingSummary();
-  return <APAgingTable agingData={agingData} />;
+  return <APAgingTable key={orgKey} agingData={agingData} />;
 }
 
 async function OverdueAlert() {
@@ -108,8 +110,14 @@ async function QuickMetrics() {
 }
 
 export default async function APOverviewPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const activeOrgId = session?.session?.activeOrganizationId ?? "";
+
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div
+      key={activeOrgId || "no-org"}
+      className="flex-1 space-y-4 p-4 md:p-8 pt-6"
+    >
       <div>
         <h2 className="text-3xl font-bold tracking-tight">
           Accounts Payable Overview
@@ -120,12 +128,13 @@ export default async function APOverviewPage() {
       </div>
 
       {/* Overdue Alert */}
-      <Suspense fallback={null}>
+      <Suspense key={`ap-overview-overdue-${activeOrgId}`} fallback={null}>
         <OverdueAlert />
       </Suspense>
 
       {/* Quick Metrics */}
       <Suspense
+        key={`ap-overview-metrics-${activeOrgId}`}
         fallback={
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {(["s1", "s2", "s3"] as const).map((id) => (
@@ -154,8 +163,11 @@ export default async function APOverviewPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Suspense fallback={<div>Loading aging analysis...</div>}>
-            <AgingAnalysis />
+          <Suspense
+            key={`ap-overview-aging-${activeOrgId}`}
+            fallback={<div>Loading aging analysis...</div>}
+          >
+            <AgingAnalysis orgKey={activeOrgId} />
           </Suspense>
         </CardContent>
       </Card>

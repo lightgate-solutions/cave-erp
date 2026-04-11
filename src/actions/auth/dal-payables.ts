@@ -4,11 +4,13 @@ import { cache } from "react";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { db } from "@/db";
-import { employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { employees, organization as organizationTable } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 
 /**
- * Get employee with payables access check
+ * Get employee with payables access check.
+ * Uses `session.activeOrganizationId` and the DB org row — not `getFullOrganization()`,
+ * so data scoping matches the org switcher.
  */
 export const getEmployeeForPayables = cache(async () => {
   const session = await auth.api.getSession({
@@ -19,18 +21,30 @@ export const getEmployeeForPayables = cache(async () => {
     throw new Error("Unauthorized: No session found");
   }
 
-  const organization = await auth.api.getFullOrganization({
-    headers: await headers(),
-  });
+  const organizationId = session.session?.activeOrganizationId;
+  if (!organizationId) {
+    throw new Error("Unauthorized: No active organization");
+  }
+
+  const [organization] = await db
+    .select()
+    .from(organizationTable)
+    .where(eq(organizationTable.id, organizationId))
+    .limit(1);
 
   if (!organization) {
-    throw new Error("Unauthorized: No organization found");
+    throw new Error("Unauthorized: Organization not found");
   }
 
   const [employee] = await db
     .select()
     .from(employees)
-    .where(eq(employees.authId, session.user.id))
+    .where(
+      and(
+        eq(employees.authId, session.user.id),
+        eq(employees.organizationId, organizationId),
+      ),
+    )
     .limit(1);
 
   if (!employee) {

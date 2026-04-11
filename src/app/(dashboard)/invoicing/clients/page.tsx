@@ -13,7 +13,15 @@ import { getAllClients } from "@/actions/invoicing/clients";
 import { redirect } from "next/navigation";
 import { requireInvoicingViewAccess } from "@/actions/auth/dal-invoicing";
 
-export default async function ClientsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ _refresh?: string }>;
+}) {
+  await searchParams;
+
   try {
     await requireInvoicingViewAccess();
   } catch {

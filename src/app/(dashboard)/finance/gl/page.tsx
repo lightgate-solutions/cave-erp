@@ -31,9 +31,11 @@ export const metadata = {
   description: "Overview of financial health, payables, and receivables.",
 };
 
-async function FinancialStats() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  const organizationId = session?.session?.activeOrganizationId;
+async function FinancialStats({
+  organizationId,
+}: {
+  organizationId: string | null;
+}) {
   const today = new Date();
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
@@ -139,7 +141,19 @@ async function FinancialStats() {
   );
 }
 
-async function OperationalOverview() {
+async function OperationalOverview({
+  organizationId,
+}: {
+  organizationId: string | null;
+}) {
+  if (!organizationId) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Select an organization to view receivables and payables snapshot.
+      </p>
+    );
+  }
+
   const [payables, receivables] = await Promise.all([
     getPayablesMetrics(),
     getReceivablesMetrics(),
@@ -269,6 +283,11 @@ async function OperationalOverview() {
 }
 
 export default async function GLDashboardPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const organizationId = session?.session?.activeOrganizationId ?? null;
+  /** Remount dashboard chunks when active org changes (client navigation can reuse the route). */
+  const orgKey = organizationId ?? "none";
+
   return (
     <div className="flex-1 space-y-4 p-3 pt-4 sm:p-4 md:p-8 md:pt-6">
       <div className="min-w-0">
@@ -278,23 +297,25 @@ export default async function GLDashboardPage() {
       </div>
 
       <Suspense
+        key={`gl-stats-${orgKey}`}
         fallback={
           <div className="text-sm text-muted-foreground animate-pulse">
             Loading financial stats…
           </div>
         }
       >
-        <FinancialStats />
+        <FinancialStats organizationId={organizationId} />
       </Suspense>
 
       <Suspense
+        key={`gl-ops-${orgKey}`}
         fallback={
           <div className="text-sm text-muted-foreground animate-pulse">
             Loading operational overview…
           </div>
         }
       >
-        <OperationalOverview />
+        <OperationalOverview organizationId={organizationId} />
       </Suspense>
     </div>
   );

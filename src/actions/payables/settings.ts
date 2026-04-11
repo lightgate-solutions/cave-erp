@@ -8,8 +8,6 @@ import {
 } from "../auth/dal-payables";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import type { BillTaxType } from "@/types/payables";
 
 /**
@@ -36,18 +34,7 @@ export interface UpdateTaxConfigInput {
  */
 export async function createTaxConfig(data: CreateTaxConfigInput) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     const [taxConfig] = await db
       .insert(payablesTaxConfig)
@@ -81,18 +68,7 @@ export async function createTaxConfig(data: CreateTaxConfigInput) {
  */
 export async function updateTaxConfig(id: number, data: UpdateTaxConfigInput) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Check if tax config exists
     const [existing] = await db
@@ -152,18 +128,7 @@ export async function updateTaxConfig(id: number, data: UpdateTaxConfigInput) {
  */
 export async function deleteTaxConfig(id: number) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Check if tax config exists
     const [existing] = await db
@@ -213,15 +178,7 @@ export async function deleteTaxConfig(id: number) {
  */
 export async function getAllTaxConfigs(includeInactive = false) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const conditions = [eq(payablesTaxConfig.organizationId, organization.id)];
 
@@ -247,15 +204,7 @@ export async function getAllTaxConfigs(includeInactive = false) {
  */
 export async function getTaxConfig(id: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const [taxConfig] = await db
       .select()
@@ -296,18 +245,7 @@ export interface UpdateCustomCategoryInput {
  */
 export async function createCustomCategory(data: CreateCustomCategoryInput) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Check if category name already exists
     const [existing] = await db
@@ -362,18 +300,7 @@ export async function updateCustomCategory(
   data: UpdateCustomCategoryInput,
 ) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Check if category exists
     const [existing] = await db
@@ -453,18 +380,7 @@ export async function updateCustomCategory(
  */
 export async function deleteCustomCategory(id: number) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Check if category exists
     const [existing] = await db
@@ -515,15 +431,7 @@ export async function deleteCustomCategory(id: number) {
  */
 export async function getAllCustomCategories(includeInactive = false) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const conditions = [
       eq(vendorCustomCategories.organizationId, organization.id),
@@ -551,15 +459,7 @@ export async function getAllCustomCategories(includeInactive = false) {
  */
 export async function getCustomCategory(id: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const [category] = await db
       .select()

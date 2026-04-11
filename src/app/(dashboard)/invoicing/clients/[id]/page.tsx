@@ -23,10 +23,13 @@ import { requireInvoicingViewAccess } from "@/actions/auth/dal-invoicing";
 
 export default async function ClientDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ _refresh?: string }>;
 }) {
   const { id } = await params;
+  await searchParams;
 
   try {
     await requireInvoicingViewAccess();

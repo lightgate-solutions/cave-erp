@@ -27,15 +27,23 @@ import { getAllOrganizationCurrencies } from "@/actions/invoicing/currencies";
 import { AddCategoryDialog } from "@/components/payables/add-category-dialog";
 import { CategoryList } from "@/components/payables/category-list";
 import { CurrencySettings } from "@/components/invoicing/currency-settings";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 export default async function PayablesSettingsPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const activeOrgId = session?.session?.activeOrganizationId ?? "";
+
   const [categories, currencies] = await Promise.all([
     getAllCustomCategories(),
     getAllOrganizationCurrencies(),
   ]);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div
+      key={activeOrgId || "no-org"}
+      className="flex-1 space-y-4 p-4 md:p-8 pt-6"
+    >
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Payables Settings</h2>
         <p className="text-muted-foreground">

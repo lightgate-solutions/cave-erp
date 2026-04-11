@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react";
@@ -56,6 +56,73 @@ interface Vendor {
 
 interface VendorsTableProps {
   vendors: Vendor[];
+}
+
+/** Radix DropdownMenu uses useId(); deferring to post-mount avoids SSR/client ID drift in Next.js. */
+function VendorRowActions({
+  vendor,
+  onDeleteClick,
+}: {
+  vendor: Vendor;
+  onDeleteClick: (id: number) => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="flex justify-end">
+        <Button
+          variant="ghost"
+          className="h-8 w-8 p-0"
+          type="button"
+          disabled
+          aria-label="Actions menu"
+        >
+          <MoreHorizontal className="h-4 w-4 opacity-50" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-end">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuItem asChild>
+            <Link href={`/payables/vendors/${vendor.id}`}>
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={`/payables/vendors/${vendor.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-destructive"
+            onClick={() => onDeleteClick(vendor.id)}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
 }
 
 export function VendorsTable({ vendors }: VendorsTableProps) {
@@ -169,40 +236,13 @@ export function VendorsTable({ vendors }: VendorsTableProps) {
                 </TableCell>
                 <TableCell>{vendor.defaultPaymentTerms || "-"}</TableCell>
                 <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem asChild>
-                        <Link href={`/payables/vendors/${vendor.id}`}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Details
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href={`/payables/vendors/${vendor.id}/edit`}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => {
-                          setVendorToDelete(vendor.id);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <VendorRowActions
+                    vendor={vendor}
+                    onDeleteClick={(id) => {
+                      setVendorToDelete(id);
+                      setDeleteDialogOpen(true);
+                    }}
+                  />
                 </TableCell>
               </TableRow>
             ))}

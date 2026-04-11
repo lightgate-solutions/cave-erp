@@ -8,8 +8,6 @@ import {
 } from "../auth/dal-payables";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 
 export interface CreateVendorBankAccountInput {
   vendorId: number;
@@ -41,18 +39,7 @@ export interface UpdateVendorBankAccountInput {
  */
 export async function addVendorBankAccount(data: CreateVendorBankAccountInput) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Verify vendor belongs to organization
     const [vendor] = await db
@@ -127,18 +114,7 @@ export async function updateVendorBankAccount(
   data: UpdateVendorBankAccountInput,
 ) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Get existing account
     const [existing] = await db
@@ -204,18 +180,7 @@ export async function updateVendorBankAccount(
  */
 export async function deleteVendorBankAccount(id: number) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Get account to find vendor ID for revalidation
     const [account] = await db
@@ -266,15 +231,7 @@ export async function deleteVendorBankAccount(id: number) {
  */
 export async function getVendorBankAccounts(vendorId: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const accounts = await db
       .select()
@@ -299,15 +256,7 @@ export async function getVendorBankAccounts(vendorId: number) {
  */
 export async function getVendorDefaultBankAccount(vendorId: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const [account] = await db
       .select()

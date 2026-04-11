@@ -38,27 +38,66 @@ import {
 
 const clientFormSchema = z.object({
   clientCode: z.string().min(1, "Client code is required"),
-  name: z.string().min(1, "Name is required"),
-  email: z.email("Invalid email address"),
-  phone: z.string().optional(),
-  companyName: z.string().optional(),
-  taxId: z.string().optional(),
-  billingAddress: z.string().optional(),
-  billingCity: z.string().optional(),
-  billingState: z.string().optional(),
-  billingPostalCode: z.string().optional(),
-  billingCountry: z.string().optional(),
-  shippingAddress: z.string().optional(),
-  shippingCity: z.string().optional(),
-  shippingState: z.string().optional(),
-  shippingPostalCode: z.string().optional(),
-  shippingCountry: z.string().optional(),
-  website: z.url("Invalid URL").optional().or(z.literal("")),
-  notes: z.string().optional(),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Enter at least 2 characters")
+    .max(200, "Max 200 characters"),
+  email: z.email("Enter a valid email address"),
+  phone: z
+    .string()
+    .max(32, "Max 32 characters")
+    .refine(
+      (v) => v.trim().length === 0 || v.trim().length >= 8,
+      "If provided, use at least 8 characters",
+    ),
+  companyName: z.string().max(200, "Max 200 characters"),
+  taxId: z.string().max(64, "Max 64 characters"),
+  billingAddress: z.string().max(500, "Max 500 characters"),
+  billingCity: z.string().max(120, "Max 120 characters"),
+  billingState: z.string().max(120, "Max 120 characters"),
+  billingPostalCode: z.string().max(32, "Max 32 characters"),
+  billingCountry: z.string().max(120, "Max 120 characters"),
+  shippingAddress: z.string().max(500, "Max 500 characters"),
+  shippingCity: z.string().max(120, "Max 120 characters"),
+  shippingState: z.string().max(120, "Max 120 characters"),
+  shippingPostalCode: z.string().max(32, "Max 32 characters"),
+  shippingCountry: z.string().max(120, "Max 120 characters"),
+  website: z
+    .string()
+    .max(2048, "URL is too long")
+    .superRefine((val, ctx) => {
+      const v = val.trim();
+      if (v.length === 0) return;
+      try {
+        // eslint-disable-next-line no-new
+        new URL(v);
+      } catch {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            "Enter a valid URL (e.g. https://example.com) or leave blank",
+        });
+      }
+    }),
+  notes: z.string().max(5000, "Notes cannot exceed 5000 characters"),
   isActive: z.boolean().optional(),
 });
 
 type ClientFormValues = z.infer<typeof clientFormSchema>;
+
+function RequiredMark() {
+  return (
+    <span className="text-destructive" aria-hidden>
+      {" "}
+      *
+    </span>
+  );
+}
+
+function OptionalMark() {
+  return <span className="text-muted-foreground font-normal"> (optional)</span>;
+}
 
 interface ClientFormProps {
   mode: "create" | "edit";
@@ -72,6 +111,8 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientFormSchema),
+    mode: "onBlur",
+    reValidateMode: "onChange",
     defaultValues: initialData || {
       clientCode: "",
       name: "",
@@ -127,8 +168,7 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
 
         if (result.success) {
           toast.success("Client created successfully");
-          router.push("/invoicing/clients");
-          router.refresh();
+          router.replace(`/invoicing/clients?_refresh=${Date.now()}`);
         } else {
           toast.error(result.error?.reason || "Failed to create client");
         }
@@ -138,8 +178,9 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
 
         if (result.success) {
           toast.success("Client updated successfully");
-          router.push(`/invoicing/clients/${initialData.id}`);
-          router.refresh();
+          router.replace(
+            `/invoicing/clients/${initialData.id}?_refresh=${Date.now()}`,
+          );
         } else {
           toast.error(result.error?.reason || "Failed to update client");
         }
@@ -160,7 +201,9 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
             <CardDescription>
-              Client contact and identification details
+              Client contact and identification details. Fields marked with
+              <span className="text-destructive"> *</span> are required; others
+              are optional.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -169,12 +212,16 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
               name="clientCode"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Client Code</FormLabel>
+                  <FormLabel>
+                    Client Code
+                    <OptionalMark />
+                  </FormLabel>
                   <FormControl>
                     <Input {...field} disabled placeholder="CLI-2026-0001" />
                   </FormControl>
                   <FormDescription>
-                    Auto-generated unique identifier
+                    Auto-generated unique identifier (read-only; you do not need
+                    to edit this)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -187,7 +234,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name *</FormLabel>
+                    <FormLabel>
+                      Name
+                      <RequiredMark />
+                    </FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="John Doe" />
                     </FormControl>
@@ -201,12 +251,16 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email *</FormLabel>
+                    <FormLabel>
+                      Email
+                      <RequiredMark />
+                    </FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         type="email"
                         placeholder="john@example.com"
+                        autoComplete="email"
                       />
                     </FormControl>
                     <FormMessage />
@@ -219,10 +273,21 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone</FormLabel>
+                    <FormLabel>
+                      Phone
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="+1 (555) 123-4567" />
+                      <Input
+                        {...field}
+                        type="tel"
+                        placeholder="+1 (555) 123-4567"
+                        autoComplete="tel"
+                      />
                     </FormControl>
+                    <FormDescription>
+                      If you enter a number, use at least 8 characters.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -233,7 +298,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="companyName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company Name</FormLabel>
+                    <FormLabel>
+                      Company Name
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="Acme Corporation" />
                     </FormControl>
@@ -247,7 +315,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="taxId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tax ID</FormLabel>
+                    <FormLabel>
+                      Tax ID
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="12-3456789" />
                     </FormControl>
@@ -261,7 +332,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="website"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Website</FormLabel>
+                    <FormLabel>
+                      Website
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -281,6 +355,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
         <Card>
           <CardHeader>
             <CardTitle>Billing Address</CardTitle>
+            <CardDescription>
+              All billing address fields are optional. Include what you want on
+              invoices and statements.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -288,7 +366,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
               name="billingAddress"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Street Address</FormLabel>
+                  <FormLabel>
+                    Street Address
+                    <OptionalMark />
+                  </FormLabel>
                   <FormControl>
                     <Input {...field} placeholder="123 Main St" />
                   </FormControl>
@@ -303,7 +384,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="billingCity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>City</FormLabel>
+                    <FormLabel>
+                      City
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="San Francisco" />
                     </FormControl>
@@ -317,7 +401,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="billingState"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>State/Province</FormLabel>
+                    <FormLabel>
+                      State/Province
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="CA" />
                     </FormControl>
@@ -331,7 +418,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="billingPostalCode"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Postal Code</FormLabel>
+                    <FormLabel>
+                      Postal Code
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="94102" />
                     </FormControl>
@@ -345,7 +435,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="billingCountry"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Country</FormLabel>
+                    <FormLabel>
+                      Country
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="United States" />
                     </FormControl>
@@ -361,7 +454,7 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
         <Card>
           <CardHeader>
             <CardTitle>Shipping Address</CardTitle>
-            <CardDescription>
+            <CardDescription className="space-y-2">
               <div className="flex items-center space-x-2 pt-2">
                 <Checkbox
                   id="copyBilling"
@@ -377,6 +470,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                   Same as billing address
                 </label>
               </div>
+              <p className="text-muted-foreground text-sm">
+                Shipping fields are optional unless you need a different ship-to
+                address.
+              </p>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -385,7 +482,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
               name="shippingAddress"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Street Address</FormLabel>
+                  <FormLabel>
+                    Street Address
+                    <OptionalMark />
+                  </FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -404,7 +504,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="shippingCity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>City</FormLabel>
+                    <FormLabel>
+                      City
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -422,7 +525,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="shippingState"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>State/Province</FormLabel>
+                    <FormLabel>
+                      State/Province
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -440,7 +546,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="shippingPostalCode"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Postal Code</FormLabel>
+                    <FormLabel>
+                      Postal Code
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -458,7 +567,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
                 name="shippingCountry"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Country</FormLabel>
+                    <FormLabel>
+                      Country
+                      <OptionalMark />
+                    </FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -478,6 +590,9 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
         <Card>
           <CardHeader>
             <CardTitle>Additional Information</CardTitle>
+            <CardDescription>
+              Notes are optional and only visible inside your organization.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -485,7 +600,10 @@ export function ClientForm({ mode, initialData }: ClientFormProps) {
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes</FormLabel>
+                  <FormLabel>
+                    Notes
+                    <OptionalMark />
+                  </FormLabel>
                   <FormControl>
                     <Textarea
                       {...field}

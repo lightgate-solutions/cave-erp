@@ -15,8 +15,6 @@ import {
 } from "../auth/dal-payables";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import type { POStatus, LineItem } from "@/types/payables";
 import { calculateBillAmounts } from "@/lib/payables-utils";
 
@@ -40,13 +38,7 @@ export interface UpdatePOInput extends Partial<CreatePOInput> {}
  */
 export async function generatePONumber() {
   try {
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     const year = new Date().getFullYear();
     const prefix = `PO-${year}-`;
@@ -85,18 +77,7 @@ export async function generatePONumber() {
  */
 export async function createPurchaseOrder(data: CreatePOInput) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     // Generate PO number
     const poNumber = await generatePONumber();
@@ -174,18 +155,7 @@ export async function createPurchaseOrder(data: CreatePOInput) {
  */
 export async function updatePurchaseOrder(id: number, data: UpdatePOInput) {
   try {
-    const { userId } = await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesWriteAccess();
 
     // Get existing PO
     const [existing] = await db
@@ -298,18 +268,7 @@ export async function updatePurchaseOrder(id: number, data: UpdatePOInput) {
  */
 export async function deletePurchaseOrder(id: number) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Get PO
     const [po] = await db
@@ -367,15 +326,7 @@ export async function deletePurchaseOrder(id: number) {
  */
 export async function getPurchaseOrder(id: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const po = await db.query.purchaseOrders.findFirst({
       where: and(
@@ -413,15 +364,7 @@ export async function getAllPurchaseOrders(filters?: {
   endDate?: string;
 }) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const conditions = [eq(purchaseOrders.organizationId, organization.id)];
 
@@ -468,7 +411,13 @@ export async function getAllPurchaseOrders(filters?: {
         createdAt: purchaseOrders.createdAt,
       })
       .from(purchaseOrders)
-      .innerJoin(vendors, eq(purchaseOrders.vendorId, vendors.id))
+      .innerJoin(
+        vendors,
+        and(
+          eq(purchaseOrders.vendorId, vendors.id),
+          eq(vendors.organizationId, organization.id),
+        ),
+      )
       .innerJoin(
         organizationCurrencies,
         eq(purchaseOrders.currencyId, organizationCurrencies.id),
@@ -492,18 +441,7 @@ export async function updatePOStatus(
   _reason?: string,
 ) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Get current PO
     const [existing] = await db
@@ -568,18 +506,7 @@ export async function updatePOStatus(
  */
 export async function approvePurchaseOrder(id: number) {
   try {
-    const { userId } = await requirePayablesApprovalAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { userId, organization } = await requirePayablesApprovalAccess();
 
     await db
       .update(purchaseOrders)
@@ -616,15 +543,7 @@ export async function approvePurchaseOrder(id: number) {
  */
 export async function getPOMatchingStatus(poId: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return null;
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const po = await db.query.purchaseOrders.findFirst({
       where: and(
@@ -690,13 +609,7 @@ export async function getPOMatchingStatus(poId: number) {
  */
 export async function updatePOBilledAmount(poId: number) {
   try {
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return;
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     // Calculate total billed amount from all bill line items linked to this PO
     const [result] = await db
@@ -705,7 +618,13 @@ export async function updatePOBilledAmount(poId: number) {
       })
       .from(billLineItems)
       .innerJoin(poLineItems, eq(billLineItems.poLineItemId, poLineItems.id))
-      .where(eq(poLineItems.poId, poId));
+      .innerJoin(purchaseOrders, eq(poLineItems.poId, purchaseOrders.id))
+      .where(
+        and(
+          eq(poLineItems.poId, poId),
+          eq(purchaseOrders.organizationId, organization.id),
+        ),
+      );
 
     const totalBilled = Number(result.totalBilled);
 
@@ -715,13 +634,23 @@ export async function updatePOBilledAmount(poId: number) {
       .set({
         billedAmount: totalBilled.toString(),
       })
-      .where(eq(purchaseOrders.id, poId));
+      .where(
+        and(
+          eq(purchaseOrders.id, poId),
+          eq(purchaseOrders.organizationId, organization.id),
+        ),
+      );
 
     // Update PO status based on billing progress
     const [po] = await db
       .select()
       .from(purchaseOrders)
-      .where(eq(purchaseOrders.id, poId))
+      .where(
+        and(
+          eq(purchaseOrders.id, poId),
+          eq(purchaseOrders.organizationId, organization.id),
+        ),
+      )
       .limit(1);
 
     if (po) {
@@ -733,7 +662,12 @@ export async function updatePOBilledAmount(poId: number) {
         await db
           .update(purchaseOrders)
           .set({ status: "Closed", closedAt: new Date() })
-          .where(eq(purchaseOrders.id, poId));
+          .where(
+            and(
+              eq(purchaseOrders.id, poId),
+              eq(purchaseOrders.organizationId, organization.id),
+            ),
+          );
       }
     }
 

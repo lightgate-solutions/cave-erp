@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 import {
   DollarSign,
   FileText,
@@ -222,8 +224,14 @@ async function QuickStats() {
 }
 
 export default async function PayablesDashboard() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const activeOrgId = session?.session?.activeOrganizationId ?? "";
+
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div
+      key={activeOrgId || "no-org"}
+      className="flex-1 space-y-4 p-4 md:p-8 pt-6"
+    >
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">

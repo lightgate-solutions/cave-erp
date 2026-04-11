@@ -167,8 +167,7 @@ export function VendorForm({ mode, vendorId, initialData }: VendorFormProps) {
           : "Vendor updated successfully",
       );
 
-      router.push("/payables/vendors");
-      router.refresh();
+      router.replace(`/payables/vendors?_refresh=${Date.now()}`);
     } catch (error) {
       console.error("Error submitting vendor form:", error);
       toast.error("An unexpected error occurred");

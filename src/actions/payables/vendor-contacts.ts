@@ -8,8 +8,6 @@ import {
 } from "../auth/dal-payables";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 
 export interface CreateVendorContactInput {
   vendorId: number;
@@ -33,18 +31,7 @@ export interface UpdateVendorContactInput {
  */
 export async function addVendorContact(data: CreateVendorContactInput) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Verify vendor belongs to organization
     const [vendor] = await db
@@ -115,18 +102,7 @@ export async function updateVendorContact(
   data: UpdateVendorContactInput,
 ) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Get existing contact
     const [existing] = await db
@@ -192,18 +168,7 @@ export async function updateVendorContact(
  */
 export async function deleteVendorContact(id: number) {
   try {
-    await requirePayablesWriteAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return {
-        success: null,
-        error: { reason: "Organization not found" },
-      };
-    }
+    const { organization } = await requirePayablesWriteAccess();
 
     // Get contact to find vendor ID for revalidation
     const [contact] = await db
@@ -254,15 +219,7 @@ export async function deleteVendorContact(id: number) {
  */
 export async function getVendorContacts(vendorId: number) {
   try {
-    await requirePayablesViewAccess();
-
-    const organization = await auth.api.getFullOrganization({
-      headers: await headers(),
-    });
-
-    if (!organization) {
-      return [];
-    }
+    const { organization } = await requirePayablesViewAccess();
 
     const contacts = await db
       .select()
