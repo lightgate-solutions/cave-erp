@@ -11,7 +11,7 @@ overrides:
   fast-xml-parser@>=5.0.0 <5.3.8: '>=5.3.8'
   jspdf@<4.2.0: '>=4.2.0'
   undici@<6.23.0: '>=6.23.0'
-  next@>=16.0.0-beta.0 <16.2.3: '>=16.2.3'
+  drizzle-orm@<0.45.2: '>=0.45.2'
 
 importers:
 
@@ -121,7 +121,7 @@ importers:
         version: 1.15.0
       better-auth:
         specifier: ^1.4.18
-        version: 1.4.18(drizzle-kit@0.31.8)(drizzle-orm@0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(@upstash/redis@1.36.2)(kysely@0.28.15)(pg@8.16.3))(next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.16.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 1.4.18(drizzle-kit@0.31.8)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(@upstash/redis@1.36.2)(kysely@0.28.15)(pg@8.16.3))(next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.16.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -147,8 +147,8 @@ importers:
         specifier: ^17.2.3
         version: 17.2.3
       drizzle-orm:
-        specifier: ^0.44.6
-        version: 0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(@upstash/redis@1.36.2)(kysely@0.28.15)(pg@8.16.3)
+        specifier: '>=0.45.2'
+        version: 0.45.2(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(@upstash/redis@1.36.2)(kysely@0.28.15)(pg@8.16.3)
       input-otp:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -162,7 +162,7 @@ importers:
         specifier: ^0.545.0
         version: 0.545.0(react@19.2.4)
       next:
-        specifier: '>=16.2.3'
+        specifier: 16.2.3
         version: 16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next-themes:
         specifier: ^0.4.6
@@ -315,7 +315,7 @@ packages:
     resolution: {integrity: sha512-KtFjg8t94x+6h8QgIxKBU0nXN7dQurV7Ug4YpU1Z5lCh1OGKI/s9Ii5jD+hDs+5/XjjSx14QYLCUO2/jKfSo1Q==}
     engines: {node: '>=20'}
     peerDependencies:
-      next: '>=16.2.3'
+      next: '>=13'
 
   '@arcjet/protocol@1.0.0':
     resolution: {integrity: sha512-HEUzn+PGw38TV+b9zlVR+WliFL7KGSHYnnMFMt8feqG+FQB4yOQBQM6csBo7xPUbcRzyMWNKvMhPi+onlE/rQg==}
@@ -2099,7 +2099,7 @@ packages:
     peerDependencies:
       '@remix-run/react': ^2
       '@sveltejs/kit': ^1 || ^2
-      next: '>=16.2.3'
+      next: '>= 13'
       react: ^18 || ^19 || ^19.0.0-rc
       svelte: '>= 4'
       vue: ^3
@@ -2124,7 +2124,7 @@ packages:
     resolution: {integrity: sha512-PbEr7FrMkUrGYvlcLHGkXdCkxnylCWePx7lPxxq36DNdfo9mcUjLOmqOyPDHAOgnfqgGGdmE3XI9L/4+5fr+vQ==}
     peerDependencies:
       '@sveltejs/kit': ^1 || ^2
-      next: '>=16.2.3'
+      next: '>= 13'
       react: ^18 || ^19 || ^19.0.0-rc
       svelte: '>= 4'
       vue: ^3
@@ -2210,10 +2210,10 @@ packages:
       '@tanstack/solid-start': ^1.0.0
       better-sqlite3: ^12.0.0
       drizzle-kit: '>=0.31.4'
-      drizzle-orm: '>=0.41.0'
+      drizzle-orm: '>=0.45.2'
       mongodb: ^6.0.0 || ^7.0.0
       mysql2: ^3.0.0
-      next: '>=16.2.3'
+      next: ^14.0.0 || ^15.0.0 || ^16.0.0
       pg: ^8.0.0
       prisma: ^5.0.0 || ^6.0.0 || ^7.0.0
       react: ^18.0.0 || ^19.0.0
@@ -2461,8 +2461,8 @@ packages:
     resolution: {integrity: sha512-O9EC/miwdnRDY10qRxM8P3Pg8hXe3LyU4ZipReKOgTwn4OqANmftj8XJz1UPUAS6NMHf0E2htjsbQujUTkncCg==}
     hasBin: true
 
-  drizzle-orm@0.44.7:
-    resolution: {integrity: sha512-quIpnYznjU9lHshEOAYLoZ9s3jweleHlZIAWR/jX9gAWNg/JhQ1wj0KGRf7/Zm+obRrYd9GjPVJg790QY9N5AQ==}
+  drizzle-orm@0.45.2:
+    resolution: {integrity: sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=4'
@@ -2936,7 +2936,7 @@ packages:
   nextjs-toploader@3.9.17:
     resolution: {integrity: sha512-9OF0KSSLtoSAuNg2LZ3aTl4hR9mBDj5L9s9DZiFCbMlXehyICGjkIz5dVGzuATU2bheJZoBdFgq9w07AKSuQQw==}
     peerDependencies:
-      next: '>=16.2.3'
+      next: '>= 6.0.0'
       react: '>= 16.0.0'
       react-dom: '>= 16.0.0'
 
@@ -5541,7 +5541,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.13: {}
 
-  better-auth@1.4.18(drizzle-kit@0.31.8)(drizzle-orm@0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(@upstash/redis@1.36.2)(kysely@0.28.15)(pg@8.16.3))(next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.16.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  better-auth@1.4.18(drizzle-kit@0.31.8)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(@upstash/redis@1.36.2)(kysely@0.28.15)(pg@8.16.3))(next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.16.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@better-auth/core': 1.4.18(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@4.1.12))(jose@6.1.0)(kysely@0.28.15)(nanostores@1.0.1)
       '@better-auth/telemetry': 1.4.18(@better-auth/core@1.4.18(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@4.1.12))(jose@6.1.0)(kysely@0.28.15)(nanostores@1.0.1))
@@ -5557,7 +5557,7 @@ snapshots:
       zod: 4.3.6
     optionalDependencies:
       drizzle-kit: 0.31.8
-      drizzle-orm: 0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(@upstash/redis@1.36.2)(kysely@0.28.15)(pg@8.16.3)
+      drizzle-orm: 0.45.2(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(@upstash/redis@1.36.2)(kysely@0.28.15)(pg@8.16.3)
       next: 16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       pg: 8.16.3
       react: 19.2.4
@@ -5741,7 +5741,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(@upstash/redis@1.36.2)(kysely@0.28.15)(pg@8.16.3):
+  drizzle-orm@0.45.2(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(@upstash/redis@1.36.2)(kysely@0.28.15)(pg@8.16.3):
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       '@types/pg': 8.15.5
