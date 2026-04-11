@@ -117,6 +117,8 @@ function Switcher({
       </p>
     );
 
+  const canAddOrganization = organizations.length === 0;
+
   const { isSubmitting } = form.formState;
 
   async function handleCreateOrganization(data: CreateOrganizationForm) {
@@ -269,71 +271,86 @@ function Switcher({
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem className="gap-2 p-2" asChild>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="hover:cursor-pointer w-full" variant="ghost">
-                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                  <Plus className="size-4" />
-                </div>
-                <div className="text-muted-foreground font-medium">
-                  Add Organization
-                </div>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Organization</DialogTitle>
-                <DialogDescription>
-                  Create a new organization to manage your business data
-                </DialogDescription>
-              </DialogHeader>
+        {canAddOrganization ? (
+          <DropdownMenuItem className="gap-2 p-2" asChild>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button className="hover:cursor-pointer w-full" variant="ghost">
+                  <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                    <Plus className="size-4" />
+                  </div>
+                  <div className="text-muted-foreground font-medium">
+                    Add Organization
+                  </div>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Organization</DialogTitle>
+                  <DialogDescription>
+                    Create a new organization to manage your business data
+                  </DialogDescription>
+                </DialogHeader>
 
-              <form
-                id="create-org-form"
-                onSubmit={form.handleSubmit(handleCreateOrganization)}
-                className="space-y-4"
-              >
-                <FieldGroup>
-                  <Controller
-                    name="name"
-                    control={form.control}
-                    render={({ field, fieldState }) => (
-                      <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor="org-name">
-                          Organization Name
-                        </FieldLabel>
-                        <Input {...field} type="text" name="organization" />
-                        {fieldState.invalid && (
-                          <FieldError errors={[fieldState.error]} />
-                        )}
-                      </Field>
-                    )}
-                  />
-                </FieldGroup>
-              </form>
-              <DialogFooter className="grid w-full">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="hover:cursor-pointer"
-                  onClick={() => setOpen(false)}
-                  disabled={isSubmitting}
+                <form
+                  id="create-org-form"
+                  onSubmit={form.handleSubmit(handleCreateOrganization)}
+                  className="space-y-4"
                 >
-                  Cancel
-                </Button>
-                <Button
-                  form="create-org-form"
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full hover:cursor-pointer"
-                >
-                  <LoadingSwap isLoading={isSubmitting}>Create</LoadingSwap>
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </DropdownMenuItem>
+                  <FieldGroup>
+                    <Controller
+                      name="name"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldLabel htmlFor="org-name">
+                            Organization Name
+                          </FieldLabel>
+                          <Input {...field} type="text" name="organization" />
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
+                      )}
+                    />
+                  </FieldGroup>
+                </form>
+                <DialogFooter className="grid w-full">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="hover:cursor-pointer"
+                    onClick={() => setOpen(false)}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    form="create-org-form"
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full hover:cursor-pointer"
+                  >
+                    <LoadingSwap isLoading={isSubmitting}>Create</LoadingSwap>
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            disabled
+            className="gap-2 p-2 opacity-50"
+            title="You can only belong to one organization."
+          >
+            <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+              <Plus className="size-4" />
+            </div>
+            <div className="text-muted-foreground font-medium">
+              Add Organization
+            </div>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
