@@ -82,7 +82,7 @@ function normalizeIncomeStatement(
   d: IncomeStatementReport | null | undefined,
 ): IncomeStatementReport | null {
   if (d == null || typeof d !== "object") return null;
-  const o = d as Record<string, unknown>;
+  const o = d as unknown as Record<string, unknown>;
   return {
     revenue: Array.isArray(o.revenue) ? o.revenue : [],
     costOfGoodsSold: Array.isArray(o.costOfGoodsSold) ? o.costOfGoodsSold : [],
