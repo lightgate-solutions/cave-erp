@@ -9,6 +9,7 @@ import {
   employees,
   employmentHistory,
   notification_preferences,
+  organization as organizationTable,
   user,
 } from "@/db/schema";
 import { DrizzleQueryError, eq, and } from "drizzle-orm";
@@ -165,11 +166,14 @@ export async function createEmployee(data: {
     employmentType?: "Full-time" | "Part-time" | "Contract" | "Intern";
   };
   isManager: boolean;
-  _skipAuth?: boolean; // Internal flag for org-creation flow where no session exists yet
 }) {
-  // Skip auth check during initial org creation (new user onboarding)
-  if (!data._skipAuth) {
-    await requireHROrAdmin();
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user.id) {
+    return {
+      error: { reason: "Unauthorized: Authentication required" },
+      success: null,
+      data: null,
+    };
   }
 
   let orgId = data.organizationId;
@@ -187,6 +191,35 @@ export async function createEmployee(data: {
       };
     }
     orgId = organization.id;
+  }
+
+  // New org owners have no HR employee row yet, so requireHROrAdmin would always
+  // fail. Allow only the org owner to create their own first employee record.
+  const [existingSelf] = await db
+    .select({ authId: employees.authId })
+    .from(employees)
+    .where(
+      and(
+        eq(employees.authId, session.user.id),
+        eq(employees.organizationId, orgId),
+      ),
+    )
+    .limit(1);
+
+  const isOwnerBootstrappingSelf =
+    data.authId === session.user.id && !existingSelf;
+
+  if (isOwnerBootstrappingSelf) {
+    const [orgRow] = await db
+      .select({ ownerId: organizationTable.ownerId })
+      .from(organizationTable)
+      .where(eq(organizationTable.id, orgId))
+      .limit(1);
+    if (orgRow?.ownerId !== session.user.id) {
+      await requireHROrAdmin();
+    }
+  } else {
+    await requireHROrAdmin();
   }
 
   const { ...userData } = data;

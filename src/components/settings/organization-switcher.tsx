@@ -170,8 +170,7 @@ function Switcher({
     } else {
       form.reset();
 
-      // requireAuth() (used by createEmployee) calls getFullOrganization(), which
-      // needs activeOrganizationId in the session — set it before the server action.
+      // getFullOrganization() needs activeOrganizationId in the session — set it before createEmployee.
       const activeRes = await authClient.organization.setActive({
         organizationId: res.data.id,
       });
