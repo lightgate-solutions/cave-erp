@@ -3,12 +3,15 @@ import { CurrencySettings } from "@/components/invoicing/currency-settings";
 import { BankAccountsSettings } from "@/components/invoicing/bank-accounts-settings";
 import { getAllOrganizationCurrencies } from "@/actions/invoicing/currencies";
 import { getBankAccounts } from "@/actions/invoicing/bank-accounts";
-import { requireInvoicingWriteAccess } from "@/actions/auth/dal-invoicing";
+import { requireAuth } from "@/actions/auth/dal";
+import { DEPARTMENTS } from "@/lib/permissions/types";
 
 export default async function InvoicingSettingsPage() {
-  try {
-    await requireInvoicingWriteAccess();
-  } catch {
+  const authData = await requireAuth();
+  const canEditInvoicingSettings =
+    authData.role === "admin" ||
+    authData.employee?.department === DEPARTMENTS.FINANCE;
+  if (!canEditInvoicingSettings) {
     redirect("/");
   }
 

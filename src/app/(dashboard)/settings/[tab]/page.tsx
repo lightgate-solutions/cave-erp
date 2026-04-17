@@ -58,6 +58,7 @@ export default async function Page({
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (session == null) return redirect("/auth/login");
+  if (session.session == null) return redirect("/auth/login");
 
   const { tab } = await params;
 
