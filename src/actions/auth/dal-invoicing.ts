@@ -17,9 +17,10 @@ export const requireInvoicingViewAccess = cache(async () => {
     DEPARTMENTS.HR,
   ];
 
+  const dept = authData.employee?.department;
   if (
     authData.role !== "admin" &&
-    !allowedDepartments.includes(authData.employee.department)
+    (dept == null || !allowedDepartments.includes(dept))
   ) {
     throw new Error("Forbidden: No access to invoicing module");
   }
@@ -36,7 +37,7 @@ export const requireInvoicingWriteAccess = cache(async () => {
 
   if (
     authData.role !== "admin" &&
-    authData.employee.department !== DEPARTMENTS.FINANCE
+    authData.employee?.department !== DEPARTMENTS.FINANCE
   ) {
     throw new Error(
       "Forbidden: Finance or Admin department access required for invoicing operations",
