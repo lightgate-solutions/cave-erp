@@ -10,8 +10,8 @@ export default async function InvoicingSettingsPage() {
   const authData = await requireAuth();
   const canEditInvoicingSettings =
     authData.role === "admin" ||
-    authData.department === "admin" ||
-    authData.employee?.department === DEPARTMENTS.FINANCE;
+    authData.employee.department === "admin" ||
+    authData.employee.department === DEPARTMENTS.FINANCE;
   if (!canEditInvoicingSettings) {
     redirect("/");
   }
