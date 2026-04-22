@@ -30,12 +30,19 @@ import {
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { revalidatePath } from "next/cache";
-import { getUser } from "@/actions/auth/dal";
+import {
+  requireAuth,
+  requireHROrAdmin,
+  requireFinance,
+} from "@/actions/auth/dal";
 import { DEPARTMENTS } from "@/lib/permissions/types";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 export async function getAllSalaryStructures() {
+  const { employee } = await requireAuth();
+  if (!employee) return null;
+
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
@@ -71,6 +78,9 @@ export async function getAllLoanTypes(filters?: {
   page?: number;
   limit?: number;
 }) {
+  const { employee } = await requireAuth();
+  if (!employee) return null;
+
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
@@ -123,6 +133,9 @@ export async function getAllLoanTypes(filters?: {
 
 // Get loan type by ID with salary structures
 export async function getLoanTypeById(loanTypeId: number) {
+  const { employee } = await requireAuth();
+  if (!employee) return null;
+
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
@@ -179,21 +192,8 @@ export async function createLoanType(data: {
   salaryStructureIds: number[];
 }) {
   try {
-    // Auth check - must be HR or admin
-    const currentUser = await getUser();
-    if (!currentUser) {
-      return { success: null, error: { reason: "Unauthorized" } };
-    }
-    if (
-      currentUser.department !== DEPARTMENTS.HR &&
-      currentUser.role !== "admin"
-    ) {
-      return {
-        success: null,
-        error: { reason: "Only HR staff can create loan types" },
-      };
-    }
-
+    const authData = await requireHROrAdmin();
+    const currentUser = authData.employee;
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
@@ -266,21 +266,8 @@ export async function updateLoanType(
   },
 ) {
   try {
-    // Auth check - must be HR or admin
-    const currentUser = await getUser();
-    if (!currentUser) {
-      return { success: null, error: { reason: "Unauthorized" } };
-    }
-    if (
-      currentUser.department !== DEPARTMENTS.HR &&
-      currentUser.role !== "admin"
-    ) {
-      return {
-        success: null,
-        error: { reason: "Only HR staff can update loan types" },
-      };
-    }
-
+    const authData = await requireHROrAdmin();
+    const currentUser = authData.employee;
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
@@ -365,21 +352,7 @@ export async function updateLoanType(
 // Delete loan type
 export async function deleteLoanType(loanTypeId: number) {
   try {
-    // Auth check - must be HR or admin
-    const currentUser = await getUser();
-    if (!currentUser) {
-      return { success: null, error: { reason: "Unauthorized" } };
-    }
-    if (
-      currentUser.department !== DEPARTMENTS.HR &&
-      currentUser.role !== "admin"
-    ) {
-      return {
-        success: null,
-        error: { reason: "Only HR staff can delete loan types" },
-      };
-    }
-
+    await requireHROrAdmin();
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
@@ -413,10 +386,22 @@ export async function deleteLoanType(loanTypeId: number) {
 
 // Get eligible loan types for an employee
 export async function getEligibleLoanTypes(userId: string) {
+  const { employee } = await requireAuth();
+  if (!employee) return { loanTypes: [], baseSalary: 0 };
+
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
   if (!organization) return { loanTypes: [], baseSalary: 0 };
+
+  // Security: only allow users to see their own eligibility unless they are HR/Admin
+  const isHROrAdmin =
+    employee.department === DEPARTMENTS.HR ||
+    employee.department === DEPARTMENTS.ADMIN;
+
+  if (!isHROrAdmin && userId !== employee.authId) {
+    return { loanTypes: [], baseSalary: 0 };
+  }
 
   // Get employee's current salary structure
   const [empSalary] = await db
@@ -483,6 +468,15 @@ export async function calculateMaxEligibleAmount(
   userId: string,
   loanTypeId: number,
 ) {
+  const { employee } = await requireAuth();
+  if (!employee) {
+    return {
+      maxAmount: 0,
+      monthlyRepayment: 0,
+      error: "Unauthorized",
+    };
+  }
+
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
@@ -491,6 +485,19 @@ export async function calculateMaxEligibleAmount(
       maxAmount: 0,
       monthlyRepayment: 0,
       error: "Organization not found",
+    };
+  }
+
+  // Security: only allow users to see their own eligibility unless they are HR/Admin
+  const isHROrAdmin =
+    employee.department === DEPARTMENTS.HR ||
+    employee.department === DEPARTMENTS.ADMIN;
+
+  if (!isHROrAdmin && userId !== employee.authId) {
+    return {
+      maxAmount: 0,
+      monthlyRepayment: 0,
+      error: "Unauthorized: You can only check your own eligibility",
     };
   }
 
@@ -572,8 +579,8 @@ export async function applyForLoan(data: {
   reason: string;
 }) {
   try {
-    // Auth check - verify user is applying for themselves
-    const currentUser = await getUser();
+    const authData = await requireAuth();
+    const currentUser = authData.employee;
     if (!currentUser) {
       return { success: null, error: { reason: "Unauthorized" } };
     }
@@ -683,7 +690,6 @@ export async function applyForLoan(data: {
     };
   }
 }
-
 // Get all loan applications
 export async function getAllLoanApplications(filters?: {
   userId?: string;
@@ -693,11 +699,25 @@ export async function getAllLoanApplications(filters?: {
   page?: number;
   limit?: number;
 }) {
+  const authData = await requireAuth();
+  if (!authData.employee)
+    return { applications: [], total: 0, page: 1, limit: 10, totalPages: 0 };
+
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
   if (!organization)
     return { applications: [], total: 0, page: 1, limit: 10, totalPages: 0 };
+
+  const isHROrAdmin =
+    authData.role === "admin" ||
+    authData.employee.department === DEPARTMENTS.HR ||
+    authData.employee.department === DEPARTMENTS.ADMIN;
+
+  // Non-HR users can only view their own applications
+  if (!isHROrAdmin) {
+    filters = { ...filters, userId: authData.userId };
+  }
 
   const hrReviewer = alias(employees, "hr_reviewer");
   const disburser = alias(employees, "disburser");
@@ -811,6 +831,9 @@ export async function getAllLoanApplications(filters?: {
 
 // Get loan application by ID
 export async function getLoanApplicationById(applicationId: number) {
+  const authData = await requireAuth();
+  if (!authData.employee) return null;
+
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
@@ -883,6 +906,16 @@ export async function getLoanApplicationById(applicationId: number) {
     .limit(1);
 
   if (!application) return null;
+
+  const isHROrAdmin =
+    authData.role === "admin" ||
+    authData.employee.department === DEPARTMENTS.HR ||
+    authData.employee.department === DEPARTMENTS.ADMIN;
+
+  // Non-HR users can only view their own applications
+  if (!isHROrAdmin && application.userId !== authData.userId) {
+    return null;
+  }
 
   // Get employee bank details
   const [bankDetails] = await db
@@ -972,20 +1005,8 @@ export async function hrReviewLoan(data: {
   remarks?: string;
 }) {
   try {
-    // Auth check - must be HR or admin
-    const currentUser = await getUser();
-    if (!currentUser) {
-      return { success: null, error: { reason: "Unauthorized" } };
-    }
-    if (
-      currentUser.department !== DEPARTMENTS.HR &&
-      currentUser.role !== "admin"
-    ) {
-      return {
-        success: null,
-        error: { reason: "Only HR staff can review loan applications" },
-      };
-    }
+    const authData = await requireHROrAdmin();
+    const currentUser = authData.employee;
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -1122,20 +1143,8 @@ export async function disburseLoan(data: {
   remarks?: string;
 }) {
   try {
-    // Auth check - must be Finance or admin
-    const currentUser = await getUser();
-    if (!currentUser) {
-      return { success: null, error: { reason: "Unauthorized" } };
-    }
-    if (
-      currentUser.department !== DEPARTMENTS.FINANCE &&
-      currentUser.role !== "admin"
-    ) {
-      return {
-        success: null,
-        error: { reason: "Only Finance staff can disburse loans" },
-      };
-    }
+    const authData = await requireFinance();
+    const currentUser = authData.employee;
 
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
@@ -1260,10 +1269,22 @@ export async function disburseLoan(data: {
 
 // Get employee loan history
 export async function getEmployeeLoanHistory(userId: string) {
+  const { employee } = await requireAuth();
+  if (!employee) return [];
+
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
   if (!organization) return [];
+
+  // Security: only allow users to see their own history unless they are HR/Admin
+  const isHROrAdmin =
+    employee.department === DEPARTMENTS.HR ||
+    employee.department === DEPARTMENTS.ADMIN;
+
+  if (!isHROrAdmin && userId !== employee.authId) {
+    return [];
+  }
 
   const result = await db
     .select({
@@ -1297,8 +1318,8 @@ export async function cancelLoanApplication(
   reason?: string,
 ) {
   try {
-    // Auth check
-    const currentUser = await getUser();
+    const authData = await requireAuth();
+    const currentUser = authData.employee;
     if (!currentUser) {
       return { success: null, error: { reason: "Unauthorized" } };
     }
@@ -1376,6 +1397,16 @@ export async function cancelLoanApplication(
 
 // Get loan statistics
 export async function getLoanStatistics() {
+  const { employee } = await requireAuth();
+  if (!employee)
+    return {
+      pending: 0,
+      awaitingDisbursement: 0,
+      active: 0,
+      totalDisbursed: "0",
+      totalRepaid: "0",
+    };
+
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
@@ -1521,6 +1552,7 @@ export async function checkAndCompleteLoan(applicationId: number) {
 // Mark overdue repayments
 export async function markOverdueRepayments() {
   try {
+    await requireFinance();
     const organization = await auth.api.getFullOrganization({
       headers: await headers(),
     });
@@ -1584,8 +1616,8 @@ export async function makeEarlyRepayment(data: {
   remarks?: string;
 }) {
   try {
-    // Auth check
-    const currentUser = await getUser();
+    const authData = await requireAuth();
+    const currentUser = authData.employee;
     if (!currentUser) {
       return { success: null, error: { reason: "Unauthorized" } };
     }
@@ -1745,10 +1777,35 @@ export async function makeEarlyRepayment(data: {
 
 // Get loan repayment schedule
 export async function getLoanRepaymentSchedule(applicationId: number) {
+  const { employee } = await requireAuth();
+  if (!employee) return [];
+
   const organization = await auth.api.getFullOrganization({
     headers: await headers(),
   });
   if (!organization) return [];
+
+  // Security check: Only owner or HR/Admin can see repayment schedule
+  const [application] = await db
+    .select({ userId: loanApplications.userId })
+    .from(loanApplications)
+    .where(
+      and(
+        eq(loanApplications.id, applicationId),
+        eq(loanApplications.organizationId, organization.id),
+      ),
+    )
+    .limit(1);
+
+  if (!application) return [];
+
+  const isHROrAdmin =
+    employee.department === DEPARTMENTS.HR ||
+    employee.department === DEPARTMENTS.ADMIN;
+
+  if (!isHROrAdmin && application.userId !== employee.authId) {
+    return [];
+  }
 
   const repayments = await db
     .select()

@@ -119,6 +119,7 @@ export const requireAuth = cache(async () => {
       department: employees.department,
       managerId: employees.managerId,
       isManager: employees.isManager,
+      authId: employees.authId,
       userId: employees.authId,
     })
     .from(employees)
