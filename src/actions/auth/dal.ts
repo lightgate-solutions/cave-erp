@@ -137,7 +137,7 @@ export const requireAuth = cache(async () => {
 export const requireAdmin = cache(async () => {
   const authData = await requireAuth();
 
-  if (authData.role !== "admin") {
+  if (authData.role !== "admin" || authData.employee.department !== "admin") {
     throw new Error("Forbidden: Admin access required");
   }
 
@@ -207,7 +207,8 @@ export const requireFinance = cache(async () => {
 // Generic helper to require specific module access
 export const requireModuleAccess = cache(async (module: Module) => {
   const authData = await requireAuth();
-  const sessionIsAdmin = authData.role === "admin";
+  const sessionIsAdmin =
+    authData.role === "admin" || authData.employee.department === "admin";
 
   const userContext: UserPermissionContext = {
     department:

@@ -24,7 +24,9 @@ export default async function AttendancePage(props: {
   // Check if user is HR or Manager
   let isManagerOrHR = false;
   const isHROrAdmin =
-    authData.role === "admin" || authData.employee?.department === "hr";
+    authData.role === "admin" ||
+    authData.employee?.department === "admin" ||
+    authData.employee?.department === "hr";
 
   if (isHROrAdmin) {
     isManagerOrHR = true;
@@ -54,6 +56,7 @@ export default async function AttendancePage(props: {
     if (
       isManagerOrHR &&
       authData.role !== "admin" &&
+      authData.employee.department !== "admin" &&
       authData.employee?.department !== "hr" &&
       authData.employee?.isManager
     ) {
