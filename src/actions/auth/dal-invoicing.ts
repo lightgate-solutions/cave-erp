@@ -37,6 +37,7 @@ export const requireInvoicingWriteAccess = cache(async () => {
 
   if (
     authData.role !== "admin" &&
+    authData.employee.department !== "admin" &&
     authData.employee?.department !== DEPARTMENTS.FINANCE
   ) {
     throw new Error(
