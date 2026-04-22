@@ -36,6 +36,7 @@ const assigneeOptions = [
 interface TaskFiltersProps {
   priority: string;
   assignee: string;
+  hideAssigneeFilter?: boolean;
   onPriorityChange: (priority: string) => void;
   onAssigneeChange: (assignee: string) => void;
 }
@@ -43,6 +44,7 @@ interface TaskFiltersProps {
 export function TaskFilters({
   priority,
   assignee,
+  hideAssigneeFilter = false,
   onPriorityChange,
   onAssigneeChange,
 }: TaskFiltersProps) {
@@ -53,7 +55,8 @@ export function TaskFilters({
     setMounted(true);
   }, []);
 
-  const hasFilters = priority !== "all" || assignee !== "all";
+  const hasFilters =
+    priority !== "all" || (!hideAssigneeFilter && assignee !== "all");
 
   if (!mounted) {
     return (
@@ -76,7 +79,8 @@ export function TaskFilters({
           <span className="hidden sm:inline">Filter</span>
           {hasFilters && (
             <span className="ml-1 rounded-full bg-background text-foreground px-1.5 text-xs">
-              {(priority !== "all" ? 1 : 0) + (assignee !== "all" ? 1 : 0)}
+              {(priority !== "all" ? 1 : 0) +
+                (!hideAssigneeFilter && assignee !== "all" ? 1 : 0)}
             </span>
           )}
         </Button>
@@ -114,36 +118,40 @@ export function TaskFilters({
             </div>
           </div>
 
-          <Separator />
+          {!hideAssigneeFilter && (
+            <>
+              <Separator />
 
-          <div>
-            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Users className="size-4 text-muted-foreground" />
-              Assignee
-            </h4>
-            <div className="space-y-1">
-              {assigneeOptions.map((a) => {
-                const Icon = a.icon;
-                return (
-                  <Button
-                    key={a.id}
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-between h-9 px-3"
-                    onClick={() => onAssigneeChange(a.id)}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon className="size-4 text-muted-foreground" />
-                      <span className="text-sm">{a.name}</span>
-                    </div>
-                    {assignee === a.id && (
-                      <Check className="size-4 text-primary" />
-                    )}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
+              <div>
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Users className="size-4 text-muted-foreground" />
+                  Assignee
+                </h4>
+                <div className="space-y-1">
+                  {assigneeOptions.map((a) => {
+                    const Icon = a.icon;
+                    return (
+                      <Button
+                        key={a.id}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-between h-9 px-3"
+                        onClick={() => onAssigneeChange(a.id)}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Icon className="size-4 text-muted-foreground" />
+                          <span className="text-sm">{a.name}</span>
+                        </div>
+                        {assignee === a.id && (
+                          <Check className="size-4 text-primary" />
+                        )}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
 
           <Separator />
 
@@ -153,7 +161,9 @@ export function TaskFilters({
             className="w-full h-9"
             onClick={() => {
               onPriorityChange("all");
-              onAssigneeChange("all");
+              if (!hideAssigneeFilter) {
+                onAssigneeChange("all");
+              }
             }}
           >
             Clear all filters

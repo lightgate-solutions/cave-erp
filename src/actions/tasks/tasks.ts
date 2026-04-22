@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { tasks, taskAssignees } from "@/db/schema";
+import { employees, tasks, taskAssignees } from "@/db/schema";
 import { getEmployee } from "../hr/employees";
 import {
   and,
@@ -18,15 +18,18 @@ import { createNotification } from "../notification/notification";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
-type CreateTaskWithAssignees = CreateTask & { assignees?: string[] };
+type CreateTaskWithAssignees = CreateTask & {
+  assignees?: string[];
+  selfAssign?: boolean;
+};
 
 export async function createTask(taskData: CreateTaskWithAssignees) {
   try {
-    const manager = await getEmployee(taskData.assignedBy);
-    if (!manager || !manager.isManager) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user.id || session.user.id !== taskData.assignedBy) {
       return {
         success: null,
-        error: { reason: "Only managers can create tasks" },
+        error: { reason: "Unauthorized" },
       };
     }
 
@@ -40,13 +43,70 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
       };
     }
 
+    const creator = await getEmployee(taskData.assignedBy);
+    if (!creator) {
+      return {
+        success: null,
+        error: { reason: "Employee not found" },
+      };
+    }
+
     const assignees = (taskData.assignees || []).filter(Boolean);
+    const isSelfAssign =
+      assignees.length === 1 && assignees[0] === taskData.assignedBy;
+    const isSessionAdmin = session.user.role === "admin";
+    const canAssignToOthers =
+      !!creator.isManager || creator.role === "admin" || isSessionAdmin;
+
+    if (!isSelfAssign && !canAssignToOthers) {
+      return {
+        success: null,
+        error: {
+          reason: "Only managers and admins can assign tasks to other people",
+        },
+      };
+    }
+
+    if (taskData.selfAssign === true && !isSelfAssign) {
+      return {
+        success: null,
+        error: { reason: "Self-assign must only include yourself" },
+      };
+    }
+
+    const uniqueAssignees = [...new Set(assignees)];
+    if (uniqueAssignees.length) {
+      const found = await db
+        .select({ authId: employees.authId })
+        .from(employees)
+        .where(
+          and(
+            inArray(employees.authId, uniqueAssignees),
+            eq(employees.organizationId, organization.id),
+          ),
+        );
+      if (found.length !== uniqueAssignees.length) {
+        return {
+          success: null,
+          error: {
+            reason: "One or more assignees are not in your organization",
+          },
+        };
+      }
+    }
+
     const firstAssignee = assignees[0] ?? taskData.assignedTo ?? null;
+
+    const {
+      assignees: _assignees,
+      selfAssign: _selfAssign,
+      ...taskInsert
+    } = taskData;
 
     const [created] = await db
       .insert(tasks)
       .values({
-        ...taskData,
+        ...taskInsert,
         assignedTo: firstAssignee ?? undefined,
         organizationId: organization.id,
       })
@@ -60,8 +120,11 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
       }));
       await db.insert(taskAssignees).values(rows);
 
-      // Notify all assignees about the new task
-      for (const userId of assignees) {
+      for (const notifyUserId of assignees) {
+        if (notifyUserId === taskData.assignedBy) {
+          continue;
+        }
+
         const dueDate = taskData.dueDate
           ? new Date(taskData.dueDate).toLocaleDateString("en-US", {
               month: "short",
@@ -69,7 +132,6 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
             })
           : null;
 
-        // Extract first sentence for context
         let context = "";
         if (taskData.description) {
           const firstSentence = taskData.description.split(/[.!?]\s/)[0];
@@ -80,10 +142,10 @@ export async function createTask(taskData: CreateTaskWithAssignees) {
           context = ` — ${preview}`;
         }
 
-        const message = `${manager.name} assigned you "${taskData.title}"${dueDate ? ` • Due ${dueDate}` : ""}${context}`;
+        const message = `${creator.name} assigned you "${taskData.title}"${dueDate ? ` • Due ${dueDate}` : ""}${context}`;
 
         await createNotification({
-          user_id: userId,
+          user_id: notifyUserId,
           title: "New Task Assignment",
           message,
           notification_type: "message",
@@ -134,17 +196,47 @@ export async function updateTask(
     };
   }
 
+  const taskRow = await db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)))
+    .limit(1)
+    .then((r) => r[0]);
+
+  if (!taskRow) {
+    return {
+      success: null,
+      error: { reason: "Task not found" },
+    };
+  }
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  const isSessionAdmin = session?.user?.role === "admin";
+  const isSelfOwnedTask =
+    taskRow.assignedBy === userId && taskRow.assignedTo === userId;
+  const isManagerLike =
+    !!employee.isManager || employee.role === "admin" || isSessionAdmin;
+  const isCreator = taskRow.assignedBy === userId;
+
+  const useManagerPermissions = (isManagerLike && isCreator) || isSelfOwnedTask;
+
   type TaskInsert = typeof tasks.$inferInsert;
   type TaskUpdate = Partial<TaskInsert>;
-  // Enforce permissions:
-  // - Managers can update any fields on tasks they created
-  // - Employees can only update status (except to Completed) and attachments
   let allowedUpdates: Partial<CreateTask> = { ...updates };
-  if (!employee.isManager) {
-    // Filter down to only status and attachments for non-managers
+
+  if (useManagerPermissions) {
+    if (isManagerLike && isCreator && !isSelfOwnedTask) {
+      const taskOwned = await getTaskByManager(userId, taskId);
+      if (!taskOwned) {
+        return {
+          success: null,
+          error: { reason: "You can only update tasks you created" },
+        };
+      }
+    }
+  } else {
     allowedUpdates = {} as Partial<CreateTask>;
     if (typeof updates.status !== "undefined") {
-      // Employees cannot set status to "Completed"
       if (updates.status === "Completed") {
         return {
           success: null,
@@ -153,12 +245,10 @@ export async function updateTask(
       }
       allowedUpdates.status = updates.status as CreateTask["status"];
     }
-    // Allow employees to add attachments
     if (updates.attachments !== undefined) {
       (allowedUpdates as Record<string, unknown>).attachments =
         updates.attachments;
     }
-    // If nothing to update after filtering, exit early
     if (Object.keys(allowedUpdates).length === 0) {
       return {
         success: null,
@@ -167,21 +257,11 @@ export async function updateTask(
         },
       };
     }
-    // Ensure employee has access to this task (either directly assigned or via assignees table)
-    const currentTask = await getTaskForEmployee(userId, taskId);
-    if (!currentTask) {
+    const assignedTask = await getTaskForEmployee(userId, taskId);
+    if (!assignedTask) {
       return {
         success: null,
         error: { reason: "You are not assigned to this task" },
-      };
-    }
-  } else {
-    // Manager path: ensure the task belongs to this manager
-    const taskOwned = await getTaskByManager(userId, taskId);
-    if (!taskOwned) {
-      return {
-        success: null,
-        error: { reason: "You can only update tasks you created" },
       };
     }
   }
@@ -200,35 +280,16 @@ export async function updateTask(
   }
 
   try {
-    // Get current task before update for notifications
-    const currentTask = await db
-      .select()
-      .from(tasks)
+    const currentTask = taskRow;
+
+    await db
+      .update(tasks)
+      .set(normalized as unknown as TaskUpdate)
       .where(
         and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
-      )
-      .limit(1)
-      .then((r) => r[0]);
+      );
 
-    // Additional safety: if employee is a manager, optionally ensure they own the task; otherwise just by id
-    if (employee.isManager) {
-      await db
-        .update(tasks)
-        .set(normalized as unknown as TaskUpdate)
-        .where(
-          and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
-        );
-    } else {
-      await db
-        .update(tasks)
-        .set(normalized as unknown as TaskUpdate)
-        .where(
-          and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
-        );
-    }
-
-    // Notify assignees if manager made significant changes
-    if (employee.isManager && currentTask) {
+    if (useManagerPermissions && currentTask) {
       const hasSignificantChanges =
         updates.title ||
         updates.description ||
@@ -252,6 +313,9 @@ export async function updateTask(
 
         // Notify each assignee
         for (const assigneeId of assigneeIds) {
+          if (assigneeId === userId) {
+            continue;
+          }
           let changeDesc = "";
           if (updates.title) changeDesc = "Task title updated";
           else if (updates.description) changeDesc = "Task description updated";
@@ -269,11 +333,11 @@ export async function updateTask(
       }
     }
 
-    // Notify manager when employee starts task
     if (
-      !employee.isManager &&
+      !useManagerPermissions &&
       updates.status === "In Progress" &&
-      currentTask
+      currentTask &&
+      currentTask.assignedBy !== userId
     ) {
       await createNotification({
         user_id: currentTask.assignedBy,
@@ -305,11 +369,11 @@ export async function updateTask(
 
 export async function deleteTask(userId: string, taskId: number) {
   try {
-    const manager = await getEmployee(userId);
-    if (!manager || !manager.isManager) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user.id || session.user.id !== userId) {
       return {
         success: null,
-        error: { reason: "Only managers can delete tasks" },
+        error: { reason: "Unauthorized" },
       };
     }
 
@@ -323,7 +387,14 @@ export async function deleteTask(userId: string, taskId: number) {
       };
     }
 
-    // Get task details before deletion for notifications
+    const actor = await getEmployee(userId);
+    if (!actor) {
+      return {
+        success: null,
+        error: { reason: "Employee not found" },
+      };
+    }
+
     const task = await db
       .select()
       .from(tasks)
@@ -333,44 +404,58 @@ export async function deleteTask(userId: string, taskId: number) {
       .limit(1)
       .then((r) => r[0]);
 
-    if (task) {
-      // Get all assignees to notify them
-      const assigneesList = await db
-        .select({ userId: taskAssignees.userId })
-        .from(taskAssignees)
-        .where(
-          and(
-            eq(taskAssignees.taskId, taskId),
-            eq(taskAssignees.organizationId, organization.id),
-          ),
-        );
+    if (!task) {
+      return {
+        success: null,
+        error: { reason: "Task not found" },
+      };
+    }
 
-      const assigneeIds = assigneesList.map((a) => a.userId).filter(Boolean);
-      if (task.assignedTo) assigneeIds.push(task.assignedTo);
+    const isSessionAdmin = session.user.role === "admin";
+    const isSelfOwned =
+      task.assignedBy === userId && task.assignedTo === userId;
+    const isManagerLike =
+      !!actor.isManager || actor.role === "admin" || isSessionAdmin;
+    const canDelete =
+      (isManagerLike && task.assignedBy === userId) || isSelfOwned;
 
-      // Delete the task
-      await db
-        .delete(tasks)
-        .where(
-          and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
-        );
+    if (!canDelete) {
+      return {
+        success: null,
+        error: { reason: "You cannot delete this task" },
+      };
+    }
 
-      // Notify assignees that task was cancelled
-      for (const assigneeId of assigneeIds) {
-        await createNotification({
-          user_id: assigneeId,
-          title: "Task Cancelled",
-          message: `${manager.name} cancelled the task "${task.title}"`,
-          notification_type: "message",
-          reference_id: taskId,
-        });
+    const assigneesList = await db
+      .select({ userId: taskAssignees.userId })
+      .from(taskAssignees)
+      .where(
+        and(
+          eq(taskAssignees.taskId, taskId),
+          eq(taskAssignees.organizationId, organization.id),
+        ),
+      );
+
+    const assigneeIds = assigneesList.map((a) => a.userId).filter(Boolean);
+    if (task.assignedTo) assigneeIds.push(task.assignedTo);
+
+    await db
+      .delete(tasks)
+      .where(
+        and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
+      );
+
+    for (const assigneeId of assigneeIds) {
+      if (assigneeId === userId) {
+        continue;
       }
-    } else {
-      await db
-        .delete(tasks)
-        .where(
-          and(eq(tasks.id, taskId), eq(tasks.organizationId, organization.id)),
-        );
+      await createNotification({
+        user_id: assigneeId,
+        title: "Task Cancelled",
+        message: `${actor.name} cancelled the task "${task.title}"`,
+        notification_type: "message",
+        reference_id: taskId,
+      });
     }
 
     revalidatePath("/tasks");

@@ -210,6 +210,7 @@ export function TaskCard({
         onStatusChange={onStatusChange}
         userId={userId}
         role={role}
+        isSelfAssigned={!!task.isSelfAssigned}
       />
     </>
   );

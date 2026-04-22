@@ -2,7 +2,7 @@ import { getUser, getUserPermissionContext } from "@/actions/auth/dal";
 import { TaskBoardContainer } from "@/components/task/task-board-container";
 import { redirect } from "next/navigation";
 
-export default async function ManagerTasksPage() {
+export default async function SelfAssignTasksPage() {
   const user = await getUser();
   const permissionContext = await getUserPermissionContext();
 
@@ -17,5 +17,11 @@ export default async function ManagerTasksPage() {
         ? "manager"
         : "employee";
 
-  return <TaskBoardContainer userId={user.id} role={boardRole} />;
+  return (
+    <TaskBoardContainer
+      userId={user.id}
+      boardView="self-assign"
+      role={boardRole}
+    />
+  );
 }

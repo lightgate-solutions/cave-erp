@@ -1,7 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getTasksForEmployee, createTask } from "@/actions/tasks/tasks";
 import type { CreateTask, Task } from "@/types";
-import { and, asc, desc, eq, ilike, or, inArray } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  or,
+  inArray,
+  ne,
+  type SQL,
+} from "drizzle-orm";
 import { db } from "@/db";
 import { tasks, taskAssignees, employees } from "@/db/schema";
 import { auth } from "@/lib/auth";
@@ -11,9 +21,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Partial<CreateTask> & {
       assignees?: string[];
+      selfAssign?: boolean;
     };
     const created = await createTask(
-      body as CreateTask & { assignees?: string[] },
+      body as CreateTask & { assignees?: string[]; selfAssign?: boolean },
     );
 
     if (!created.success) {
@@ -55,37 +66,65 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
 
     const role = searchParams.get("role") || undefined;
-    // Note: API query parameter is still "employeeId" for backward compatibility
+    const view = searchParams.get("view") || "default";
+    const userIdParam = searchParams.get("userId");
     const employeeIdParam = searchParams.get("employeeId");
-    const employeeId = employeeIdParam ? Number(employeeIdParam) : 0;
-    if (!employeeId || !role) {
+
+    let userId: string | undefined;
+
+    if (userIdParam) {
+      const [row] = await db
+        .select({ authId: employees.authId })
+        .from(employees)
+        .where(
+          and(
+            eq(employees.authId, userIdParam),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
+        .limit(1);
+      if (!row?.authId) {
+        return NextResponse.json(
+          { error: "Employee not found for userId" },
+          { status: 400 },
+        );
+      }
+      userId = row.authId;
+    } else if (employeeIdParam) {
+      const employeeId = Number(employeeIdParam);
+      if (!employeeId) {
+        return NextResponse.json(
+          { error: "Invalid employeeId" },
+          { status: 400 },
+        );
+      }
+      const employee = await db
+        .select({ authId: employees.authId })
+        .from(employees)
+        .where(
+          and(
+            eq(employees.id, employeeId),
+            eq(employees.organizationId, organization.id),
+          ),
+        )
+        .limit(1)
+        .then((res) => res[0]);
+
+      if (!employee) {
+        return NextResponse.json(
+          { error: "Employee not found" },
+          { status: 400 },
+        );
+      }
+      userId = employee.authId;
+    }
+
+    if (!userId || !role) {
       return NextResponse.json(
-        { error: "Missing employeeId or role parameter" },
+        { error: "Missing userId, employeeId, or role parameter" },
         { status: 400 },
       );
     }
-
-    // Look up employee to get authId (string userId)
-    const employee = await db
-      .select({ authId: employees.authId })
-      .from(employees)
-      .where(
-        and(
-          eq(employees.id, employeeId),
-          eq(employees.organizationId, organization.id),
-        ),
-      )
-      .limit(1)
-      .then((res) => res[0]);
-
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Employee not found" },
-        { status: 400 },
-      );
-    }
-
-    const userId = employee.authId; // Now it's string (text)
     const page = Number(searchParams.get("page") || "1");
     const limit = Number(searchParams.get("limit") || "10");
     const offset = (page - 1) * limit;
@@ -111,9 +150,14 @@ export async function GET(request: NextRequest) {
       (sortByParam && sortableColumns[sortByParam]) || tasks.createdAt;
     const order = sortDirection === "asc" ? asc(sortColumn) : desc(sortColumn);
 
-    let where: ReturnType<typeof or> | ReturnType<typeof eq> | undefined;
-    if (role === "employee") {
-      // Fetch tasks where employee is explicitly assigned via join table
+    let where: SQL | undefined;
+    if (role === "employee" && view === "self-assign") {
+      where = and(
+        eq(tasks.organizationId, organization.id),
+        eq(tasks.assignedTo, userId),
+        eq(tasks.assignedBy, userId),
+      );
+    } else if (role === "employee") {
       const rows = await db
         .select({ id: taskAssignees.taskId })
         .from(taskAssignees)
@@ -124,16 +168,18 @@ export async function GET(request: NextRequest) {
           ),
         );
       const ids = rows.map((r) => r.id);
-      where = ids.length
-        ? and(
-            eq(tasks.organizationId, organization.id),
-            or(eq(tasks.assignedTo, userId), inArray(tasks.id, ids)),
-          )
-        : and(
-            eq(tasks.organizationId, organization.id),
-            eq(tasks.assignedTo, userId),
-          );
-    } else if (role === "manager") {
+      const baseWhere = ids.length
+        ? or(eq(tasks.assignedTo, userId), inArray(tasks.id, ids))
+        : eq(tasks.assignedTo, userId);
+      const notPureSelfAssigned = or(
+        ne(tasks.assignedBy, userId),
+        ne(tasks.assignedTo, userId),
+      );
+      where = and(
+        eq(tasks.organizationId, organization.id),
+        and(baseWhere, notPureSelfAssigned),
+      );
+    } else if (role === "manager" || role === "admin") {
       where = and(
         eq(tasks.organizationId, organization.id),
         eq(tasks.assignedBy, userId),

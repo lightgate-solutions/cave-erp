@@ -7,9 +7,15 @@ import { TaskBoard } from "./board/task-board";
 interface TaskBoardContainerProps {
   userId: string;
   role: "employee" | "manager" | "admin";
+  /** When set, only tasks you assigned to yourself are loaded. */
+  boardView?: "default" | "self-assign";
 }
 
-export function TaskBoardContainer({ userId, role }: TaskBoardContainerProps) {
+export function TaskBoardContainer({
+  userId,
+  role,
+  boardView = "default",
+}: TaskBoardContainerProps) {
   const [priority, setPriority] = useState("all");
   const [assignee, setAssignee] = useState("all");
   const [search, setSearch] = useState("");
@@ -19,6 +25,7 @@ export function TaskBoardContainer({ userId, role }: TaskBoardContainerProps) {
       <TaskHeader
         userId={userId}
         role={role}
+        boardView={boardView}
         priority={priority}
         assignee={assignee}
         search={search}
@@ -30,6 +37,7 @@ export function TaskBoardContainer({ userId, role }: TaskBoardContainerProps) {
         <TaskBoard
           userId={userId}
           role={role}
+          boardView={boardView}
           priority={priority}
           assignee={assignee}
           search={search}

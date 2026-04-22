@@ -46,6 +46,8 @@ export interface BoardTask {
   assignees: User[];
   labels: Label[];
   comments: number;
+  /** True when you created this task and assigned it only to yourself. */
+  isSelfAssigned?: boolean;
 }
 
 export interface BoardData {

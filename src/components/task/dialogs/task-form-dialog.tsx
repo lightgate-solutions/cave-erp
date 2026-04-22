@@ -29,6 +29,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   defaultStatus?: StatusType;
   userId: string;
+  /** When true, task is always assigned only to the current user (personal to-dos). */
+  selfAssignOnly?: boolean;
 }
 
 const TaskSchema = z.object({
@@ -59,6 +61,7 @@ export function TaskFormDialog({
   onOpenChange,
   defaultStatus = "Todo",
   userId,
+  selfAssignOnly = false,
 }: Props) {
   const [date, setDate] = useState<Date | undefined>();
   const [info, setInfo] = useState({
@@ -71,33 +74,41 @@ export function TaskFormDialog({
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [assignees, setAssignees] = useState<string[]>([]);
-  const [subordinates, setSubordinates] = useState<
-    Array<{ id: string; name: string; email: string; department: string }>
+  const [assignableEmployees, setAssignableEmployees] = useState<
+    Array<{
+      authId: string;
+      name: string;
+      email: string;
+      department: string | null;
+    }>
   >([]);
   const [loading, setLoading] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchSubordinates = useCallback(async () => {
-    if (!userId) return;
+  const fetchAssignableEmployees = useCallback(async () => {
+    if (!userId || selfAssignOnly) return;
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/hr/employees/subordinates?userId=${userId}`,
-      );
+      const response = await fetch("/api/hr/employees/task-assignees");
       const data = await response.json();
-      setSubordinates(data.subordinates || []);
+      setAssignableEmployees(data.employees || []);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, selfAssignOnly]);
 
   useEffect(() => {
-    if (open) {
-      fetchSubordinates();
+    if (!open) return;
+    if (selfAssignOnly) {
+      setAssignees([userId]);
+      setInfo((prev) => ({ ...prev, assignees: [userId] }));
+      setErrors((e) => ({ ...e, assignees: undefined }));
+      return;
     }
-  }, [open, fetchSubordinates]);
+    fetchAssignableEmployees();
+  }, [open, userId, selfAssignOnly, fetchAssignableEmployees]);
 
   useEffect(() => {
     setInfo((prev) => ({ ...prev, status: defaultStatus }));
@@ -178,8 +189,8 @@ export function TaskFormDialog({
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const selectedAssignees = subordinates.filter((s) =>
-    assignees.includes(s.id),
+  const selectedAssignees = assignableEmployees.filter((s) =>
+    assignees.includes(s.authId),
   );
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -216,7 +227,10 @@ export function TaskFormDialog({
       const response = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...result.data }),
+        body: JSON.stringify({
+          ...result.data,
+          ...(selfAssignOnly ? { selfAssign: true } : {}),
+        }),
       });
 
       if (!response.ok) {
@@ -253,7 +267,9 @@ export function TaskFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Task</DialogTitle>
+          <DialogTitle>
+            {selfAssignOnly ? "Add personal task" : "Create New Task"}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -407,47 +423,49 @@ export function TaskFormDialog({
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label>Assign Employees *</Label>
-            {errors.assignees && (
-              <p className="text-sm text-red-500">{errors.assignees}</p>
-            )}
-            <Select onValueChange={(val) => addAssignee(val)}>
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={loading ? "Loading..." : "Add employee"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {subordinates.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name} ({s.email})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {!selfAssignOnly && (
+            <div className="space-y-2">
+              <Label>Assign employees *</Label>
+              {errors.assignees && (
+                <p className="text-sm text-red-500">{errors.assignees}</p>
+              )}
+              <Select onValueChange={(val) => addAssignee(val)}>
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={loading ? "Loading..." : "Add employee"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {assignableEmployees.map((s) => (
+                    <SelectItem key={s.authId} value={s.authId}>
+                      {s.name} ({s.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            {selectedAssignees.length > 0 && (
-              <div className="mt-2 space-y-1">
-                {selectedAssignees.map((s) => (
-                  <div
-                    key={s.id}
-                    className="flex items-center justify-between rounded border px-2 py-1 text-sm"
-                  >
-                    <span>{s.name}</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      type="button"
-                      onClick={() => removeAssignee(s.id)}
+              {selectedAssignees.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {selectedAssignees.map((s) => (
+                    <div
+                      key={s.authId}
+                      className="flex items-center justify-between rounded border px-2 py-1 text-sm"
                     >
-                      Remove
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                      <span>{s.name}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => removeAssignee(s.authId)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-4">
             <Button

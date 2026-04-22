@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
     const rows = await db
       .select({
         id: employees.id,
+        authId: employees.authId,
         name: employees.name,
         email: employees.email,
         department: employees.department,

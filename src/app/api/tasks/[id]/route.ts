@@ -223,43 +223,7 @@ export async function DELETE(
 
     const { id: idParam } = await params;
     const id = Number(idParam);
-    const { searchParams } = _request.nextUrl;
-    // Note: API query parameter is still "employeeId" for backward compatibility
-    const employeeIdParam = searchParams.get("employeeId");
-    const employeeId = employeeIdParam ? Number(employeeIdParam) : 0;
-    if (!employeeId) {
-      return NextResponse.json(
-        { error: "Employee ID is required" },
-        { status: 400 },
-      );
-    }
-
-    const targetEmployee = await getTargetEmployee(
-      ctx.organization.id,
-      employeeId,
-    );
-    if (!targetEmployee?.authId) {
-      return NextResponse.json(
-        { error: "Employee not found" },
-        { status: 400 },
-      );
-    }
-
-    const isAdmin = ctx.session.user.role === "admin";
-    const isOwnTasks = ctx.currentEmployee.id === employeeId;
-    const isManagerOfEmployee =
-      !!targetEmployee.managerId &&
-      targetEmployee.managerId === ctx.session.user.id;
-
-    if (!isAdmin && !isOwnTasks && !isManagerOfEmployee) {
-      return NextResponse.json(
-        { error: "Forbidden: You do not have access to this employee's tasks" },
-        { status: 403 },
-      );
-    }
-
-    const userId = targetEmployee.authId; // Now it's string (text)
-    const deleted = await deleteTask(userId, id);
+    const deleted = await deleteTask(ctx.session.user.id, id);
 
     if (!deleted.success) {
       return NextResponse.json(
@@ -439,56 +403,29 @@ export async function PATCH(
 
     const { id: idParam } = await params;
     const id = Number(idParam);
-    const body = await request.json();
-    // Note: Request body still uses "employeeId" for backward compatibility
-    const { employeeId: userId, ...updates } = body as {
+    const body = (await request.json()) as Record<string, unknown>;
+    const bodyUserId =
+      (typeof body.userId === "string" && body.userId) ||
+      (typeof body.employeeId === "string" && body.employeeId) ||
+      null;
+    const {
+      userId: _u,
+      employeeId: _e,
+      ...updates
+    } = body as {
+      userId?: string;
       employeeId?: string;
       [key: string]: unknown;
     };
 
-    if (!userId) {
+    if (bodyUserId && bodyUserId !== ctx.session.user.id) {
       return NextResponse.json(
-        { error: "Employee ID is required" },
-        { status: 400 },
-      );
-    }
-
-    const [targetEmployee] = await db
-      .select({
-        id: employees.id,
-        authId: employees.authId,
-        managerId: employees.managerId,
-      })
-      .from(employees)
-      .where(
-        and(
-          eq(employees.authId, userId),
-          eq(employees.organizationId, ctx.organization.id),
-        ),
-      )
-      .limit(1);
-
-    if (!targetEmployee?.authId) {
-      return NextResponse.json(
-        { error: "Employee not found" },
-        { status: 400 },
-      );
-    }
-
-    const isAdmin = ctx.session.user.role === "admin";
-    const isOwnTasks = ctx.currentEmployee.authId === userId;
-    const isManagerOfEmployee =
-      !!targetEmployee.managerId &&
-      targetEmployee.managerId === ctx.session.user.id;
-
-    if (!isAdmin && !isOwnTasks && !isManagerOfEmployee) {
-      return NextResponse.json(
-        { error: "Forbidden: You do not have access to this employee's tasks" },
+        { error: "Forbidden: userId does not match session" },
         { status: 403 },
       );
     }
 
-    const updated = await updateTask(userId, id, updates);
+    const updated = await updateTask(ctx.session.user.id, id, updates);
     if (!updated.success) {
       return NextResponse.json(
         { error: updated.error?.reason || "Task not found or not updated" },

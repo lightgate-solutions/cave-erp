@@ -10,6 +10,7 @@ import { TaskFormDialog } from "../dialogs/task-form-dialog";
 interface TaskHeaderProps {
   userId: string;
   role: "employee" | "manager" | "admin";
+  boardView?: "default" | "self-assign";
   priority: string;
   assignee: string;
   search: string;
@@ -21,6 +22,7 @@ interface TaskHeaderProps {
 export function TaskHeader({
   userId,
   role,
+  boardView = "default",
   priority,
   assignee,
   search,
@@ -30,7 +32,8 @@ export function TaskHeader({
 }: TaskHeaderProps) {
   const [showCreateDialog, setShowCreateDialog] = React.useState(false);
 
-  const canCreate = role === "manager" || role === "admin";
+  const canCreate =
+    role === "manager" || role === "admin" || boardView === "self-assign";
 
   return (
     <div className="bg-background">
@@ -49,6 +52,7 @@ export function TaskHeader({
           <TaskFilters
             priority={priority}
             assignee={assignee}
+            hideAssigneeFilter={boardView === "self-assign"}
             onPriorityChange={onPriorityChange}
             onAssigneeChange={onAssigneeChange}
           />
@@ -71,6 +75,7 @@ export function TaskHeader({
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
           userId={userId}
+          selfAssignOnly={boardView === "self-assign"}
         />
       )}
     </div>

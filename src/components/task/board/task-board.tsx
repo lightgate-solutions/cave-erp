@@ -39,6 +39,7 @@ const statusConfig: Status[] = [
 interface TaskBoardProps {
   userId: string;
   role: "employee" | "manager" | "admin";
+  boardView?: "default" | "self-assign";
   priority?: string;
   assignee?: string;
   search?: string;
@@ -47,6 +48,7 @@ interface TaskBoardProps {
 export function TaskBoard({
   userId,
   role,
+  boardView = "default",
   priority,
   assignee,
   search,
@@ -69,10 +71,13 @@ export function TaskBoard({
         role,
       });
 
+      if (boardView === "self-assign") {
+        params.set("view", "self-assign");
+      }
       if (priority && priority !== "all") {
         params.set("priority", priority);
       }
-      if (assignee) {
+      if (assignee && assignee !== "all" && boardView !== "self-assign") {
         params.set("assignee", assignee);
       }
       if (search) {
@@ -90,7 +95,7 @@ export function TaskBoard({
     } finally {
       setLoading(false);
     }
-  }, [userId, role, priority, assignee, search]);
+  }, [userId, role, boardView, priority, assignee, search]);
 
   useEffect(() => {
     fetchTasks();
@@ -199,6 +204,7 @@ export function TaskBoard({
             onStatusChange={handleStatusChange}
             userId={userId}
             role={role}
+            boardView={boardView}
           />
         ))}
       </div>

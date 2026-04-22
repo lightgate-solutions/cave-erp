@@ -20,6 +20,7 @@ interface TaskColumnProps {
   onStatusChange: (taskId: number, newStatus: StatusType) => void;
   userId: string;
   role: "employee" | "manager" | "admin";
+  boardView?: "default" | "self-assign";
 }
 
 export function TaskColumn({
@@ -28,11 +29,13 @@ export function TaskColumn({
   onStatusChange,
   userId,
   role,
+  boardView = "default",
 }: TaskColumnProps) {
   const StatusIcon = status.icon;
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const canCreate = role === "manager" || role === "admin";
+  const canCreate =
+    role === "manager" || role === "admin" || boardView === "self-assign";
 
   return (
     <div className="shrink-0 w-[300px] lg:w-[360px] flex flex-col h-full flex-1">
@@ -127,6 +130,7 @@ export function TaskColumn({
           onOpenChange={setShowCreateDialog}
           defaultStatus={status.name}
           userId={userId}
+          selfAssignOnly={boardView === "self-assign"}
         />
       )}
     </div>

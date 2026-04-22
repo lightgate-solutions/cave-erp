@@ -53,6 +53,7 @@ interface Props {
   onStatusChange: (taskId: number, newStatus: StatusType) => void;
   userId: string;
   role: "employee" | "manager" | "admin";
+  isSelfAssigned?: boolean;
 }
 
 interface Comment {
@@ -85,6 +86,7 @@ export function TaskViewDialog({
   onStatusChange,
   userId,
   role,
+  isSelfAssigned = false,
 }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -94,7 +96,7 @@ export function TaskViewDialog({
   const [taskAttachments, setTaskAttachments] = useState(task.attachments);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canDelete = role === "manager" || role === "admin";
+  const canDelete = role === "manager" || role === "admin" || isSelfAssigned;
 
   // Sync attachments when task prop changes
   useEffect(() => {
@@ -175,10 +177,9 @@ export function TaskViewDialog({
 
   // Employees can change status but not to Completed
   const getAvailableStatuses = () => {
-    if (role === "manager" || role === "admin") {
+    if (role === "manager" || role === "admin" || isSelfAssigned) {
       return statuses;
     }
-    // Employees can't set to Completed
     return statuses.filter((s) => s !== "Completed");
   };
 
@@ -228,7 +229,7 @@ export function TaskViewDialog({
   const handleDelete = async () => {
     try {
       setDeleting(true);
-      const res = await fetch(`/api/tasks/${task.id}?userId=${userId}`, {
+      const res = await fetch(`/api/tasks/${task.id}`, {
         method: "DELETE",
       });
 

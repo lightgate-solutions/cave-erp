@@ -506,9 +506,13 @@ export function AppSidebar(props: AppSidebarProps) {
         ? [
             { title: "Task Item", url: "/tasks" },
             { title: "To-Do", url: "/tasks/employee" },
+            { title: "Self assign", url: "/tasks/self" },
             { title: "Task Submission", url: "/tasks/manager" },
           ]
-        : [{ title: "To-Do", url: "/tasks/employee" }],
+        : [
+            { title: "To-Do", url: "/tasks/employee" },
+            { title: "Self assign", url: "/tasks/self" },
+          ],
     };
 
     const newsItem = {
