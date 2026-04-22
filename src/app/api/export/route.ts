@@ -183,7 +183,7 @@ async function fetchDataset(
           createdAt: employees.createdAt,
         })
         .from(employees)
-        .leftJoin(manager, eq(employees.managerId, manager.id))
+        .leftJoin(manager, eq(employees.managerId, manager.authId))
         .where(eq(employees.organizationId, organizationId))
         .orderBy(desc(employees.createdAt));
 
@@ -692,7 +692,7 @@ async function fetchDataset(
         .leftJoin(
           supervisorEmployee,
           and(
-            eq(projects.supervisorId, supervisorEmployee.id),
+            eq(projects.supervisorId, supervisorEmployee.authId),
             eq(supervisorEmployee.organizationId, organizationId),
           ),
         );

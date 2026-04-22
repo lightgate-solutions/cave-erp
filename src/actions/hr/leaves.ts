@@ -154,7 +154,7 @@ export async function getAllLeaveApplications(filters?: {
     })
     .from(leaveApplications)
     .leftJoin(employees, eq(leaveApplications.userId, employees.authId))
-    .leftJoin(approver, eq(leaveApplications.approvedByUserId, approver.id))
+    .leftJoin(approver, eq(leaveApplications.approvedByUserId, approver.authId))
     .where(whereClause)
     .orderBy(desc(leaveApplications.createdAt))
     .limit(limit)
@@ -204,7 +204,7 @@ export async function getLeaveApplication(leaveId: number) {
     })
     .from(leaveApplications)
     .leftJoin(employees, eq(leaveApplications.userId, employees.authId))
-    .leftJoin(approver, eq(leaveApplications.approvedByUserId, approver.id))
+    .leftJoin(approver, eq(leaveApplications.approvedByUserId, approver.authId))
     .where(
       and(
         eq(leaveApplications.id, leaveId),
@@ -435,7 +435,7 @@ export async function updateLeaveApplication(
     status: string;
     rejectionReason: string;
   }>,
-  approverId?: number,
+  approverId?: string,
 ) {
   const authData = await requireAuth();
 
@@ -533,7 +533,7 @@ export async function updateLeaveApplication(
               .from(employees)
               .where(
                 and(
-                  eq(employees.id, approverId),
+                  eq(employees.authId, approverId),
                   eq(employees.organizationId, organization.id),
                 ),
               )

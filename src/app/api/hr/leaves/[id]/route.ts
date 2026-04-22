@@ -123,8 +123,8 @@ export async function PATCH(
     const body = await request.json();
     const { updates } = body;
 
-    // Get approver employee ID from session
-    let approverId: number | undefined;
+    // Get approver employee auth ID from session
+    let approverId: string | undefined;
     if (updates.status === "Approved" || updates.status === "Rejected") {
       const authUserId = session.user.id;
       const organization = await auth.api.getFullOrganization({ headers: h });
@@ -136,7 +136,7 @@ export async function PATCH(
       }
 
       const [approver] = await db
-        .select({ id: employees.id })
+        .select({ authId: employees.authId })
         .from(employees)
         .where(
           and(
@@ -145,7 +145,7 @@ export async function PATCH(
           ),
         )
         .limit(1);
-      approverId = approver?.id;
+      approverId = approver?.authId;
     }
 
     const result = await updateLeaveApplication(leaveId, updates, approverId);

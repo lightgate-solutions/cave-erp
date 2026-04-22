@@ -6,6 +6,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { requireAdmin } from "@/actions/auth/dal";
 
 export async function GET() {
   try {
@@ -29,8 +30,13 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const h = await headers();
+    const authData = await requireAdmin();
     const session = await auth.api.getSession({ headers: h });
-    if (!session || session.user.role !== "admin") {
+    if (
+      !session ||
+      session.user.role !== "admin" ||
+      authData.employee.department !== "admin"
+    ) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
